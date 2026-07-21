@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { LevelBadge } from "@/components/level-badge";
 import { CURRENT_USER, INVITATIONS, nextLevelProgress, LEVEL_META } from "@/lib/mock-data";
 import {
-  Award, ChevronRight, Gift, Globe2, Inbox, Lock, Settings, Sparkles, Wallet,
+  Award, ChevronRight, Globe2, Inbox, Lock, Settings, Sparkles, Wallet,
 } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
