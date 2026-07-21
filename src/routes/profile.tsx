@@ -81,7 +81,7 @@ function ProfilePage() {
         <MenuItem to="/invitations" icon={<Inbox size={18} />} label="Invitaciones" badge={pending.length} />
         <MenuItem to="/global" icon={<Globe2 size={18} />} label="Invitaciones abiertas" />
         <MenuItem to="/wallet" icon={<Wallet size={18} />} label="Cobros y liquidación" />
-        <MenuItem to="/referrals" icon={<Gift size={18} />} label="Invita y gana" />
+        
         <MenuItem to="/premium" icon={<Sparkles size={18} />} label={CURRENT_USER.premium ? "Ayni Premium ✓" : "Activar Premium"} accent={!CURRENT_USER.premium} />
         <MenuItem to="/privacy" icon={<Lock size={18} />} label="Perfil privado" />
         <MenuItem to="/settings" icon={<Settings size={18} />} label="Ajustes y seguridad" />
