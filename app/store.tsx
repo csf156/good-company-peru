@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { getCatalogo, comprarBebida, type Bebida, type TipoInvitacion } from '@/lib/tienda';
+import {
+  getCatalogo,
+  comprarBebida,
+  newIdempotencyKey,
+  type Bebida,
+  type TipoInvitacion,
+} from '@/lib/tienda';
 import { ayni, ayniTypography } from '@/lib/theme';
 
 const FILTROS: { key: TipoInvitacion | 'todos'; label: string }[] = [
@@ -32,6 +38,10 @@ export default function StoreScreen() {
   const [filtro, setFiltro] = useState<TipoInvitacion | 'todos'>('todos');
   const [comprandoId, setComprandoId] = useState<string | null>(null);
   const [estado, setEstado] = useState<EstadoCompra>({ tipo: 'idle' });
+  // idempotency key por bebida: se genera al primer intento y se reusa en
+  // reintentos del mismo intento (para no crear una 2ª orden); se descarta al
+  // confirmarse, así una compra posterior de la misma bebida usa una key nueva.
+  const idempotencyKeys = useRef<Record<string, string>>({});
 
   useEffect(() => {
     getCatalogo().then((data) => {
@@ -43,18 +53,24 @@ export default function StoreScreen() {
   const bebidas = filtro === 'todos' ? catalogo : catalogo.filter((b) => b.tipo_invitacion === filtro);
 
   async function handleComprar(bebida: Bebida) {
+    const key = idempotencyKeys.current[bebida.id] ?? newIdempotencyKey();
+    idempotencyKeys.current[bebida.id] = key;
+
     setComprandoId(bebida.id);
     setEstado({ tipo: 'comprando' });
 
-    const result = await comprarBebida(bebida.id);
+    const result = await comprarBebida(bebida.id, key);
 
     setComprandoId(null);
 
     if (result.error || !result.desglose) {
+      // Se conserva la key: un reintento del mismo intento no crea otra orden.
       setEstado({ tipo: 'error', mensaje: result.error ?? 'No se pudo completar la compra.' });
       return;
     }
 
+    // Éxito: la próxima compra de esta bebida es un intento nuevo → key nueva.
+    delete idempotencyKeys.current[bebida.id];
     setEstado({ tipo: 'exito', total: result.desglose.total });
   }
 

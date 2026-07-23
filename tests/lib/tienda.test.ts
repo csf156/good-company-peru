@@ -1,4 +1,4 @@
-import { getCatalogo, comprarBebida } from '@/lib/tienda';
+import { getCatalogo, comprarBebida, newIdempotencyKey } from '@/lib/tienda';
 import { supabase } from '@/lib/supabase';
 
 jest.mock('@/lib/supabase', () => ({
@@ -52,16 +52,16 @@ describe('getCatalogo', () => {
 });
 
 describe('comprarBebida', () => {
-  it('invokes comprar-bebida with only the bebidaId (no client-side amounts)', async () => {
+  it('invokes comprar-bebida with the bebidaId and idempotency key (no client-side amounts)', async () => {
     mockedSupabase.functions.invoke.mockResolvedValue({
       data: { estado: 'confirmada', ordenId: 'ord-1', desglose: { valorV: 40, buyerFee: 6, total: 46 } },
       error: null,
     });
 
-    const result = await comprarBebida('d1');
+    const result = await comprarBebida('d1', 'idem-1');
 
     expect(mockedSupabase.functions.invoke).toHaveBeenCalledWith('comprar-bebida', {
-      body: { bebidaId: 'd1' },
+      body: { bebidaId: 'd1', idempotencyKey: 'idem-1' },
     });
     expect(result).toEqual({
       estado: 'confirmada',
@@ -76,10 +76,20 @@ describe('comprarBebida', () => {
       error: { message: 'Debes verificar tu identidad (KYC) antes de comprar.' },
     });
 
-    const result = await comprarBebida('d1');
+    const result = await comprarBebida('d1', 'idem-1');
 
     expect(result.estado).toBeNull();
     expect(result.desglose).toBeNull();
     expect(result.error).toBe('Debes verificar tu identidad (KYC) antes de comprar.');
+  });
+});
+
+describe('newIdempotencyKey', () => {
+  it('generates a non-empty unique-ish key on each call', () => {
+    const a = newIdempotencyKey();
+    const b = newIdempotencyKey();
+    expect(typeof a).toBe('string');
+    expect(a.length).toBeGreaterThan(0);
+    expect(a).not.toBe(b);
   });
 });

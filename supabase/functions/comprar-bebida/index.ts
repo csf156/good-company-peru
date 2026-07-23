@@ -37,9 +37,9 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'No hay sesión activa.' }, { status: 401 });
   }
 
-  const { bebidaId } = await req.json();
-  if (typeof bebidaId !== 'string') {
-    return Response.json({ error: 'bebidaId es requerido.' }, { status: 400 });
+  const { bebidaId, idempotencyKey } = await req.json();
+  if (typeof bebidaId !== 'string' || typeof idempotencyKey !== 'string' || !idempotencyKey) {
+    return Response.json({ error: 'bebidaId e idempotencyKey son requeridos.' }, { status: 400 });
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey);
@@ -88,8 +88,31 @@ Deno.serve(async (req) => {
     total: desglose.total,
     estado: 'pendiente',
     provider,
+    idempotency_key: idempotencyKey,
   });
   if (insertError) {
+    // Idempotencia de creación: si ya existe una orden con esta idempotency_key
+    // (reintento del mismo intento de compra), devolvemos ESA orden en vez de
+    // crear una segunda — evita doble bebida (mock) / doble checkout (real).
+    if (insertError.code === '23505') {
+      const { data: existente } = await admin
+        .from('ordenes_pago')
+        .select('id, estado, valor_v, buyer_fee, total')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
+      if (existente) {
+        return Response.json({
+          estado: existente.estado,
+          ordenId: existente.id,
+          desglose: {
+            valorV: Number(existente.valor_v),
+            buyerFee: Number(existente.buyer_fee),
+            total: Number(existente.total),
+          },
+          idempotente: true,
+        });
+      }
+    }
     return Response.json({ error: 'No se pudo crear la orden.' }, { status: 500 });
   }
 

@@ -2,7 +2,7 @@
 -- La orden guarda los montos calculados SERVER-SIDE (valor_v, buyer_fee, total)
 -- para que el webhook confirme usando esos montos, nunca los del payload. El
 -- cliente solo LEE sus propias órdenes; la escritura es del service_role.
-select plan(11);
+select plan(14);
 
 -- Estructura
 select has_table('public', 'ordenes_pago', 'existe tabla ordenes_pago');
@@ -11,6 +11,7 @@ select has_column('public', 'ordenes_pago', 'bebida_catalogo_id', 'ordenes_pago 
 select has_column('public', 'ordenes_pago', 'valor_v', 'ordenes_pago tiene valor_v');
 select has_column('public', 'ordenes_pago', 'buyer_fee', 'ordenes_pago tiene buyer_fee');
 select has_column('public', 'ordenes_pago', 'total', 'ordenes_pago tiene total');
+select has_column('public', 'ordenes_pago', 'idempotency_key', 'ordenes_pago tiene idempotency_key');
 
 select is(
   (select array_agg(e.enumlabel::text order by e.enumsortorder)
@@ -85,5 +86,18 @@ select throws_ok(
 
 reset role;
 select set_config('request.jwt.claims', null, true);
+
+-- Idempotencia de creación: idempotency_key es unique global → un reintento con
+-- la misma key no crea una segunda orden (comprar-bebida la reusa).
+insert into public.ordenes_pago
+  (perfil_id, bebida_catalogo_id, valor_v, buyer_fee, total, provider, idempotency_key)
+values ('11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999',
+        40.00, 6.00, 46.00, 'mock', 'idem-abc');
+select throws_ok(
+  $$ insert into public.ordenes_pago
+       (perfil_id, bebida_catalogo_id, valor_v, buyer_fee, total, provider, idempotency_key)
+     values ('11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999',
+             40.00, 6.00, 46.00, 'mock', 'idem-abc') $$,
+  '23505', null, 'idempotency_key duplicada de orden es rechazada (no crea segunda orden)');
 
 select * from finish();

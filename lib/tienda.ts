@@ -30,13 +30,32 @@ export type CompraResult = {
 };
 
 /**
- * Compra una bebida vía el Edge Function `comprar-bebida`. El cliente solo
- * envía el id — el fee y el total los calcula el servidor (Fase 3.1); nunca
- * se recalculan aquí.
+ * Genera una idempotency key para un intento de compra. El cliente la reusa en
+ * reintentos del MISMO intento (misma bebida hasta que la compra tenga éxito),
+ * así un reintento no crea una segunda orden. Usa `crypto.randomUUID` si está
+ * disponible (Node/algunos runtimes RN) y cae a un id de tiempo+aleatorio.
  */
-export async function comprarBebida(bebidaId: string): Promise<CompraResult> {
+export function newIdempotencyKey(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) {
+    return c.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * Compra una bebida vía el Edge Function `comprar-bebida`. El cliente solo
+ * envía el id y una idempotency key — el fee y el total los calcula el servidor
+ * (Fase 3.1); nunca se recalculan aquí. La key hace idempotente la CREACIÓN de
+ * la orden: un reintento con la misma key devuelve la orden existente en vez de
+ * crear otra.
+ */
+export async function comprarBebida(
+  bebidaId: string,
+  idempotencyKey: string,
+): Promise<CompraResult> {
   const { data, error } = await supabase.functions.invoke('comprar-bebida', {
-    body: { bebidaId },
+    body: { bebidaId, idempotencyKey },
   });
 
   if (error) {

@@ -2,10 +2,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import StoreScreen from '@/app/store';
 import { getCatalogo, comprarBebida } from '@/lib/tienda';
 
-jest.mock('@/lib/tienda', () => ({
-  getCatalogo: jest.fn(),
-  comprarBebida: jest.fn(),
-}));
+jest.mock('@/lib/tienda', () => {
+  let n = 0;
+  return {
+    getCatalogo: jest.fn(),
+    comprarBebida: jest.fn(),
+    newIdempotencyKey: jest.fn(() => `key-${++n}`),
+  };
+});
 
 const mockedGetCatalogo = getCatalogo as jest.Mock;
 const mockedComprarBebida = comprarBebida as jest.Mock;
@@ -64,9 +68,33 @@ describe('StoreScreen', () => {
 
     await fireEvent.press(firstComprarButton());
 
-    expect(mockedComprarBebida).toHaveBeenCalledWith('d1');
+    expect(mockedComprarBebida).toHaveBeenCalledWith('d1', expect.any(String));
     expect(await screen.findByText(/agregada a tu bar/i)).toBeTruthy();
     expect(screen.getByText(/S\/ 46\.00/)).toBeTruthy();
+  });
+
+  it('reuses the same idempotency key when retrying a failed purchase, and mints a new one after success', async () => {
+    // 1) primer intento falla → 2) reintento del MISMO intento reusa la key
+    mockedComprarBebida
+      .mockResolvedValueOnce({ estado: null, desglose: null, error: 'Error temporal.' })
+      .mockResolvedValue({ estado: 'confirmada', desglose: { valorV: 40, buyerFee: 6, total: 46 }, error: null });
+    await render(<StoreScreen />);
+    await screen.findByText('Cerveza');
+
+    await fireEvent.press(firstComprarButton());
+    await screen.findByText('Error temporal.');
+    await fireEvent.press(firstComprarButton());
+    await screen.findByText(/agregada a tu bar/i);
+
+    const keyIntento1 = mockedComprarBebida.mock.calls[0][1];
+    const keyIntento2 = mockedComprarBebida.mock.calls[1][1];
+    expect(keyIntento2).toBe(keyIntento1); // reintento reusa → no crea 2ª orden
+
+    // 3) nueva compra de la misma bebida (tras éxito) usa una key distinta
+    await fireEvent.press(firstComprarButton());
+    await waitFor(() => expect(mockedComprarBebida).toHaveBeenCalledTimes(3));
+    const keyCompra2 = mockedComprarBebida.mock.calls[2][1];
+    expect(keyCompra2).not.toBe(keyIntento1);
   });
 
   it('shows a loading state while the purchase is in flight', async () => {
