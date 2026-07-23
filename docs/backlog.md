@@ -13,6 +13,9 @@
 
 - [ ] Portar componentes base `level-badge`, `drink-icon`, `friend-card`, `app-shell` de Lovable — detectado al reconstruir bitácora 1.0 (2026-07-22), el commit de scaffold solo trajo `Button` + tokens — ¿pertenece a? fase que primero los necesite (`level-badge` candidata natural: 1.5 lo resolvió inline sin componente, o 6.4 paneles de nivel).
 - [ ] Redirect de `_layout.tsx` corre en `useEffect` post-render — pantalla protegida puede parpadear antes de redirigir. No explotable hoy, revisar cuando `app/index.tsx` tenga contenido sensible — detectado en fase 1.2 — ¿pertenece a? 1.6 o fase que añada contenido sensible a home.
+- [ ] `perfiles_publicos` expone `kyc_estado` con granularidad completa (`pendiente`/`verificado`/`rechazado`) a cualquier autenticado; el badge de verificado solo necesita un booleano `verificado`. Sobre-disclosure leve, no explotable — detectado en auditoría 1.6 — ¿pertenece a? endurecimiento de vista pública (2.x visibilidad, o cuando se rediseñe el badge).
+- [ ] `config.toml` no pinnea `verify_jwt = false` para `kyc-webhook`; depende del flag `--no-verify-jwt` en cada deploy (riesgo de drift). La seguridad NO depende de esto (el HMAC es la auth real), pero conviene fijarlo en config — detectado en auditoría 1.6 — ¿pertenece a? higiene de deploy / cuando se active Truora real (3.x+).
+- [ ] Worktree anidado `.claude/worktrees/fase-1-6-endurecimiento` (commit `dfca2da`, adelantado a master, `locked`) quedó de una sesión previa. Revisar si tiene trabajo sin mergear antes de borrarlo — detectado en fase 1.6.
 
 ---
 
