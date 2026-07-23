@@ -1,10 +1,12 @@
-# Rent a Friend Perú — Sistema de diseño y mapa de vistas
+# Ayni — Sistema de diseño y mapa de vistas
 
-**Fecha:** 2026-07-03
-**Estado:** referencia viva. Actualizar este archivo cada vez que se agregue/cambie una vista o decisión visual.
+**Fecha:** 2026-07-03 (alineado 2026-07-21)
+**Estado:** referencia viva. Actualizar cada vez que se agregue/cambie una vista o decisión visual.
 **Uso:** cualquier tarea de UI (frontend-design) debe consultar este doc antes de maquetar pantallas nuevas.
 
-Contexto de negocio y flujos ya cerrados en [`2026-07-01-modelo-negocio-design.md`](2026-07-01-modelo-negocio-design.md). Este archivo no repite esas reglas — se enfoca en **qué pantallas existen**, **qué falta**, y **cómo se ven**.
+> ⚠️ **Fuente de verdad visual = prototipo Lovable `csf156/good-company-peru`** (decisión 2026-07-21: portar su diseño a RN/Expo). La identidad real de Ayni es **cálida (dorado/bronce, superficies oscuras, títulos serif italic, labels mono)**. La paleta teal/coral de la Sección 2 de este doc es una **propuesta PRE-Lovable superada** — se conserva por su racional (benchmark, reglas semánticas), pero los **valores de color reales se toman de `src/styles.css` de Lovable**. Reconciliar antes de usar.
+
+Contexto de negocio y flujos en [`2026-07-01-modelo-negocio-design.md`](2026-07-01-modelo-negocio-design.md). Este archivo se enfoca en **qué pantallas existen**, **qué falta**, y **cómo se ven**.
 
 ---
 
@@ -53,12 +55,11 @@ Contexto de negocio y flujos ya cerrados en [`2026-07-01-modelo-negocio-design.m
 ```
 **Regla de oro:** rojo **solo** para pánico/error/no-show. Si el rojo se usa en todos lados pierde su función de alerta — la app tiene un botón SOS real y ese color debe seguir gritando "urgente" siempre.
 
-### Niveles (ya definidos en negocio — mantener metáfora metálica)
+### Niveles (escala élite — act. 2026-07-21; tomar valores finales de Lovable `--bronze/--silver/--gold/--diamond/--primary`)
 ```
-🥉 Bronce    #B08D57      🥈 Plata    #B5B8BD      🥇 Oro    #E3B341
-💎 Platino   #8FD9D4      🔷 Diamante #6C9FE0 (con leve shimmer/gradiente, no plano)
+🥉 Bronce (0–299)   🥈 Plata (300–999)   🥇 Oro (1,000–2,999)   💎 Diamante (3,000–7,999)   🌟 Élite (8,000+)
 ```
-Usar como **chips/badges**, nunca como fondo de pantalla completo — son indicadores de estatus, no la identidad de marca.
+Metáfora metálica, con Élite como badge dorado animado (shimmer). Usar como **chips/badges**, nunca como fondo de pantalla completo — son indicadores de estatus, no la identidad de marca. (Reemplaza la escala vieja bronce/plata/oro/platino/diamante.)
 
 ### Neutros
 ```

@@ -1,8 +1,12 @@
 # Rent-a-Friend Perú — Modelo de negocio y diseño
 
-**Fecha:** 2026-07-01
-**Estado:** diseño aprobado (brainstorming). Pendiente: planes de implementación por sub-proyecto.
+**Fecha:** 2026-07-01 (act. 2026-07-21)
+**Estado:** diseño aprobado. Prototipo UI construido en Lovable (repo `csf156/good-company-peru`) = **referencia de diseño**. Backend + lógica por construir.
+**Marca:** **Ayni** (reciprocidad andina).
 **Proyecto:** independiente de Nestra.
+**Stack:** React Native + Expo (nativo) + Supabase. Lovable (web Vite/React) NO se usa como base de código — solo como spec visual a portar a RN/Expo.
+**Niveles (act. 2026-07-21):** bronce/plata/oro/diamante/élite — umbrales 0/300/1k/3k/8k.
+**Referidos:** ACTIVOS (ver §B).
 
 ---
 
@@ -84,21 +88,21 @@ Todo pago ocurre dentro de la app. Compartir contacto para pagar por fuera = ban
 
 | Nivel | Recaudación (soles) | Beneficios |
 |-------|---------------------|-----------|
-| 🥉 Bronce | 0–499 | Base. Pool general. |
-| 🥈 Plata | 500–1,999 | Badge, +visibilidad media, seller fee gratis 15%. |
-| 🥇 Oro | 2,000–4,999 | Prioridad sobre bronce/plata, boost semanal, fee gratis 10%. |
-| 💎 Platino | 5,000–9,999 | Visible a rentadores premium, soporte prioritario, fee gratis 5%. |
-| 🔷 Diamante | 10,000+ | Máxima visibilidad a rentadores premium/alto gasto, perfil destacado, fee gratis 2%, liquidación on-demand con fee reducido. |
+| 🥉 Bronce | 0–299 | Base. Pool general. |
+| 🥈 Plata | 300–999 | Badge, +visibilidad media, seller fee gratis 15%. |
+| 🥇 Oro | 1,000–2,999 | Prioridad sobre bronce/plata, boost semanal, fee gratis 10%. |
+| 💎 Diamante | 3,000–7,999 | Visible a rentadores premium, soporte prioritario, fee gratis 5%. |
+| 🌟 Élite | 8,000+ | Máxima visibilidad a rentadores premium/alto gasto, perfil destacado, fee gratis 2%, liquidación on-demand con fee reducido, eventos exclusivos. |
 
 ### Niveles de Rentador (por gasto acumulado)
 
 | Nivel | Gasto (soles) | Beneficios |
 |-------|---------------|-----------|
-| 🥉 Bronce | 0–499 | Base. |
-| 🥈 Plata | 500–1,999 | Badge, más perfiles/día, buyer fee gratis 12%. |
-| 🥇 Oro | 2,000–4,999 | Ve perfiles oro+, prioridad en invitaciones globales, fee 9%. |
-| 💎 Platino | 5,000–9,999 | Ve platino, invitaciones globales destacadas, fee 5%. |
-| 🔷 Diamante | 10,000+ | Ve amigos Diamante, badge exclusivo, boost de invitaciones, fee 2%. |
+| 🥉 Bronce | 0–299 | Base. |
+| 🥈 Plata | 300–999 | Badge, más perfiles/día, buyer fee gratis 12%. |
+| 🥇 Oro | 1,000–2,999 | Ve perfiles oro+, prioridad en invitaciones globales, fee 9%. |
+| 💎 Diamante | 3,000–7,999 | Ve diamante, invitaciones globales destacadas, fee 5%. |
+| 🌟 Élite | 8,000+ | Ve amigos Élite, badge dorado animado, boost de invitaciones, fee 2%, soporte VIP. |
 
 ### Reglas de nivel
 
@@ -107,9 +111,11 @@ Todo pago ocurre dentro de la app. Compartir contacto para pagar por fuera = ban
 - **Decaimiento:** el nivel se mantiene según actividad (gasto/recaudación) en los **últimos 45 días**; sin actividad suficiente, baja de escalón.
 - **Match gated por nivel** = doble volante: amigo sube → lo ven rentadores de más gasto → gana más; rentador sube → accede a amigos top.
 
-### Referidos — **DIFERIDO** (fase futura, fuera de MVP y v1)
+### Referidos — **ACTIVO** (reactivado 2026-07-21; UI ya existe en Lovable)
 
-Idea guardada: comisión al referidor por las primeras 5 citas/compras verificadas del referido, con anti-abuso (KYC + 1 cita QR antes de pagar), crédito en tienda para rentadores. No se implementa por ahora.
+- **Amigo refiere amigo:** referidor gana **10% de la recaudación** del referido en sus **primeras 5 citas verificadas por QR**. Anti-abuso: el referido debe pasar KYC + 1 cita QR antes de que se pague comisión.
+- **Rentador refiere rentador:** referidor gana **crédito en tienda = 10% del gasto** del referido en sus primeras 5 compras (crédito, no cash → retención).
+- Ambos: código/link único, tope de comisión por referido, límite de referidos/mes anti-granja.
 
 ---
 
@@ -282,7 +288,7 @@ Cómo incorporar el resto sin reescribir el MVP. Principio: **construir el MVP c
 
 ### Fase 4 — Optimización
 
-6. **Referidos** (diferido) — comisión por primeras 5 citas/compras verificadas, crédito en tienda, anti-abuso.
+6. **Referidos** (ACTIVO, ver §B) — comisión por primeras 5 citas/compras verificadas, crédito en tienda, anti-abuso. Plan: sub-proyecto 9.
 7. **Tragos de autor** con narrativa/significado, packs, promociones estacionales.
 8. **Analítica y antifraude avanzado** — scoring de riesgo, detección de patrones de colusión geofence, panel de métricas de negocio (LTV, take-rate efectivo por cuadrante, churn premium).
 
