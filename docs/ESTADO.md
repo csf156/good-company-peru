@@ -29,7 +29,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 3.2 | Catálogo + Tienda (UI) | ✅ |
 | 3.3 | Bar / stock (UI) | ✅ |
 | 3.4 | Conciliación + revisión SP3 | ✅ |
-| 4.0 | Schema invitaciones + chat | ⬜ |
+| 4.0 | Schema invitaciones + chat | ✅ |
 | 4.1 | Descubrimiento simple (swipe) | ⬜ |
 | 4.2 | Crear invitación/solicitud + bloqueo fondos | ⬜ |
 | 4.3 | Aceptar/rechazar → abre chat | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 4.0 — Schema invitaciones + chat — 2026-07-23
+
+- **Qué se construyó:** modelo de datos del sub-proyecto 4. Tablas `invitaciones` (propuesta rentador→amigo o amigo→rentador), `citas` (nace al aceptar una invitación, reusa `estado_cita` completo de 1.1) y `chat_mensajes` (única tabla donde el cliente escribe directo). RLS estricto: solo las dos partes de la invitación ven invitación/cita/chat. Realtime habilitado en `chat_mensajes` y `citas`.
+- **Archivos/pantallas clave:** `supabase/migrations/20260723180000_invitaciones_chat.sql`; tests `supabase/tests/15_invitaciones_rls.sql`, `16_citas_rls.sql`, `17_chat_mensajes_rls.sql`, `18_realtime_publication.sql`.
+- **Tablas / Edge Functions / migraciones:** migración `20260723180000_invitaciones_chat.sql`. Tablas nuevas: `invitaciones`, `citas`, `chat_mensajes`. Enums nuevos: `tipo_propuesta` (`invitacion`|`solicitud` — distinto de `tipo_invitacion`, que es categoría de bebida), `alcance_invitacion` (`especifica`|`global`), `estado_invitacion` (`pendiente`|`aceptada`|`rechazada`|`expirada`). `citas.estado` reusa el enum `estado_cita` de 1.1 sin cambios. (Sin Edge Functions — crear/responder invitación es 4.2/4.3.)
+- **Decisiones tomadas en la fase:** (1) **Invitaciones/citas siguen el patrón de bar/ledger/ordenes_pago:** el cliente solo `select` (filtrado a las partes); insert/update/delete revocados — toda transición (crear, aceptar, rechazar, confirmar) es `service_role` en Edge Functions de fases posteriores. (2) **`chat_mensajes` es la ÚNICA tabla de la fase donde el cliente escribe:** `insert` propio (`emisor_id = auth.uid()`) y solo en una cita de la que es parte — sin eso, el chat en tiempo real necesitaría un Edge Function por cada mensaje, más lento y sin valor de seguridad extra (el emisor y la pertenencia ya los garantiza el `with check`). `update`/`delete` revocados: la moderación anti-fuga (4.4) oculta vía `service_role`, nunca edita el texto. (3) **`invitaciones` tiene CHECK `alcance`↔`receptor_id`:** `especifica` exige receptor, `global` lo exige null — costura para el descubrimiento premium (SP2) sin abrir la tabla a nadie más todavía. (4) **`citas.invitacion_id` es `unique`:** una invitación produce como mucho una cita (aceptar dos veces no debe crear dos citas; el enforcement real de "no aceptar dos veces" es responsabilidad de 4.3, esto es la invariante de datos). (5) **Realtime:** `citas` con `replica identity full` (los UPDATE de estado deben viajar con la fila completa para que la UI refleje el nuevo estado sin un round-trip extra); `chat_mensajes` con la identidad por defecto basta (solo insert).
+- **Tests:** 125→148 pgTAP (files 15–18 nuevos: RLS de invitaciones/citas/chat, publicación Realtime) verdes; 187/187 jest (sin cambios de código TS en esta fase); lint y `tsc --noEmit` limpios. Sin `security-review` dedicado (fase de schema puro, ver nota de seam abajo); revisión inline confirmó aislamiento RLS correcto en las 3 tablas.
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — `chat_mensajes.oculto` (columna de moderación) no lo filtra la RLS: ambas partes pueden `select` un mensaje aunque esté `oculto=true`. Si 4.4 oculta solo en el cliente, la contraparte podría leer un mensaje moderado consultando directo la tabla. 4.4 debe forzar el filtro server-side (RLS que excluya `oculto` para quien no es el emisor, o una vista/RPC de lectura).
 
 ### Fase 3.4 — Conciliación + revisión SP3 — 2026-07-23  ·  **cierra sub-proyecto 3**
 
