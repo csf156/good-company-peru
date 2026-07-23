@@ -24,7 +24,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 1.4 | KYC Truora | ✅ |
 | 1.5 | Ver/editar perfil | ✅ |
 | 1.6 | Endurecimiento + revisión SP1 | ✅ |
-| 3.0 | Ledger + wallet + escrow (schema) | ⬜ |
+| 3.0 | Ledger + wallet + escrow (schema) | ✅ |
 | 3.1 | Integración pagos + escrow (Red Pontis) | ⬜ |
 | 3.2 | Catálogo + Tienda (UI) | ⬜ |
 | 3.3 | Bar / stock (UI) | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 3.0 — Ledger + wallet + escrow (schema) — 2026-07-23
+
+- **Qué se construyó:** núcleo de dinero del sub-proyecto 3. Contabilidad append-only e idempotente. Tablas `ledger` (movimientos con signo, `idempotency_key` unique global), `bebidas_catalogo` (config del operador) y `bar` (stock del rentador); vista `balance` calculada del ledger. Todo con RLS estricto y escritura reservada al `service_role`.
+- **Archivos/pantallas clave:** `supabase/migrations/20260723120000_money_ledger.sql`; tests `supabase/tests/07_money_schema.sql`, `08_ledger_append_only.sql`, `09_balance_view.sql`, `10_bar_rls.sql`, `11_bebidas_catalogo_rls.sql`.
+- **Tablas / Edge Functions / migraciones:** migración `20260723120000_money_ledger.sql`. Tablas nuevas: `ledger`, `bebidas_catalogo`, `bar`. Vista nueva: `balance`. Enums nuevos: `tipo_movimiento` (`compra`|`escrow_lock`|`escrow_release`|`payout`|`refund`|`fee`), `tipo_invitacion` (`divertida`|`romantica`|`misteriosa`|`amigos`|`autor`), `estado_bar` (`disponible`|`bloqueada`|`consumida`). Función/trigger: `ledger_append_only()` + triggers `ledger_no_update`/`ledger_no_delete`. (Sin Edge Functions — eso es 3.1.)
+- **Decisiones tomadas en la fase:** (1) **Append-only real vía trigger, no solo revoke.** `ledger_append_only()` hace `raise exception` en cualquier UPDATE/DELETE y aplica a TODOS los roles, incluido `service_role` (que bypassa RLS y grants, pero no triggers). Las correcciones se hacen con filas compensatorias nuevas (`refund`), nunca mutando. (2) **`balance` con `security_invoker = on`** — a diferencia de `perfiles_publicos` (que a propósito lee todas las filas), la vista de balance DEBE correr la RLS de `ledger` como el usuario que consulta, si no filtraría el saldo de todos. Es el control de seguridad crítico de la fase; probado en `09_balance_view.sql` (Alice no ve el balance de Bob). (3) **`monto` con signo, fijado por el writer.** La vista solo suma; qué tipos afectan el balance disponible vs. escrow lo integran 3.1 (compra) y 5.4 (payout) con sus propios tests. No se hardcodea contabilidad por-tipo en el schema para no chocar con el writer real. (4) **`idempotency_key` unique global** → una compra escribirá varias filas (`compra`/`fee`/`escrow_lock`) con keys derivadas distintas (`<op>:compra`, `<op>:fee`, `<op>:lock`). (5) **`ledger.perfil_id` sin `on delete cascade`** — registro financiero que sobrevive; un perfil con historial no se borra en duro. (6) **catálogo con RLS `using(activo)`** → el cliente nunca ve bebidas retiradas ni sus precios.
+- **Tests:** 44 aserciones pgTAP nuevas (files 07–11) → **88 pgTAP totales** verdes; 146/146 jest; lint (`eslint . --max-warnings=0`) y `tsc --noEmit` limpios. `security-review` sobre la migración: 0 hallazgos HIGH/MEDIUM. Ciclo TDD respetado (RED con tablas ausentes → migración → GREEN).
+- **Deuda / notas para fases futuras:** (a) la **convención de signo** de cada `tipo` de movimiento la define e integra 3.1/5.4 — el schema solo garantiza append-only, idempotencia y balance=suma. (b) La vista `balance` es "disponible/liquidable" simple (suma total); si más adelante se necesita distinguir *disponible* de *en escrow* habrá que derivarlo por `tipo` (aditivo, sin migración destructiva). (c) `referencia_id` es un uuid polimórfico sin FK (apunta a bar/cita/orden según el flujo) — el acceso lo gobierna la RLS del objeto referenciado.
 
 > **Nota de reconstrucción (2026-07-22):** las entradas 1.0–1.5 de abajo se escribieron retroactivamente porque esta bitácora nunca se actualizó al cerrar cada fase, aunque el código y los commits sí existen. Reconstruidas por introspección de `git log --stat` y `git show` de cada commit, no de memoria.
 
