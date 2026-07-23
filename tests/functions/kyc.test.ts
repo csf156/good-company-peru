@@ -6,6 +6,7 @@ import {
   parseTruoraWebhookPayload,
   decideStartAction,
   shouldProcessWebhook,
+  isSelfOwnedStoragePath,
 } from '../../supabase/functions/_shared/kyc';
 
 describe('decideKycProvider', () => {
@@ -96,6 +97,44 @@ describe('verifyWebhookSignature', () => {
 
   it('rejects a malformed signature header', async () => {
     await expect(verifyWebhookSignature(payload, 'not-hex', secret)).resolves.toBe(false);
+  });
+
+  it('rejects a forgery when the secret is unset — Deno.env.get returns undefined, which TextEncoder would otherwise key HMAC on the literal "undefined"', async () => {
+    // Realistic misconfig: TRUORA_WEBHOOK_SECRET not set. The attacker knows
+    // the key would collapse to the string "undefined" and signs with it.
+    const forged = await sign(payload, 'undefined');
+    await expect(
+      verifyWebhookSignature(payload, forged, undefined as unknown as string),
+    ).resolves.toBe(false);
+  });
+
+  it('rejects any signature when the secret is an empty string', async () => {
+    // Guard short-circuits before importKey, so any hex signature is rejected.
+    await expect(verifyWebhookSignature(payload, 'abcdef', '')).resolves.toBe(false);
+  });
+});
+
+describe('isSelfOwnedStoragePath', () => {
+  it('accepts a direct <uid>/<file> path', () => {
+    expect(isSelfOwnedStoragePath('11111111/dni.jpg', '11111111')).toBe(true);
+  });
+
+  it("rejects a path under another user's folder", () => {
+    expect(isSelfOwnedStoragePath('22222222/dni.jpg', '11111111')).toBe(false);
+  });
+
+  it('rejects a path traversal that still startsWith the user folder', () => {
+    expect(isSelfOwnedStoragePath('11111111/../22222222/dni.jpg', '11111111')).toBe(false);
+  });
+
+  it('rejects nested subfolders (only <uid>/<file> is allowed)', () => {
+    expect(isSelfOwnedStoragePath('11111111/sub/dni.jpg', '11111111')).toBe(false);
+  });
+
+  it('rejects an empty or dot filename', () => {
+    expect(isSelfOwnedStoragePath('11111111/', '11111111')).toBe(false);
+    expect(isSelfOwnedStoragePath('11111111/..', '11111111')).toBe(false);
+    expect(isSelfOwnedStoragePath('11111111/.', '11111111')).toBe(false);
   });
 });
 

@@ -50,6 +50,23 @@ export function shouldProcessWebhook(currentEstado: KycEstado): boolean {
   return currentEstado === 'pendiente';
 }
 
+/**
+ * Valida que una ruta de storage pertenezca al usuario y sea exactamente
+ * `<uid>/<archivo>` — sin subcarpetas ni traversal. `startsWith(uid + '/')`
+ * NO basta: acepta `<uid>/../<otro>/dni.jpg`, y como kyc-start firma URLs con
+ * service_role (bypassa la RLS de storage), eso permitiría leer el DNI de
+ * otro usuario en modo Truora.
+ */
+export function isSelfOwnedStoragePath(path: string, uid: string): boolean {
+  const parts = path.split('/');
+  if (parts.length !== 2) return false;
+  const folder = parts[0];
+  const name = parts[1];
+  if (folder !== uid) return false;
+  if (!name || name === '.' || name === '..') return false;
+  return true;
+}
+
 /** Modo demo: cualquier DNI escaneado se aprueba de inmediato. */
 export function runDemoVerification(): { estado: 'verificado'; verificadoAt: string } {
   return { estado: 'verificado', verificadoAt: new Date().toISOString() };
@@ -119,6 +136,12 @@ export async function verifyWebhookSignature(
   signatureHeader: string,
   secret: string,
 ): Promise<boolean> {
+  // Sin secreto configurado no hay firma en la que confiar: rechazar SIEMPRE.
+  // Si no, un deploy con Truora activo pero TRUORA_WEBHOOK_SECRET olvidado
+  // aceptaría firmas HMAC con clave vacía (forjables por cualquiera).
+  if (!secret) {
+    return false;
+  }
   if (!/^[0-9a-f]+$/i.test(signatureHeader)) {
     return false;
   }

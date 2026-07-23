@@ -14,6 +14,7 @@ import {
   buildTruoraStartRequest,
   decideKycProvider,
   decideStartAction,
+  isSelfOwnedStoragePath,
   runDemoVerification,
 } from '../_shared/kyc.ts';
 
@@ -43,8 +44,13 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'dniPath y selfiePath son requeridos.' }, { status: 400 });
   }
   // Defensa en profundidad: aunque la policy del bucket `dni` ya restringe
-  // por owner, verificamos que el usuario no esté apuntando a rutas ajenas.
-  if (!dniPath.startsWith(`${user.id}/`) || !selfiePath.startsWith(`${user.id}/`)) {
+  // por owner, kyc-start firma URLs con service_role (bypassa esa RLS), así
+  // que exigimos que ambas rutas sean exactamente `<uid>/<archivo>` — sin
+  // subcarpetas ni traversal que apunten al DNI de otro usuario.
+  if (
+    !isSelfOwnedStoragePath(dniPath, user.id) ||
+    !isSelfOwnedStoragePath(selfiePath, user.id)
+  ) {
     return Response.json({ error: 'Rutas inválidas.' }, { status: 403 });
   }
 
