@@ -20,6 +20,8 @@ module.exports = [
       // deliberately isomorphic and IS linted/typechecked normally.
       'supabase/functions/kyc-start/*',
       'supabase/functions/kyc-webhook/*',
+      'supabase/functions/comprar-bebida/*',
+      'supabase/functions/pago-webhook/*',
     ],
   },
 ];

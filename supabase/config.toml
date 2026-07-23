@@ -371,6 +371,21 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Edge Functions — verify_jwt pinneado por función (no depender del flag en cada
+# deploy manual). Los webhooks se autentican por firma HMAC del partner, no por
+# sesión Supabase, así que su JWT check va desactivado; el resto exige sesión.
+[functions.comprar-bebida]
+verify_jwt = true
+
+[functions.pago-webhook]
+verify_jwt = false
+
+[functions.kyc-start]
+verify_jwt = true
+
+[functions.kyc-webhook]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

@@ -9,5 +9,11 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "supabase/functions/kyc-start", "supabase/functions/kyc-webhook"]
+  "exclude": [
+    "node_modules",
+    "supabase/functions/kyc-start",
+    "supabase/functions/kyc-webhook",
+    "supabase/functions/comprar-bebida",
+    "supabase/functions/pago-webhook"
+  ]
 }
