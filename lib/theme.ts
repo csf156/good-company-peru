@@ -65,3 +65,35 @@ export const typography = {
 } as const;
 
 export type ColorScheme = keyof typeof colors;
+
+// Identidad Ayni real (valores de src/styles.css del prototipo Lovable
+// good-company-peru — dorado/bronce sobre superficies oscuras). La paleta
+// `colors`/`typography` de arriba es la del design-system teal/coral, marcada
+// como superada (ver docs/2026-07-03-design-system.md). Se agrega aparte, sin
+// tocar `colors` (usado por pantallas ya cerradas), hasta que 1.0's deuda de
+// portar el design-system completo se retome (ver docs/backlog.md).
+export const ayni = {
+  background: '#150F0A',
+  surface: '#1D1610',
+  surface2: '#241B13',
+  foreground: '#F7F3EC',
+  primary: '#F0B940',
+  primaryForeground: '#150F0A',
+  muted: '#332619',
+  mutedForeground: '#B3A793',
+  border: '#332619',
+  destructive: '#D93636',
+  success: '#33B37A',
+  bronze: '#C77A33',
+  silver: '#B8C0C7',
+  gold: '#F0C64D',
+  diamond: '#66BFFF',
+} as const;
+
+export const ayniTypography = {
+  fontFamily: {
+    serifItalic: 'PlayfairDisplay-Italic',
+    mono: 'JetBrainsMono-Regular',
+    sans: 'Inter',
+  },
+} as const;
