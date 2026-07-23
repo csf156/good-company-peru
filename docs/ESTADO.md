@@ -25,7 +25,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 1.5 | Ver/editar perfil | ✅ |
 | 1.6 | Endurecimiento + revisión SP1 | ✅ |
 | 3.0 | Ledger + wallet + escrow (schema) | ✅ |
-| 3.1 | Integración pagos + escrow (Red Pontis) | ⬜ |
+| 3.1 | Integración pagos + escrow (Red Pontis) | ✅ |
 | 3.2 | Catálogo + Tienda (UI) | ⬜ |
 | 3.3 | Bar / stock (UI) | ⬜ |
 | 3.4 | Conciliación + revisión SP3 | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 3.1 — Integración pagos + escrow (Red Pontis) — 2026-07-23
+
+- **Qué se construyó:** cobro real y custodia detrás de una interfaz `PaymentProvider` (`mock` | `redpontis`) — misma bisagra que KYC demo/truora: activar Red Pontis real es solo configurar `PAYMENT_PROVIDER=redpontis` + `REDPONTIS_API_KEY`, sin cambios de código. Edge Function `comprar-bebida` calcula el fee server-side (cliente solo envía `bebidaId`) y confirma inline en modo mock; `pago-webhook` confirma en modo real, autenticado por firma HMAC. La confirmación (ledger + bar) es una función SQL atómica e idempotente.
+- **Archivos/pantallas clave:** `supabase/functions/_shared/pagos.ts` (isomórfico, testeado con Jest), `supabase/functions/comprar-bebida/index.ts`, `supabase/functions/pago-webhook/index.ts`, `tests/functions/pagos.test.ts`.
+- **Tablas / Edge Functions / migraciones:** migraciones `20260723130000_ordenes_pago.sql` (tabla `ordenes_pago`, enum `estado_orden`), `20260723140000_confirmar_orden_pago.sql` (función `confirmar_orden_pago`, `SECURITY DEFINER`, execute solo `service_role`). Edge Functions `comprar-bebida`, `pago-webhook`.
+- **Decisiones tomadas en la fase:** (1) **Fee modelo diseño §A**, no el resumen literal del plan/CLAUDE.md: rentador gratis paga V + buyer fee 15%; el ~4% de procesamiento sale del margen de la plataforma, NO se cobra encima (decisión confirmada explícitamente con el usuario ante la discrepancia — anotada en backlog para alinear los docs). (2) **Confirmación atómica vía función SQL, no vía escrituras sueltas en el Edge Function** — un `INSERT` de ledger + `INSERT` de bar hechos como pasos separados en TS dejarían un hueco de fallo parcial (orden confirmada sin su bebida) inaceptable en dinero; `confirmar_orden_pago` hace todo en una transacción con `for update` lock, e idempotencia por chequeo de estado (`ya_resuelta` en un segundo intento) además del `unique` del ledger. (3) **`ordenes_pago` congela los montos al crearse** — el webhook confirma con esos montos, nunca con los del payload, así ni el cliente ni un webhook forjado pueden alterar el fee. (4) **`config.toml` ahora pinnea `verify_jwt` por función** (`comprar-bebida`/`kyc-start` = true, `pago-webhook`/`kyc-webhook` = false) — cierra deuda anotada en 1.6 sobre depender del flag `--no-verify-jwt` en cada deploy manual.
+- **Tests:** 18 aserciones Jest nuevas (`pagos.test.ts`) → 164/164 jest; 27 pgTAP nuevas (files 12–13: RLS de `ordenes_pago`, atomicidad/idempotencia de `confirmar_orden_pago`, rechazo de ejecución por cliente) → 115/115 pgTAP; lint y `tsc --noEmit` limpios. `security-review` inline: 0 hallazgos HIGH/MEDIUM.
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — (a) creación de orden en `comprar-bebida` no es idempotente por-click (doble-tap crea 2 órdenes `pendiente`); considerar en 3.2 (UI) o endurecimiento 3.4. (b) el procesamiento (~4%) no se registra en ningún ledger de plataforma todavía — solo aplica cuando exista una cuenta contable de operador (conciliación 3.4 / niveles 6). (c) alinear el texto de fees del plan/CLAUDE.md al diseño §A (son inconsistentes entre sí; se implementó el diseño).
 
 ### Fase 3.0 — Ledger + wallet + escrow (schema) — 2026-07-23
 

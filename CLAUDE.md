@@ -15,7 +15,7 @@ El trabajo avanza **una fase a la vez**, siguiendo los planes en `docs/`. **Nunc
 ### Fase actual
 
 ```
-FASE ACTUAL: MVP 3.1
+FASE ACTUAL: MVP 3.2
 ```
 
 > El usuario actualiza esta línea al inicio de cada sesión. Si dice algo como `FASE ACTUAL: MVP 3.1`, esa es tu única tarea.
