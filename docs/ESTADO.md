@@ -23,7 +23,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 1.3 | Alta de perfil | ✅ |
 | 1.4 | KYC Truora | ✅ |
 | 1.5 | Ver/editar perfil | ✅ |
-| 1.6 | Endurecimiento + revisión SP1 | 🟨 |
+| 1.6 | Endurecimiento + revisión SP1 | ✅ |
 | 3.0 | Ledger + wallet + escrow (schema) | ⬜ |
 | 3.1 | Integración pagos + escrow (Red Pontis) | ⬜ |
 | 3.2 | Catálogo + Tienda (UI) | ⬜ |
@@ -91,6 +91,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 <!-- Las entradas reales van debajo de esta línea. -->
 
 > **Nota de reconstrucción (2026-07-22):** las entradas 1.0–1.5 de abajo se escribieron retroactivamente porque esta bitácora nunca se actualizó al cerrar cada fase, aunque el código y los commits sí existen. Reconstruidas por introspección de `git log --stat` y `git show` de cada commit, no de memoria.
+
+### Fase 1.6 — Endurecimiento + revisión Sub-proyecto 1 — 2026-07-23
+
+- **Qué se construyó:** cierre del sub-proyecto 1 (Identidad). Auditoría de seguridad completa por introspección: RLS de `profiles`/`preferencias_salida`/`suscripcion`/`kyc_verificaciones`, column privileges, policies de storage (`dni`/`fotos`), manejo del webhook KYC (orden de verificación de firma, idempotencia), y confirmación de que el gate de verificación (`kyc_estado`) solo lo escribe `service_role`. 0 hallazgos nuevos HIGH/MEDIUM — los únicos 2 fixes de seguridad de la fase ya estaban escritos (de sesión previa) y solo faltaba commitearlos.
+- **Archivos/pantallas clave:** `supabase/functions/_shared/kyc.ts` (`isSelfOwnedStoragePath`, guard de secret vacío en `verifyWebhookSignature`), `supabase/functions/kyc-start/index.ts`, `tests/functions/kyc.test.ts`, `eslint.config.js`.
+- **Tablas / Edge Functions / migraciones:** ninguna nueva (auditoría, no schema nuevo).
+- **Decisiones tomadas en la fase:** (1) `isSelfOwnedStoragePath` reemplaza `startsWith()` en `kyc-start` — `startsWith` aceptaba `<uid>/../<otro>/dni.jpg` (path traversal), explotable porque `kyc-start` firma URLs con `service_role` y eso bypassa la RLS de storage; ahora exige exactamente `<uid>/<archivo>`. (2) `verifyWebhookSignature` rechaza de inmediato si el secreto está vacío/`undefined`, en vez de computar HMAC con clave vacía (forjable por cualquiera si `TRUORA_WEBHOOK_SECRET` queda sin setear en un deploy con `KYC_PROVIDER=truora`). (3) `.claude/*` se agregó a los ignores de eslint: un worktree anidado de sesión previa rompía `npm run lint` porque `eslint .` recorría su copia de las Edge Functions Deno (el glob de `supabase/functions/*` no cubre rutas bajo `.claude/worktrees/`).
+- **Tests:** 146/146 unit verdes, 44/44 aserciones pgTAP verdes, lint (`eslint . --max-warnings=0`) y `tsc --noEmit` limpios. Suite completa confirmada verde antes de cada commit.
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — (a) `perfiles_publicos` expone `kyc_estado` con granularidad completa (`pendiente`/`rechazado`/`verificado`) en vez de un booleano `verificado`, sobre-disclosure leve no explotable; (b) `supabase/config.toml` no pinnea `verify_jwt = false` para `kyc-webhook`, depende del flag `--no-verify-jwt` en cada deploy manual — revisar al activar Truora real (sub-proyecto 3+). **Sub-proyecto 1 (Identidad) queda cerrado.**
 
 ### Fase 1.5 — Ver/editar perfil + foto — 2026-07-04
 
