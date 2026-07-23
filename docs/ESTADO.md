@@ -28,7 +28,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 3.1 | Integración pagos + escrow (Red Pontis) | ✅ |
 | 3.2 | Catálogo + Tienda (UI) | ✅ |
 | 3.3 | Bar / stock (UI) | ✅ |
-| 3.4 | Conciliación + revisión SP3 | ⬜ |
+| 3.4 | Conciliación + revisión SP3 | ✅ |
 | 4.0 | Schema invitaciones + chat | ⬜ |
 | 4.1 | Descubrimiento simple (swipe) | ⬜ |
 | 4.2 | Crear invitación/solicitud + bloqueo fondos | ⬜ |
@@ -89,6 +89,17 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 3.4 — Conciliación + revisión SP3 — 2026-07-23  ·  **cierra sub-proyecto 3**
+
+- **Qué se construyó:** cierre de dinero seguro del sub-proyecto 3. Job de conciliación que detecta discrepancias contables + auditoría final (security-review + code-review con `superpowers:requesting-code-review`). El review confirmó money core correcto, 0 Critical; sus 2 hallazgos Important se arreglaron dentro de esta fase.
+- **Archivos/pantallas clave:** `supabase/functions/comprar-bebida/index.ts` (idempotencia de creación), `lib/tienda.ts` (`newIdempotencyKey`), `app/store.tsx` (manejo de key por intento).
+- **Tablas / Edge Functions / migraciones:** migraciones `20260723150000_conciliacion_sp3.sql` (función `detectar_discrepancias_sp3`), `20260723160000_conciliacion_montos.sql` (5ª invariante de montos), `20260723170000_orden_idempotency.sql` (`ordenes_pago.idempotency_key` + unique index). Función nueva: `detectar_discrepancias_sp3()` (`SECURITY DEFINER`, search_path fijo, execute solo `service_role`).
+- **Decisiones tomadas en la fase:** (1) **Conciliación como función SQL de solo-lectura** que devuelve una fila por discrepancia (vacío = todo cuadra); agendarla (pg_cron / Edge Function + cron) es paso de deploy, no de código. (2) **5 invariantes:** orden confirmada con !=3 filas de ledger; orden no-confirmada con ledger; grupo de compra que no netea a 0; desbalance global escrow_lock↔bar; **y (post-review) montos del ledger != a los congelados en la orden** — la #3 (netea a 0) dejaba pasar un grupo balanceado-pero-mal-preciado. (3) **Idempotencia de creación de orden (post-review):** el cliente genera una `idempotency_key` por intento y la reusa en reintentos; `comprar-bebida` inserta con ella y ante `23505` devuelve la orden existente. `confirmar_orden_pago` ya era idempotente por-orden; esto cierra el hueco de la *creación*. (4) **Conciliación balance↔partner** queda documentada como costura para el payout real (5.4) — el provider mock no tiene ledger de partner que reconciliar.
+- **Tests:** 121→125 pgTAP (files 12 y 14 ampliados: idempotency_key unique, invariante de montos) verdes; 185→187 jest (idempotencia en tienda/store) verdes; lint y `tsc --noEmit` limpios. `security-review` + `requesting-code-review`: money core correcto, 0 Critical; 2 Important arreglados; 4 Minor anotados en backlog.
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` (Minor del review) — `pago-webhook` devuelve 404 genérico ante cualquier error de RPC; `parsePagoWebhookPayload` solo mapea `paid`/`failed`; `partnerRes.json()` sin guardia deja órdenes `pendiente` colgadas; invariante #4 se vuelve frágil si se agrega borrado de cuentas. Todos son robustez/edge para cuando Red Pontis sea real, no bloquean.
+
+> **Sub-proyecto 3 (Tienda + Bar + Wallet/Escrow) CERRADO.** Construido: schema de dinero (`ledger` append-only, vista `balance`, `bebidas_catalogo`, `bar`, `ordenes_pago`); Edge Functions `comprar-bebida` + `pago-webhook` tras interfaz `PaymentProvider` (mock|redpontis); funciones SQL `confirmar_orden_pago` (atómica) + `detectar_discrepancias_sp3`; UI de tienda/bar/wallet. Todo el dinero server-side, ledger append-only, idempotente, RLS estricto.
 
 ### Fase 3.3 — Bar / stock (UI) — 2026-07-23
 
