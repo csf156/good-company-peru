@@ -26,7 +26,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 1.6 | Endurecimiento + revisión SP1 | ✅ |
 | 3.0 | Ledger + wallet + escrow (schema) | ✅ |
 | 3.1 | Integración pagos + escrow (Red Pontis) | ✅ |
-| 3.2 | Catálogo + Tienda (UI) | ⬜ |
+| 3.2 | Catálogo + Tienda (UI) | ✅ |
 | 3.3 | Bar / stock (UI) | ⬜ |
 | 3.4 | Conciliación + revisión SP3 | ⬜ |
 | 4.0 | Schema invitaciones + chat | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 3.2 — Catálogo + Tienda (UI) — 2026-07-23
+
+- **Qué se construyó:** portada `routes/store.tsx` de Lovable a RN/Expo, cableada a datos reales. Lista `bebidas_catalogo` (RLS ya filtra `activo=true`), filtro por `tipo_invitacion`, compra vía `comprar-bebida` (Fase 3.1). El desglose de fee mostrado tras la compra es el que devuelve el servidor — no se porta `calcTotalWithFees` ni `mock-data.ts` de Lovable.
+- **Archivos/pantallas clave:** `lib/tienda.ts` (`getCatalogo`, `comprarBebida`), `app/store.tsx`, `lib/theme.ts` (tokens `ayni`/`ayniTypography` agregados).
+- **Tablas / Edge Functions / migraciones:** ninguna nueva (consume el schema/Edge Function de 3.0/3.1).
+- **Decisiones tomadas en la fase:** (1) **Sin preview de fee client-side** — a diferencia del bottom-sheet de Lovable (que mostraba el desglose antes de confirmar, calculado en cliente), la compra se dispara directo al tocar "Comprar"; el banner de éxito muestra el total real que devolvió el servidor. Evita reintroducir cálculo de fee en el cliente (`comprar-bebida` en modo mock del MVP es síncrono, no hay paso de "cotización" separado). (2) **Tokens `ayni`/`ayniTypography` agregados en `lib/theme.ts` sin tocar `colors`/`typography`** — son los valores reales de `src/styles.css` de Lovable (dorado/bronce sobre superficies oscuras); la paleta vieja teal/coral sigue siendo la que usan las pantallas ya cerradas (1.x). El portado completo del design-system sigue como deuda en `docs/backlog.md` desde fase 1.0. (3) **Corolario de testing confirmado:** `fireEvent.press` en `@testing-library/react-native@14` espera a que el handler `onPress` async termine antes de resolver — si el test necesita capturar un estado intermedio (loading) con una promesa mockeada pendiente, no se debe `await` ese press (cuelga hasta el timeout). Documentado en memoria de sesión.
+- **Tests:** 4 aserciones nuevas (`tienda.test.ts`) + 6 (`store.test.tsx`) → 174/174 jest; lint y `tsc --noEmit` limpios. Sin `security-review` (fase de UI pura; el dinero ya se resolvió server-side en 3.1, según el plan).
+- **Deuda / notas para fases futuras:** ninguna nueva.
 
 ### Fase 3.1 — Integración pagos + escrow (Red Pontis) — 2026-07-23
 
