@@ -27,7 +27,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 3.0 | Ledger + wallet + escrow (schema) | ✅ |
 | 3.1 | Integración pagos + escrow (Red Pontis) | ✅ |
 | 3.2 | Catálogo + Tienda (UI) | ✅ |
-| 3.3 | Bar / stock (UI) | ⬜ |
+| 3.3 | Bar / stock (UI) | ✅ |
 | 3.4 | Conciliación + revisión SP3 | ⬜ |
 | 4.0 | Schema invitaciones + chat | ⬜ |
 | 4.1 | Descubrimiento simple (swipe) | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 3.3 — Bar / stock (UI) — 2026-07-23
+
+- **Qué se construyó:** portadas `routes/bar.tsx` y `routes/wallet.tsx` de Lovable a RN/Expo, cableadas a datos reales. El bar del rentador lista su stock (`bar`, RLS select-own) con estado; la wallet muestra el balance calculado de la vista `balance` (Fase 3.0).
+- **Archivos/pantallas clave:** `lib/bar.ts` (`getMiBar`, `getBalance`), `app/bar.tsx`, `app/wallet.tsx`.
+- **Tablas / Edge Functions / migraciones:** ninguna nueva (consume `bar` + vista `balance` de 3.0).
+- **Decisiones tomadas en la fase:** (1) **Alcance recortado del Lovable original** — `bar.tsx` de Lovable mostraba nivel/gasto y `wallet.tsx` traía botones de liquidación (lunes/on-demand), fee de S/8, e historial. Todo eso es sub-proyecto 6 (motor de liquidación/niveles), que no existe; se portó solo lo que el plan de 3.3 pide: estado del stock y balance. (2) **"Invitar" es solo visual** — aparece únicamente en filas `disponible`, sin acción; la conecta el sub-proyecto 4 (crear invitación bloquea la bebida). (3) **`getMiBar` tolera `bebida=null`** — el join a `bebidas_catalogo` (RLS `activo=true`) no trae una bebida desactivada tras la compra; la UI muestra "Bebida no disponible" en vez de romper. Anotado como deuda (el dueño debería seguir viendo lo que pagó).
+- **Tests:** 5 aserciones nuevas (`bar.test.ts`) + 4 (`bar.test.tsx`) + 2 (`wallet.test.tsx`) → 185/185 jest; lint y `tsc --noEmit` limpios. Sin `security-review` (UI pura).
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — el join `bar → bebidas_catalogo` pierde datos si el operador desactiva una bebida ya comprada; considerar congelar nombre/tipo/valor en `bar` o relajar la RLS del catálogo para filas referenciadas por el propio stock (endurecimiento 3.4).
 
 ### Fase 3.2 — Catálogo + Tienda (UI) — 2026-07-23
 
