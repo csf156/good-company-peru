@@ -8,6 +8,10 @@ module.exports = [
     ignores: [
       'dist/*',
       'node_modules/*',
+      // Worktrees anidados de Claude Code: contienen copias de todo el repo
+      // (incluidas las Edge Functions Deno), y `eslint .` las recorre. El glob
+      // de abajo solo cubre supabase/functions en la raíz, no bajo el worktree.
+      '.claude/*',
       '.expo/*',
       '.ds-sync/*',
       'ds-bundle/*',
