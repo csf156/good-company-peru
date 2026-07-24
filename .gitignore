@@ -24,6 +24,9 @@ yarn-error.*
 supabase/.branches
 supabase/.temp
 
+# subagent-driven-development scratch (briefs/reports/diffs, not source)
+.superpowers/
+
 # design-sync
 .ds-sync/
 ds-bundle/
