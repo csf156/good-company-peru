@@ -30,7 +30,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 3.3 | Bar / stock (UI) | ✅ |
 | 3.4 | Conciliación + revisión SP3 | ✅ |
 | 4.0 | Schema invitaciones + chat | ✅ |
-| 4.1 | Descubrimiento simple (swipe) | ⬜ |
+| 4.1 | Descubrimiento simple (swipe) | ✅ |
 | 4.2 | Crear invitación/solicitud + bloqueo fondos | ⬜ |
 | 4.3 | Aceptar/rechazar → abre chat | ⬜ |
 | 4.4 | Chat realtime + moderación | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 4.1 — Descubrimiento simple (swipe) — 2026-07-24
+
+- **Qué se construyó:** portada `routes/index.tsx` de Lovable a RN/Expo: vista un-perfil-a-la-vez del rol opuesto al propio, solo perfiles verificados, sin filtros premium ni gating por nivel (eso es sub-proyecto 2). Reemplaza el home stub de scaffold de 1.0 — el mapeo del plan asigna esa ruta a esta fase.
+- **Archivos/pantallas clave:** `lib/descubrimiento.ts` (`getPerfilesDescubrir`), `app/index.tsx` (`DiscoverScreen`).
+- **Tablas / Edge Functions / migraciones:** ninguna nueva (consume `perfiles_publicos` de 1.5, vía `getOwnProfile`/`getPublicProfile` de `lib/profile.ts`).
+- **Decisiones tomadas en la fase:** (1) **`getPerfilesDescubrir` resuelve el rol opuesto server-side-friendly:** lee el perfil propio primero (`getOwnProfile`), calcula el rol buscado (`amigo`↔`rentador`) y filtra `perfiles_publicos` por ese rol + `kyc_estado='verificado'` — sin ese primer paso el cliente tendría que adivinar o hardcodear el rol contrario. (2) **CTA (Invitar/Solicitar) queda visualmente presente pero inerte** — mismo patrón que "Invitar" en `bar.tsx` (fase 3.3): el botón no dispara nada porque el Edge Function `crear-invitacion` que la fase 4.2 construye todavía no existe; conectarlo antes sería trabajo de otra fase. (3) **Sin componente `FriendCard`/`AppShell` portado** — se sigue el patrón inline de `store.tsx`/`bar.tsx` (deuda de portado de componentes base ya anotada desde 1.0 en backlog, no se resuelve aquí). (4) **Sin navegación entre pantallas** — ninguna fase anterior (bar/store/wallet) enlaza entre sí tampoco; no es alcance de 4.1 introducirla.
+- **Tests:** 10 aserciones nuevas (4 `descubrimiento.test.ts` + 6 `index.test.tsx`) → 196/196 jest (se borró `tests/app/home.test.tsx`, obsoleto: probaba el stub de 1.0 que esta fase reemplaza); lint y `tsc --noEmit` limpios. Sin `security-review` (UI pura, sin escritura nueva; la RLS de `perfiles_publicos` ya se auditó en 1.5/1.6). pgTAP sin cambios (148, fase sin schema).
+- **Deuda / notas para fases futuras:** ninguna nueva (la única pendiente es la ya anotada en backlog sobre componentes base sin portar).
 
 ### Fase 4.0 — Schema invitaciones + chat — 2026-07-23
 
