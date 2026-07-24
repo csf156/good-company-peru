@@ -9,7 +9,7 @@
 --     creada SIN re-validar ni re-bloquear la bebida;
 --   * el cliente no puede ejecutar la función (crear/mover invitaciones es del
 --     service_role).
-select plan(17);
+select plan(19);
 
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
@@ -85,6 +85,22 @@ select is(
 select is(
   (select count(*) from public.invitaciones where idempotency_key = 'key-1')::int,
   1, 'el reintento idempotente NO crea una segunda fila');
+
+-- ============================================================================
+-- Idempotencia SCOPED por emisor: la MISMA idempotency_key desde OTRO emisor
+-- NO es una colisión. No debe devolver la invitación ajena (fuga cross-user);
+-- procede por sus propios méritos → Beto crea SU propia solicitud (fila distinta).
+-- ============================================================================
+select is(
+  (select (public.crear_invitacion(
+     '22222222-2222-2222-2222-222222222222',
+     '11111111-1111-1111-1111-111111111111',
+     'solicitud', null, null, 'Barranco', 'key-1')).emisor_id),
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  'la misma key desde otro emisor NO devuelve la invitación ajena; crea la suya');
+select is(
+  (select count(*) from public.invitaciones where idempotency_key = 'key-1')::int,
+  2, 'la misma idempotency_key coexiste entre emisores distintos (scope por emisor)');
 
 -- ============================================================================
 -- No se puede invitar con una bebida ya bloqueada (key nueva, misma bebida).
