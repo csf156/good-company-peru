@@ -91,13 +91,19 @@ Deno.serve(async (req) => {
     idempotency_key: idempotencyKey,
   });
   if (insertError) {
-    // Idempotencia de creación: si ya existe una orden con esta idempotency_key
-    // (reintento del mismo intento de compra), devolvemos ESA orden en vez de
-    // crear una segunda — evita doble bebida (mock) / doble checkout (real).
+    // Idempotencia de creación: si ya existe una orden de ESTE perfil con esta
+    // idempotency_key (reintento del mismo intento de compra), devolvemos ESA
+    // orden en vez de crear una segunda — evita doble bebida (mock) / doble
+    // checkout (real). El filtro por `perfil_id` es seguridad y corrección a la
+    // vez: la unicidad es (perfil_id, idempotency_key), así que dos perfiles
+    // distintos pueden compartir una key (dos filas) — un lookup por sola key +
+    // `.maybeSingle()` reventaría con múltiples filas y podría devolver la orden
+    // ajena (fuga cross-user). Escopar por perfil lo hace unívoco y sin fuga.
     if (insertError.code === '23505') {
       const { data: existente } = await admin
         .from('ordenes_pago')
         .select('id, estado, valor_v, buyer_fee, total')
+        .eq('perfil_id', user.id)
         .eq('idempotency_key', idempotencyKey)
         .maybeSingle();
       if (existente) {

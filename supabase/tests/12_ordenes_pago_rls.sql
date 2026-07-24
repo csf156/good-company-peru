@@ -2,7 +2,7 @@
 -- La orden guarda los montos calculados SERVER-SIDE (valor_v, buyer_fee, total)
 -- para que el webhook confirme usando esos montos, nunca los del payload. El
 -- cliente solo LEE sus propias órdenes; la escritura es del service_role.
-select plan(14);
+select plan(15);
 
 -- Estructura
 select has_table('public', 'ordenes_pago', 'existe tabla ordenes_pago');
@@ -87,8 +87,9 @@ select throws_ok(
 reset role;
 select set_config('request.jwt.claims', null, true);
 
--- Idempotencia de creación: idempotency_key es unique global → un reintento con
--- la misma key no crea una segunda orden (comprar-bebida la reusa).
+-- Idempotencia de creación SCOPED por perfil: la unicidad es (perfil_id,
+-- idempotency_key). Un reintento del MISMO perfil con la misma key no crea una
+-- segunda orden (comprar-bebida la reusa) → sigue rechazado con 23505.
 insert into public.ordenes_pago
   (perfil_id, bebida_catalogo_id, valor_v, buyer_fee, total, provider, idempotency_key)
 values ('11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999',
@@ -98,6 +99,16 @@ select throws_ok(
        (perfil_id, bebida_catalogo_id, valor_v, buyer_fee, total, provider, idempotency_key)
      values ('11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999',
              40.00, 6.00, 46.00, 'mock', 'idem-abc') $$,
-  '23505', null, 'idempotency_key duplicada de orden es rechazada (no crea segunda orden)');
+  '23505', null, 'mismo perfil + misma idempotency_key es rechazada (no crea segunda orden)');
+
+-- Scope por perfil: la MISMA idempotency_key desde OTRO perfil NO es una colisión
+-- (índice compuesto). Beto puede crear su propia orden con 'idem-abc'; no choca
+-- con la de Ana ni la expone (sin fuga cross-user).
+select lives_ok(
+  $$ insert into public.ordenes_pago
+       (perfil_id, bebida_catalogo_id, valor_v, buyer_fee, total, provider, idempotency_key)
+     values ('22222222-2222-2222-2222-222222222222', '99999999-9999-9999-9999-999999999999',
+             40.00, 6.00, 46.00, 'mock', 'idem-abc') $$,
+  'la misma idempotency_key coexiste entre perfiles distintos (scope por perfil)');
 
 select * from finish();
