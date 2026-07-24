@@ -31,7 +31,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 3.4 | Conciliación + revisión SP3 | ✅ |
 | 4.0 | Schema invitaciones + chat | ✅ |
 | 4.1 | Descubrimiento simple (swipe) | ✅ |
-| 4.2 | Crear invitación/solicitud + bloqueo fondos | ⬜ |
+| 4.2 | Crear invitación/solicitud + bloqueo fondos | ✅ |
 | 4.3 | Aceptar/rechazar → abre chat | ⬜ |
 | 4.4 | Chat realtime + moderación | ⬜ |
 | 4.5 | Confirmar cita | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 4.2 — Crear invitación/solicitud + bloqueo de fondos — 2026-07-24
+
+- **Qué se construyó:** Edge Function `crear-invitacion` + función SQL atómica `crear_invitacion` (mismo patrón `SECURITY DEFINER` + `search_path` fijo + `for update` lock que `confirmar_orden_pago`). El rentador emite una `invitacion` con una bebida de su bar (la bloquea `disponible`→`bloqueada`, atómico con el insert); el amigo emite una `solicitud` sin bebida (la asigna el rentador al aceptar, fase 4.3). Emisor debe estar `kyc_estado='verificado'` (gate testeable en SQL, fuente de verdad). Idempotente por `(emisor_id, idempotency_key)`. Ejecutado con `superpowers:subagent-driven-development`: implementador Opus 4.8 → task-reviewer Opus 4.8 (security-review) → fix → re-review → aprobado, más una desviación puntual autorizada (hardening de `ordenes_pago`, ver abajo).
+- **Archivos/pantallas clave:** `supabase/functions/crear-invitacion/index.ts`, `supabase/functions/_shared/invitaciones.ts` (validación de forma pura, Jest), `supabase/tests/19_crear_invitacion.sql` (pgTAP).
+- **Tablas / Edge Functions / migraciones:** migraciones `20260724120000_crear_invitacion.sql` (función `crear_invitacion`, columna `invitaciones.idempotency_key`), `20260724130000_invitacion_idempotency_scope.sql` (fix post-review: índice único de `(idempotency_key)` global a `(emisor_id, idempotency_key)` compuesto). Edge Function nueva: `crear-invitacion` (`verify_jwt=true`). Función SQL nueva: `crear_invitacion()` (`SECURITY DEFINER`, execute solo `service_role`).
+- **Decisiones tomadas en la fase:** (1) **Idempotencia insert-first:** la función reclama la fila de `invitaciones` ANTES de bloquear la bebida — así un doble disparo concurrente con la misma key pierde en el unique index (`unique_violation` → devuelve la fila ya creada), nunca en el chequeo de disponibilidad de la bebida (que daría un falso "ya bloqueada" a un reintento legítimo). (2) **Gate KYC duplicado a propósito:** vive en la función SQL (fuente de verdad testeable con pgTAP, ya que este repo no tiene arnés Deno para testear `index.ts` directamente) y también como chequeo temprano en el Edge Function (optimización, evita una llamada RPC en el caso obvio). (3) **`alcance='especifica'` fijo, no viene del cliente** — `global` es sub-proyecto 2, la costura del schema (4.0) no se expone todavía. (4) **Hallazgo de security-review corregido en la misma fase:** el índice único de `idempotency_key` era global, no por emisor — el fast-path devolvía la fila COMPLETA de otro usuario (receptor, zona, tiempo) ante una colisión de key, sin chequear dueño ni KYC. Se corrigió reescopando a `(emisor_id, idempotency_key)` (migración `20260724130000`), con pgTAP nuevo probando que el mismo emisor+key sigue siendo idempotente y que otro emisor con la misma key NO colisiona ni recibe la fila ajena. (5) **Desviación autorizada fuera de secuencia:** el mismo patrón de bug (idempotency_key global) existía también en `ordenes_pago` desde la fase 3.4 — menor severidad ahí (no exponía PII, solo estado/montos), pero el usuario autorizó corregirlo de inmediato como hardening puntual de SP3 (commit `609b4b5`, revisado y aprobado igual que el resto), en vez de solo anotarlo en backlog.
+- **Tests:** 148→168 pgTAP (file 19 nuevo: 19 aserciones de `crear_invitacion`, incluyendo los dos casos nombrados por el plan — "no se puede invitar con bebida ya bloqueada" y "emisor no verificado rechazado" — más el caso cross-emisor del fix; file 12 ampliado con el caso cross-perfil de `ordenes_pago`) verdes; 196→206 jest (`_shared/invitaciones.ts`) verdes; lint y `tsc --noEmit` limpios. `security-review` vía subagente Opus 4.8 en 2 rondas (hallazgo Important corregido, 1 Minor aceptado y anotado — ver deuda).
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — `foreign_key_violation` en `crear_invitacion` asume que la FK que falla es siempre `bebida_bar_id`; un `receptor_id` inexistente también dispararía FK y se reportaría como "bebida no encontrada" (mensaje engañoso, bajo riesgo porque el receptor real siempre viene del descubrimiento). No se corrigió en esta fase por decisión explícita del usuario.
 
 ### Fase 4.1 — Descubrimiento simple (swipe) — 2026-07-24
 
