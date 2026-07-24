@@ -380,6 +380,9 @@ verify_jwt = true
 [functions.crear-invitacion]
 verify_jwt = true
 
+[functions.responder-invitacion]
+verify_jwt = true
+
 [functions.pago-webhook]
 verify_jwt = false
 

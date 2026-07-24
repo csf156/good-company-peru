@@ -89,3 +89,62 @@ export function validarCrearInvitacion(raw: unknown, emisorId: string): Validaci
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// responder-invitacion (Fase 4.3): el receptor acepta o rechaza una invitación.
+// ---------------------------------------------------------------------------
+
+export type AccionInvitacion = 'aceptar' | 'rechazar';
+
+export type ResponderInvitacionBody = {
+  invitacionId: string;
+  accion: AccionInvitacion;
+  // Solo relevante al ACEPTAR una `solicitud` (el receptor-rentador asigna una
+  // bebida de su bar). Al aceptar una `invitacion` o al rechazar, es null. Que la
+  // bebida corresponda al tipo real de la invitación es negocio (lo decide la
+  // función SQL responder_invitacion, que conoce el tipo); acá solo validamos la
+  // FORMA: rechazar nunca lleva bebida; aceptar la lleva opcional.
+  bebidaBarId: string | null;
+};
+
+export type ResponderValidacionResult =
+  { ok: true; body: ResponderInvitacionBody } | { ok: false; error: string };
+
+/**
+ * Valida y normaliza el body de responder-invitacion. El `receptorId` NO viene
+ * del body: es el usuario de la sesión (lo fija la invitación, anti-suplantación),
+ * así que acá no se recibe. No toca la base de datos.
+ */
+export function validarResponderInvitacion(raw: unknown): ResponderValidacionResult {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false, error: 'Body inválido.' };
+  }
+  const b = raw as Record<string, unknown>;
+
+  if (!esUuidNoVacio(b.invitacionId)) {
+    return { ok: false, error: 'invitacionId es requerido.' };
+  }
+  if (b.accion !== 'aceptar' && b.accion !== 'rechazar') {
+    return { ok: false, error: 'accion debe ser aceptar o rechazar.' };
+  }
+
+  const accion = b.accion as AccionInvitacion;
+  const bebidaPresente = b.bebidaBarId !== undefined && b.bebidaBarId !== null;
+
+  if (accion === 'rechazar' && bebidaPresente) {
+    return { ok: false, error: 'Rechazar no lleva bebida.' };
+  }
+  // Al aceptar, la bebida es opcional; si viene, debe ser un uuid no vacío.
+  if (bebidaPresente && !esUuidNoVacio(b.bebidaBarId)) {
+    return { ok: false, error: 'bebidaBarId inválida.' };
+  }
+
+  return {
+    ok: true,
+    body: {
+      invitacionId: b.invitacionId,
+      accion,
+      bebidaBarId: bebidaPresente ? (b.bebidaBarId as string) : null,
+    },
+  };
+}

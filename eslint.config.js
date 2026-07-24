@@ -22,6 +22,7 @@ module.exports = [
       'supabase/functions/kyc-webhook/*',
       'supabase/functions/comprar-bebida/*',
       'supabase/functions/crear-invitacion/*',
+      'supabase/functions/responder-invitacion/*',
       'supabase/functions/pago-webhook/*',
     ],
   },
