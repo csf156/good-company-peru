@@ -2,7 +2,10 @@
 -- El receptor de una invitación pendiente la acepta o la rechaza. Corre en UNA
 -- transacción con row lock, así:
 --   * solo el receptor responde (ni el emisor ni un tercero);
---   * el receptor debe estar KYC-verificado (gate de negocio, fuente de verdad acá);
+--   * ACEPTAR exige que el receptor esté KYC-verificado (gate de negocio, fuente
+--     de verdad acá). RECHAZAR NO: rechazar solo libera la bebida del emisor, no
+--     compromete escrow, así que un receptor no verificado igual puede rechazar
+--     (si no, la bebida del emisor quedaría bloqueada para siempre sin salida);
 --   * RECHAZAR: invitación → 'rechazada' y, si era una `invitacion` de rentador
 --     (bebida ya bloqueada en 4.2), libera la bebida `bloqueada`→`disponible`;
 --   * ACEPTAR: invitación → 'aceptada' y crea la `cita` (estado default
@@ -11,7 +14,7 @@
 --   * idempotente-benigno: responder una invitación ya resuelta devuelve
 --     'ya_resuelta' sin segundo efecto (mismo criterio que confirmar_orden_pago);
 --   * el cliente no puede ejecutar la función (responder es del service_role).
-select plan(28);
+select plan(30);
 
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
@@ -56,7 +59,8 @@ values
   ('b6b6b6b6-b6b6-b6b6-b6b6-b6b6b6b6b6b6', '11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999', 'bloqueada'),  -- INV_YARES
   ('b7b7b7b7-b7b7-b7b7-b7b7-b7b7b7b7b7b7', '11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999', 'bloqueada'),  -- INV_ACCBEB
   ('b8b8b8b8-b8b8-b8b8-b8b8-b8b8b8b8b8b8', '11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999', 'bloqueada'),  -- INV_REJBEB
-  ('b9b9b9b9-b9b9-b9b9-b9b9-b9b9b9b9b9b9', '11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999', 'bloqueada');  -- INV_EMIS
+  ('b9b9b9b9-b9b9-b9b9-b9b9-b9b9b9b9b9b9', '11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999', 'bloqueada'),  -- INV_EMIS
+  ('babababa-baba-baba-baba-babababababa', '11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999999', 'bloqueada');  -- INV_UNVER_ACC
 
 -- Invitaciones pendientes sembradas directamente (postgres bypassa RLS), simulando
 -- el estado tras crear_invitacion (4.2). `invitacion` = rentador→amigo con bebida;
@@ -73,7 +77,8 @@ values
   ('22220001-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', null, 'pendiente'), -- SOL_ACC
   ('22220002-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', null, 'pendiente'), -- SOL_WRONG
   ('22220003-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', null, 'pendiente'), -- SOL_REJ
-  ('22220004-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', null, 'pendiente'); -- SOL_NOBEB
+  ('22220004-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', null, 'pendiente'), -- SOL_NOBEB
+  ('11110010-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'invitacion', 'babababa-baba-baba-baba-babababababa', 'pendiente'); -- INV_UNVER_ACC
 
 -- ============================================================================
 -- RECHAZO de una `invitacion` devuelve la bebida a `disponible` (test del plan).
@@ -177,13 +182,26 @@ select throws_ok(
   'AY403', null, 'el emisor no puede responder su propia invitación');
 
 -- ============================================================================
--- El receptor debe estar KYC-verificado (Elmo, sin verificar, es rechazado).
+-- KYC solo gatea ACEPTAR, no RECHAZAR. Un receptor no verificado (Elmo) PUEDE
+-- rechazar una invitación (y su bebida se libera igual), porque rechazar no
+-- compromete escrow; si el gate lo bloqueara, la bebida del emisor quedaría
+-- `bloqueada` para siempre sin camino de liberación. Pero NO puede aceptar.
 -- ============================================================================
+-- Rechazar sin verificar: OK, y libera la bebida (era una `invitacion` con bebida).
+select is(
+  public.responder_invitacion(
+    '55555555-5555-5555-5555-555555555555',
+    '11110005-0000-0000-0000-000000000000', 'rechazar', null),
+  'rechazada', 'un receptor no verificado (KYC) SÍ puede rechazar');
+select is(
+  (select estado::text from public.bar where id = 'b5b5b5b5-b5b5-b5b5-b5b5-b5b5b5b5b5b5'),
+  'disponible', 'rechazar sin verificar igual libera la bebida del emisor');
+-- Aceptar sin verificar: sigue bloqueado con AY403 (aceptar compromete escrow).
 select throws_ok(
   $$ select public.responder_invitacion(
        '55555555-5555-5555-5555-555555555555',
-       '11110005-0000-0000-0000-000000000000', 'rechazar', null) $$,
-  'AY403', null, 'un receptor no verificado (KYC) es rechazado');
+       '11110010-0000-0000-0000-000000000000', 'aceptar', null) $$,
+  'AY403', null, 'un receptor no verificado (KYC) NO puede aceptar');
 
 -- ============================================================================
 -- Idempotente-benigno: responder una invitación ya resuelta devuelve
