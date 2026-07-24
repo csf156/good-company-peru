@@ -7,7 +7,8 @@ import {
   type Bebida,
   type TipoInvitacion,
 } from '@/lib/tienda';
-import { ayni, ayniTypography } from '@/lib/theme';
+import { ayni, ayniTypography, touchTarget, tabularNums } from '@/lib/theme';
+import { Screen } from '@/components/Screen';
 
 const FILTROS: { key: TipoInvitacion | 'todos'; label: string }[] = [
   { key: 'todos', label: 'Todos' },
@@ -75,7 +76,7 @@ export default function StoreScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <Screen background={ayni.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>La Cava</Text>
       <Text style={styles.title}>Tienda de bebidas</Text>
       <Text style={styles.subtitle}>Cada bebida es un tipo de invitación. Elige el gesto correcto.</Text>
@@ -84,6 +85,9 @@ export default function StoreScreen() {
         {FILTROS.map((f) => (
           <Pressable
             key={f.key}
+            accessibilityRole="button"
+            accessibilityLabel={`Filtrar ${f.label}`}
+            hitSlop={{ top: 8, bottom: 8 }}
             onPress={() => setFiltro(f.key)}
             style={[styles.chip, filtro === f.key && styles.chipActive]}
           >
@@ -112,7 +116,14 @@ export default function StoreScreen() {
             </View>
             <View style={styles.rowAction}>
               <Text style={styles.rowValor}>S/ {bebida.valor_v.toFixed(2)}</Text>
-              <Pressable onPress={() => handleComprar(bebida)} disabled={comprandoId === bebida.id}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Comprar ${bebida.nombre}`}
+                accessibilityState={{ disabled: comprandoId === bebida.id }}
+                onPress={() => handleComprar(bebida)}
+                disabled={comprandoId === bebida.id}
+                style={styles.buyButton}
+              >
                 <Text style={styles.buyLabel}>
                   {comprandoId === bebida.id ? 'Comprando…' : 'Comprar'}
                 </Text>
@@ -121,15 +132,11 @@ export default function StoreScreen() {
           </View>
         ))}
       </View>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ayni.background,
-  },
   content: {
     padding: 20,
     gap: 8,
@@ -233,11 +240,16 @@ const styles = StyleSheet.create({
   },
   rowValor: {
     fontFamily: ayniTypography.fontFamily.mono,
+    ...tabularNums,
     fontSize: 14,
     color: ayni.foreground,
   },
+  buyButton: {
+    ...touchTarget,
+    alignSelf: 'flex-end',
+    marginTop: 2,
+  },
   buyLabel: {
-    marginTop: 4,
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',

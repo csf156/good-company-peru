@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { createProfile, type RolUsuario } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
 import { Button } from '@/components/Button';
+import { Screen } from '@/components/Screen';
 
 export default function SelectRoleScreen() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function SelectRoleScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <Screen background={colors.light.bg} center contentStyle={styles.content}>
       <Text style={styles.title}>¿Cómo quieres usar la app?</Text>
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -37,16 +38,13 @@ export default function SelectRoleScreen() {
         onPress={() => handleSelect('rentador')}
         disabled={loading}
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.light.bg,
+  content: {
     padding: 24,
-    justifyContent: 'center',
     gap: 16,
   },
   title: {

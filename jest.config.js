@@ -4,5 +4,6 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  setupFiles: ['<rootDir>/tests/jest.setup.js'],
   testTimeout: 15000,
 };

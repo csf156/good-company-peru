@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Image, ScrollView, StyleSheet } from 'react-native';
+import { Text, TextInput, Image, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getOwnProfile, updateOwnProfile, type OwnProfile } from '@/lib/profile';
 import { getPhotoSignedUrl, uploadProfilePhoto } from '@/lib/storage';
 import { parseListInput } from '@/lib/validation';
 import { colors, typography } from '@/lib/theme';
 import { Button } from '@/components/Button';
+import { Screen } from '@/components/Screen';
 
 export default function OwnProfileScreen() {
   const [profile, setProfile] = useState<OwnProfile | null>(null);
@@ -96,15 +97,15 @@ export default function OwnProfileScreen() {
 
   if (!profile) {
     return (
-      <View style={styles.container}>
+      <Screen background={colors.light.bg} center contentStyle={styles.content}>
         <Text style={styles.subtitle}>Cargando…</Text>
-      </View>
+      </Screen>
     );
   }
 
   if (!editing) {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
+      <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
         {photoUrl && <Image source={{ uri: photoUrl }} style={styles.photo} />}
         <Text style={styles.title}>{profile.nombre}</Text>
         <Text style={styles.subtitle}>{profile.alias}</Text>
@@ -114,12 +115,12 @@ export default function OwnProfileScreen() {
         <Text style={styles.field}>{profile.edad} años · {profile.genero}</Text>
         <Text style={styles.field}>{profile.profesion}</Text>
         <Button label="Editar" onPress={startEditing} />
-      </ScrollView>
+      </Screen>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
       <Text style={styles.title}>Editar perfil</Text>
 
       <TextInput style={styles.input} value={nombre} onChangeText={setNombre} />
@@ -145,14 +146,12 @@ export default function OwnProfileScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Button label="Guardar" onPress={handleSave} disabled={loading} />
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: colors.light.bg,
+  content: {
     padding: 24,
     gap: 10,
   },
@@ -193,6 +192,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.light.border,
     borderRadius: 12,
+    minHeight: 44,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

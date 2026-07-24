@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadDniDocument } from '@/lib/storage';
 import { startKycVerification } from '@/lib/kyc';
 import { colors, typography } from '@/lib/theme';
 import { Button } from '@/components/Button';
+import { Screen } from '@/components/Screen';
 
 export default function KycScreen() {
   const router = useRouter();
@@ -58,7 +59,7 @@ export default function KycScreen() {
   const canVerify = Boolean(dniPath && selfiePath) && !loading;
 
   return (
-    <View style={styles.container}>
+    <Screen background={colors.light.bg} scroll center contentStyle={styles.content}>
       <Text style={styles.title}>Verifica tu identidad</Text>
       <Text style={styles.subtitle}>
         Escanea tu DNI y toma una selfie para confirmar que eres tú.
@@ -84,16 +85,13 @@ export default function KycScreen() {
       )}
 
       <Button label="Verificar identidad" onPress={handleVerify} disabled={!canVerify} />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.light.bg,
+  content: {
     padding: 24,
-    justifyContent: 'center',
     gap: 16,
   },
   title: {

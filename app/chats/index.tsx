@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getChats, type ChatResumen } from '@/lib/chat';
 import { ayni, ayniTypography } from '@/lib/theme';
+import { Screen } from '@/components/Screen';
 
 export default function ChatsScreen() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function ChatsScreen() {
   }, []);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <Screen background={ayni.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Conversaciones</Text>
       <Text style={styles.title}>Tus chats</Text>
       <Text style={styles.subtitle}>
@@ -32,6 +33,8 @@ export default function ChatsScreen() {
         {chats.map((chat) => (
           <Pressable
             key={chat.citaId}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir chat con ${chat.alias ?? 'Amigo'}`}
             style={styles.row}
             onPress={() => router.push(`/chats/${chat.citaId}`)}
           >
@@ -42,15 +45,11 @@ export default function ChatsScreen() {
           </Pressable>
         ))}
       </View>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ayni.background,
-  },
   content: {
     padding: 20,
     gap: 8,
@@ -84,6 +83,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   row: {
+    minHeight: 44,
     borderWidth: 1,
     borderColor: ayni.border,
     backgroundColor: ayni.surface,

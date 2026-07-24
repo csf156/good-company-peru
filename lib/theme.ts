@@ -1,3 +1,5 @@
+import type { TextStyle } from 'react-native';
+
 export const colors = {
   light: {
     primary: '#0E6E66',
@@ -97,3 +99,16 @@ export const ayniTypography = {
     sans: 'Inter',
   },
 } as const;
+
+// Mobile-first: área táctil mínima recomendada (≥44dp, WCAG 2.5.5 / HIG).
+// Se aplica a Pressables de texto suelto (Comprar, Invitar, tabs, Enviar) que
+// de otro modo quedan por debajo del umbral.
+export const touchTarget = {
+  minHeight: 44,
+  minWidth: 44,
+  alignItems: 'center',
+  justifyContent: 'center',
+} as const;
+
+// Mobile-first: montos y cronómetro con cifras de ancho fijo (no "bailan").
+export const tabularNums: Pick<TextStyle, 'fontVariant'> = { fontVariant: ['tabular-nums'] };

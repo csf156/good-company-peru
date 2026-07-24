@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { getMiBar, type BarItem, type EstadoBar } from '@/lib/bar';
 import { ayni, ayniTypography } from '@/lib/theme';
+import { Screen } from '@/components/Screen';
 
 const ESTADO_LABEL: Record<EstadoBar, string> = {
   disponible: 'Disponible',
@@ -21,7 +22,7 @@ export default function BarScreen() {
   }, []);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <Screen background={ayni.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Mi Bar</Text>
       <Text style={styles.title}>Tu inventario</Text>
       <Text style={styles.subtitle}>
@@ -52,15 +53,11 @@ export default function BarScreen() {
           </View>
         ))}
       </View>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ayni.background,
-  },
   content: {
     padding: 20,
     gap: 8,

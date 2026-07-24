@@ -5,6 +5,13 @@ module.exports = [
   ...expoConfig,
   prettierConfig,
   {
+    // Setup de Jest (setupFiles): usa el global `jest` fuera de un archivo .test.
+    files: ['tests/jest.setup.js'],
+    languageOptions: {
+      globals: { jest: 'readonly', require: 'readonly', module: 'writable' },
+    },
+  },
+  {
     ignores: [
       'dist/*',
       'node_modules/*',

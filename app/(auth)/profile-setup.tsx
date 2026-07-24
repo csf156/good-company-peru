@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Text, TextInput, ScrollView, StyleSheet } from 'react-native';
+import { Text, TextInput, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
@@ -7,6 +7,7 @@ import { uploadProfilePhoto } from '@/lib/storage';
 import { isValidEdad, parseListInput } from '@/lib/validation';
 import { colors, typography } from '@/lib/theme';
 import { Button } from '@/components/Button';
+import { Screen } from '@/components/Screen';
 import type { RolUsuario } from '@/lib/auth';
 
 export default function ProfileSetupScreen() {
@@ -99,7 +100,7 @@ export default function ProfileSetupScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
       <Text style={styles.title}>Completa tu perfil</Text>
 
       <TextInput
@@ -173,14 +174,12 @@ export default function ProfileSetupScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Button label="Continuar" onPress={handleSubmit} disabled={loading} />
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: colors.light.bg,
+  content: {
     padding: 24,
     gap: 12,
   },
@@ -199,6 +198,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.light.border,
     borderRadius: 12,
+    minHeight: 44,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

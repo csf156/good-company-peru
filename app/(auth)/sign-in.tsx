@@ -5,6 +5,7 @@ import { requestOtp } from '@/lib/auth';
 import { isValidEmail, toE164Peru } from '@/lib/validation';
 import { colors, typography } from '@/lib/theme';
 import { Button } from '@/components/Button';
+import { Screen } from '@/components/Screen';
 
 type ContactType = 'phone' | 'email';
 
@@ -45,11 +46,13 @@ export default function SignInScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <Screen background={colors.light.bg} scroll center contentStyle={styles.content}>
       <Text style={styles.title}>Ingresa a tu cuenta</Text>
 
       <View style={styles.tabs}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ingresar con celular"
           onPress={() => {
             setContactType('phone');
             setError(null);
@@ -61,6 +64,8 @@ export default function SignInScreen() {
           </Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ingresar con correo"
           onPress={() => {
             setContactType('email');
             setError(null);
@@ -86,16 +91,13 @@ export default function SignInScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Button label="Enviar código" onPress={handleSubmit} disabled={loading} />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.light.bg,
+  content: {
     padding: 24,
-    justifyContent: 'center',
     gap: 16,
   },
   title: {
@@ -111,6 +113,8 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
@@ -138,6 +142,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.light.border,
     borderRadius: 12,
+    minHeight: 44,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

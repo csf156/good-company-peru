@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet } from 'react-native';
+import { Text, Image, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getPublicProfile, type PublicProfile } from '@/lib/profile';
 import { getPhotoSignedUrl } from '@/lib/storage';
 import { colors, typography } from '@/lib/theme';
+import { Screen } from '@/components/Screen';
 
 export default function PublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,22 +28,22 @@ export default function PublicProfileScreen() {
 
   if (notFound) {
     return (
-      <View style={styles.container}>
+      <Screen background={colors.light.bg} center contentStyle={styles.content}>
         <Text style={styles.subtitle}>Perfil no encontrado.</Text>
-      </View>
+      </Screen>
     );
   }
 
   if (!profile) {
     return (
-      <View style={styles.container}>
+      <Screen background={colors.light.bg} center contentStyle={styles.content}>
         <Text style={styles.subtitle}>Cargando…</Text>
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
       {photoUrl && <Image source={{ uri: photoUrl }} style={styles.photo} />}
       <Text style={styles.title}>{profile.alias}</Text>
       {profile.kyc_estado === 'verificado' && <Text style={styles.badge}>Verificado ✓</Text>}
@@ -56,14 +57,12 @@ export default function PublicProfileScreen() {
       {profile.intereses?.length > 0 && (
         <Text style={styles.field}>Intereses: {profile.intereses.join(', ')}</Text>
       )}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: colors.light.bg,
+  content: {
     padding: 24,
     gap: 8,
   },

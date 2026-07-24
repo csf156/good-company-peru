@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import WalletScreen from '@/app/wallet';
 import { getBalance } from '@/lib/bar';
 
@@ -25,5 +26,14 @@ describe('WalletScreen', () => {
     await render(<WalletScreen />);
 
     expect(await screen.findByText('S/ 0.00')).toBeTruthy();
+  });
+
+  it('renders the balance with tabular figures (mobile-first)', async () => {
+    mockedGetBalance.mockResolvedValue(420.5);
+    await render(<WalletScreen />);
+
+    const bal = await screen.findByText('S/ 420.50');
+    const flat = StyleSheet.flatten(bal.props.style);
+    expect(flat.fontVariant).toContain('tabular-nums');
   });
 });

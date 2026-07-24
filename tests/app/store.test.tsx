@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import StoreScreen from '@/app/store';
 import { getCatalogo, comprarBebida } from '@/lib/tienda';
 
@@ -38,6 +39,22 @@ describe('StoreScreen', () => {
     expect(screen.getByText('Vino')).toBeTruthy();
     expect(screen.getByText('S/ 40.00')).toBeTruthy();
     expect(screen.getByText('S/ 80.00')).toBeTruthy();
+  });
+
+  it('gives the buy button an accessible ≥44dp touch target (mobile-first)', async () => {
+    await render(<StoreScreen />);
+    await screen.findByText('Cerveza');
+
+    const btn = screen.getByLabelText('Comprar Cerveza');
+    const flat = StyleSheet.flatten(btn.props.style);
+    expect(flat.minHeight).toBeGreaterThanOrEqual(44);
+  });
+
+  it('shows the price with tabular figures so amounts do not shift width', async () => {
+    await render(<StoreScreen />);
+    const price = await screen.findByText('S/ 40.00');
+    const flat = StyleSheet.flatten(price.props.style);
+    expect(flat.fontVariant).toContain('tabular-nums');
   });
 
   it('shows an empty state when the catalog has no active bebidas', async () => {

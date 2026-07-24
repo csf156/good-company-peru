@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { getPerfilesDescubrir, type Descubrimiento } from '@/lib/descubrimiento';
-import { ayni, ayniTypography } from '@/lib/theme';
+import { ayni, ayniTypography, tabularNums } from '@/lib/theme';
+import { Screen } from '@/components/Screen';
 
 const CTA_LABEL: Record<'amigo' | 'rentador', string> = {
   rentador: 'Invitar una bebida',
@@ -33,7 +34,7 @@ export default function DiscoverScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <Screen background={ayni.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Ayni</Text>
       <Text style={styles.title}>Descubre</Text>
 
@@ -73,20 +74,20 @@ export default function DiscoverScreen() {
             </Pressable>
           </View>
 
-          <Pressable style={styles.cta}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={CTA_LABEL[data!.rolPropio]}
+            style={styles.cta}
+          >
             <Text style={styles.ctaLabel}>{CTA_LABEL[data!.rolPropio]}</Text>
           </Pressable>
         </>
       )}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ayni.background,
-  },
   content: {
     padding: 20,
     gap: 8,
@@ -112,6 +113,7 @@ const styles = StyleSheet.create({
   },
   counter: {
     fontFamily: ayniTypography.fontFamily.mono,
+    ...tabularNums,
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',

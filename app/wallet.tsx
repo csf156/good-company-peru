@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import { getBalance } from '@/lib/bar';
-import { ayni, ayniTypography } from '@/lib/theme';
+import { ayni, ayniTypography, tabularNums } from '@/lib/theme';
+import { Screen } from '@/components/Screen';
 
 export default function WalletScreen() {
   const [balance, setBalance] = useState(0);
@@ -11,19 +12,16 @@ export default function WalletScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <Screen background={ayni.background} center contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Balance disponible</Text>
       <Text style={styles.balance}>S/ {balance.toFixed(2)}</Text>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ayni.background,
+  content: {
     padding: 24,
-    justifyContent: 'center',
   },
   eyebrow: {
     fontFamily: ayniTypography.fontFamily.mono,
@@ -35,6 +33,7 @@ const styles = StyleSheet.create({
   },
   balance: {
     fontFamily: ayniTypography.fontFamily.serifItalic,
+    ...tabularNums,
     fontStyle: 'italic',
     fontSize: 48,
     color: ayni.primary,

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { verifyOtp, requestOtp, type Contact } from '@/lib/auth';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
 import { useResendCooldown } from '@/hooks/useResendCooldown';
-import { colors, typography } from '@/lib/theme';
+import { colors, typography, touchTarget, tabularNums } from '@/lib/theme';
 import { Button } from '@/components/Button';
+import { Screen } from '@/components/Screen';
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
@@ -51,7 +52,7 @@ export default function VerifyOtpScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <Screen background={colors.light.bg} scroll center contentStyle={styles.content}>
       <Text style={styles.title}>Ingresa el código</Text>
       <Text style={styles.subtitle}>Enviado a {params.value}</Text>
 
@@ -71,24 +72,23 @@ export default function VerifyOtpScreen() {
 
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Reenviar código"
         accessibilityState={{ disabled: !canResend }}
         disabled={!canResend}
         onPress={handleResend}
+        style={styles.resendButton}
       >
         <Text style={[styles.resend, !canResend && styles.resendDisabled]}>
           {canResend ? 'Reenviar código' : `Reenviar en ${remaining}s`}
         </Text>
       </Pressable>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.light.bg,
+  content: {
     padding: 24,
-    justifyContent: 'center',
     gap: 16,
   },
   title: {
@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
   },
   input: {
     fontFamily: typography.fontFamily.body,
+    ...tabularNums,
     fontSize: typography.fontSize.xl,
     letterSpacing: 8,
     textAlign: 'center',
@@ -111,7 +112,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.light.border,
     borderRadius: 12,
+    minHeight: 44,
     paddingVertical: 12,
+  },
+  resendButton: {
+    ...touchTarget,
+    alignSelf: 'center',
   },
   error: {
     fontFamily: typography.fontFamily.body,

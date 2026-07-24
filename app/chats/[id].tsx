@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   getMensajes,
   getContraparteAlias,
@@ -118,6 +119,7 @@ export default function ChatDetailScreen() {
   }
 
   return (
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -262,10 +264,15 @@ export default function ChatDetailScreen() {
         </View>
       </Modal>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: ayni.background,
+  },
   container: {
     flex: 1,
     backgroundColor: ayni.background,
@@ -362,10 +369,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sendButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: ayni.primary,
     borderRadius: 20,
     paddingHorizontal: 18,
-    paddingVertical: 12,
   },
   sendLabel: {
     color: ayni.primaryForeground,
@@ -422,6 +430,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   confirmarButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: ayni.primary,
     backgroundColor: ayni.surface2,
@@ -489,6 +499,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalSubmit: {
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: ayni.primary,
     borderRadius: 16,
     paddingVertical: 14,

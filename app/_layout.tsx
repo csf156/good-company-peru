@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
@@ -71,5 +72,9 @@ export default function RootLayout() {
     }
   }, [sessionLoading, profileLoading, session, profileStatus, kycEstado, authSegment, router]);
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </SafeAreaProvider>
+  );
 }
