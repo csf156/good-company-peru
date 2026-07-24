@@ -29,14 +29,14 @@ Causa raíz de que la deriva persista: **nada en el CI verifica que una pantalla
 2. **Dark-only**, como Lovable (que no tiene paleta clara, ni toggle: `theme="dark"` fijo en `src/routes/__root.tsx:118`). Se borra `colors` completo (light + dark). Costo aceptado: un modo claro futuro habría que diseñarlo de cero.
 3. **Migración estructural, no solo de color** (opción "B"). Las pantallas viejas adoptan también la voz tipográfica de Lovable (eyebrow mono uppercase, título serif italic, radios y espaciado), no solo los hex.
 4. **Un spec, tres fases secuenciales.**
-5. **Google OAuth con celular tipeado por el usuario** (ver §6.1 — el flujo pedido originalmente no es realizable).
+5. **Google OAuth sin verificación de celular** (ver §6.1). El flujo pedido originalmente no es realizable, y la alternativa (celular tipeado + OTP por SMS) se descartó al descubrir que el proveedor de SMS nunca estuvo habilitado y que no existe opción gratuita para producción. La autenticación queda: **Google + OTP por correo**.
 
 ### 0.3 Las tres fases
 
 | Fase | Nombre | Depende de |
 |---|---|---|
 | **D.1** | Design system: tokens, fuentes, componentes base, migración de 8 pantallas, reescritura del doc | — |
-| **D.2** | Login con Google + verificación de celular | D.1 (para nacer con la identidad correcta) |
+| **D.2** | Login con Google; retiro de la pestaña "Celular" | D.1 (para nacer con la identidad correcta) |
 | **D.3** | Onboarding: carrusel "Cómo funciona" + aceptación de ToS | D.1, D.2 |
 
 Cada fase cierra con tests verdes y commit antes de empezar la siguiente.
@@ -219,24 +219,49 @@ Las 6 pantallas ya en tokens Ayni (`index`, `store`, `bar`, `wallet`, `chats/ind
 
 El pedido fue: entrar con Google y que la app mande OTP "al número linkeado a ese correo". **No es realizable.** Google OAuth/OIDC devuelve `email`, `name`, `picture` y `sub`; **no devuelve teléfono** en los scopes estándar, y el campo de People API suele venir vacío o sin verificar. La app no tiene forma de conocer ese número.
 
-Flujo aprobado en reemplazo, que logra el mismo objetivo (cuenta con celular verificado):
+La alternativa inicialmente aprobada (pedir el celular tipeado y mandarle OTP) **también se descartó**, por lo descubierto en §6.2.
 
-1. Usuario entra con Google → sesión creada, email verificado por Google.
-2. Si es primer ingreso, la app pide **escribir su celular**.
-3. Se envía OTP a ese número; el usuario lo verifica.
-4. Ingresos posteriores con Google: directos, sin OTP.
+### 6.2 Hallazgo: el login por celular nunca funcionó
 
-### 6.2 Alcance
+Auditoría de la configuración real del proyecto Supabase `zmtclismywmkratmufov` (2026-07-24, vía Management API):
 
-- **El OTP actual por email/celular se conserva** como método alternativo. Google es una opción adicional, no un reemplazo. `lib/auth.ts` (`requestOtp`/`verifyOtp`) no cambia su contrato.
+```
+external_phone_enabled   false
+sms_twilio_account_sid   null
+external_email_enabled   true
+```
+
+La fase 1.2 está marcada ✅ en `docs/ESTADO.md` y su código de OTP por celular existe y tiene tests, **pero los tests mockean el cliente de Supabase**, así que nadie detectó que el proveedor de SMS jamás se habilitó. En producción, la pestaña "Celular" de `app/(auth)/sign-in.tsx` falla; solo el correo funciona.
+
+Se evaluaron las opciones para habilitarlo:
+
+| Opción | Veredicto |
+|---|---|
+| Mapa `sms_test_otp` (pares fijos número→código, sin proveedor) | Gratis, pero solo sirve para demo — quien conozca el par entra a esa cuenta. No es autenticación real. |
+| Trial de Twilio/Vonage | Solo envía a números verificados uno por uno en su consola. No escala más allá de pruebas. |
+| Proveedor de pago | ~S/0.20 por SMS. **No existe camino gratuito para producción.** |
+
+**Decisión (usuario, 2026-07-24): se descarta el celular. La autenticación es Google + OTP por correo.**
+
+### 6.3 Alcance
+
+- **Métodos de autenticación finales:** OTP por correo (ya funciona) + Google OAuth (nuevo). Sin SMS.
+- **Se elimina la pestaña "Celular"** de `app/(auth)/sign-in.tsx`. Hoy ofrece un camino que falla siempre — es un bug visible en el preview compartido.
+- `lib/auth.ts` conserva `requestOtp`/`verifyOtp` para email. **El código de la rama de teléfono (`toE164Peru`, la variante `{phone}`) se retira** de la ruta de autenticación. `toE164Peru` puede seguir viviendo en `lib/validation.ts` si otra parte lo usa — verificar por búsqueda antes de borrarlo.
+- **No se toca `profiles`.** Sin celular verificado no hace falta columna nueva, y por tanto tampoco migración en esta fase.
+- **`lib/route-guard.ts` no cambia.** No hay estado nuevo: la máquina (`hasSession` → `profileStatus` → `kycEstado`) sigue igual. Todos sus tests actuales deben pasar sin tocarse.
 - Dependencias a instalar: `expo-auth-session` y `expo-web-browser` (ninguna está hoy en `package.json`).
-- El redirect de OAuth debe funcionar en nativo (scheme `rentafriendperu`, ya configurado en `app.config.js`) **y en web** (el preview de GitHub Pages, `https://csf156.github.io/good-company-peru/`).
-- Requiere configuración en la consola de Supabase y en Google Cloud (client IDs, URLs de redirect autorizadas). **Es trabajo del usuario, no del código** — el plan debe listarlo explícitamente como prerrequisito manual.
-- `profiles` necesita registrar que el celular fue verificado. La columna exacta se define contra el esquema real **por introspección** (`information_schema`), no de memoria, según la regla de `CLAUDE.md`.
+- El redirect de OAuth debe funcionar en nativo (scheme `rentafriendperu`, ya en `app.config.js`) **y en web** (preview de GitHub Pages).
 
-### 6.3 Guardas de ruta
+### 6.4 Configuración externa
 
-`lib/route-guard.ts` gana un estado: sesión válida **pero sin celular verificado** → redirigir a la pantalla de captura de celular. Debe encajar en la máquina de estados existente (`hasSession` → `profileStatus` → `kycEstado`) sin romper ninguno de sus tests actuales.
+Estado al 2026-07-24:
+
+- ✅ **Hecho:** `site_url` = `https://csf156.github.io/good-company-peru/` y `uri_allow_list` = `rentafriendperu://**,https://csf156.github.io/good-company-peru/**,http://localhost:3000/**,http://localhost:8081/**` (aplicado vía Management API; antes apuntaban a `localhost:3000` con allow-list vacía).
+- ⬜ **Pendiente, solo el usuario:** crear el cliente OAuth en Google Cloud (redirect autorizado: `https://zmtclismywmkratmufov.supabase.co/auth/v1/callback`) y pegar client ID + secret en Supabase → Authentication → Providers → Google. **El secret es una credencial: no lo maneja el agente.**
+- ⚠️ Mientras la app de Google esté en modo *Testing*, solo los correos agregados como test users pueden entrar (máx. 100). Para el preview con amigos: agregarlos ahí, o publicar la app (con scopes básicos no requiere verificación de Google).
+
+**D.2 no puede cerrarse verde sin el paso pendiente.**
 
 ---
 
@@ -287,6 +312,7 @@ Cada fase cierra con: `npm run lint` + `npm run typecheck` + `npm test` verdes, 
 - **Pantalla de estado KYC** (🆕 en el design system, sin dueño). Se anota en backlog; no la toma este spec.
 - **Rediseño estructural de las 6 pantallas ya en tokens Ayni.** Solo absorben los valores corregidos.
 - **Referidos** (fase 9.1). D.3 solo deja la costura.
+- **Autenticación y verificación por SMS.** Descartada en §6.2. Si el producto llega a necesitar celular verificado (KYC real, encuentros presenciales), será un proveedor de pago y una fase propia. Anotado en `docs/backlog.md`.
 - **Cualquier cambio de lógica de negocio** en fases cerradas. Este trabajo es visual, más dos features nuevas acotadas.
 
 ---
@@ -298,5 +324,7 @@ Cada fase cierra con: `npm run lint` + `npm run typecheck` + `npm test` verdes, 
 | Corregir los tokens cambia el aspecto de 6 pantallas ya aprobadas por el usuario. | El cambio es sutil (mismo dorado, menos saturado). Decisión tomada conscientemente en §0.2.1. Revisable en el preview web antes de cerrar D.1. |
 | El test anti-hex bloquea casos legítimos (gradientes, overlays con alpha). | Permitir excepción explícita y comentada. Si las excepciones proliferan, es señal de que a `theme.ts` le falta un token — que es justamente la señal que queremos recibir. |
 | Cargar tres familias de fuentes pesa en Android de gama media. | Cargar solo los pesos enumerados en §2.1, no las familias completas. Medir el bundle antes/después. |
-| OAuth de Google requiere configuración manual fuera del repo. | El plan lo lista como prerrequisito del usuario, antes de empezar D.2. D.2 no puede cerrarse verde sin eso. |
+| OAuth de Google requiere configuración manual fuera del repo. | Listado en §6.4 como prerrequisito del usuario, antes de empezar D.2. D.2 no puede cerrarse verde sin eso. |
+| Quitar la pestaña "Celular" reduce las opciones de ingreso a dos (Google + correo). | Es lo correcto: hoy esa pestaña ofrece un camino que **siempre falla** (§6.2). Quitarla arregla un bug visible, no reduce funcionalidad real. |
+| Otras fases pudieron cerrarse ✅ con integraciones externas nunca habilitadas, igual que 1.2. | Fuera del alcance de este spec auditarlas, pero conviene revisar KYC (Truora) y pagos (Red Pontis) con el mismo criterio antes de confiar en su estado. Anotado en `docs/backlog.md`. |
 | El alcance de D.1 (7 pantallas + tokens + fuentes + doc) es amplio para una sola tanda. | Las pantallas son independientes entre sí: se migran de a una, cada una con sus tests pasando, commit por pantalla. |
