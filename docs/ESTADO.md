@@ -33,7 +33,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 4.1 | Descubrimiento simple (swipe) | ✅ |
 | 4.2 | Crear invitación/solicitud + bloqueo fondos | ✅ |
 | 4.3 | Aceptar/rechazar → abre chat | ✅ |
-| 4.4 | Chat realtime + moderación | ⬜ |
+| 4.4 | Chat realtime + moderación | ✅ |
 | 4.5 | Confirmar cita | ⬜ |
 | 4.6 | Revisión SP4 | ⬜ |
 | 5.0 | Sesión + token QR rotativo | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 4.4 — Chat realtime + moderación anti-fuga — 2026-07-24
+
+- **Qué se construyó:** primera fase de este repo que combina UI + seguridad en un solo entregable. Pantallas RN/Expo de lista de chats (`app/chats/index.tsx`) y detalle (`app/chats/[id].tsx`) portadas de Lovable, cableadas a Supabase Realtime (primer uso de `postgres_changes` del lado cliente — el schema/publicación ya existían desde 4.0). Moderación anti-fuga como trigger `BEFORE INSERT` en `chat_mensajes`: detecta teléfono peruano / secuencias largas de dígitos (cuenta/CCI) / palabras clave de pago externo (yape, plin, bancos), oculta el mensaje ANTES de guardarlo (nace oculto para la contraparte, nunca hay ventana visible-y-luego-ocultado), y registra reincidencia en `profiles.flags` (costura jsonb de 1.1). Corrige el hallazgo de RLS que quedó anotado desde la fase 4.0: la contraparte ya no puede leer un mensaje `oculto=true` consultando directo; el emisor sí lo sigue viendo (es su "warning"). Ejecutado con `superpowers:subagent-driven-development`: implementador Opus 4.8 → task-reviewer Opus 4.8 (security-review) → aprobado en la primera ronda, sin hallazgos Critical/Important.
+- **Archivos/pantallas clave:** `app/chats/index.tsx`, `app/chats/[id].tsx`, `lib/chat.ts`, `supabase/functions/_shared/moderacion.ts` (detector de patrones, gemelo isomórfico del trigger, testeado con Jest).
+- **Tablas / Edge Functions / migraciones:** migración `20260724170000_moderacion_chat.sql` — función/trigger `moderar_chat_mensaje()` (`SECURITY DEFINER`, `search_path` fijo, disparado en cada insert de `chat_mensajes`) + `drop`/`create` de la policy `chat_select_parte` (ahora excluye `oculto=true` para quien no es el emisor). No se tocó `chat_insert_propio` ni ninguna tabla/RLS de `invitaciones`/`citas`.
+- **Decisiones tomadas en la fase:** (1) **Moderación como trigger, no Edge Function nueva** — el cliente ya inserta mensajes directo vía RLS desde 4.0 (Realtime en tiempo real); meter un Edge Function en medio añadiría latencia y contradiría ese diseño. El trigger es la fuente de verdad server-side; el cliente jamás decide el ocultamiento. (2) **"Gemelo" TS isomórfico solo para test/documentación** — `_shared/moderacion.ts` prueba la MISMA regla con Jest, pero no se importa en ningún camino de producción (`lib/chat.ts` no lo usa); confirmado en review que no hay riesgo de deriva de seguridad, solo un recordatorio de mantener ambos en sync si se ajusta el detector. (3) **`chat_violaciones` cuenta reincidencias, no violaciones totales** — la 1ª fuga oculta el mensaje pero no incrementa el contador (0 previas); la 2ª sí (contador=1). Es la costura para una política de baja/ban futura (sub-proyecto 7), sin acción de ban conectada todavía. (4) **Recorte de alcance del Lovable original** (mismo criterio que 3.3): SIN el modal/botón "Confirmar cita" (zona/hora/mensaje → fase 4.5), SIN el banner "Cita confirmada" ni nav a `/date/:id` (fase 5.x), SIN contador de no-leídos (no existe columna `leido`), SIN `LevelBadge`/`AppShell` (deuda ya anotada, no resuelta aquí).
+- **Tests:** 198→210 pgTAP (file 21 nuevo: 12 aserciones, incluyendo los dos casos nombrados por el plan — "mensaje con teléfono es marcado" y "usuarios ajenos no acceden al chat" — más el ajuste de RLS sin romper cobertura de 4.0) verdes; 214→241 jest (detector `moderacion.test.ts`, pantallas `chats.test.tsx`/`chat-detail.test.tsx`) verdes; lint y `tsc --noEmit` limpios. `security-review` vía subagente Opus 4.8: aprobado, 0 Critical/Important, 4 Minor anotados en backlog.
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — (a) `getChats` hace N+1 queries (perfil + último mensaje por cita), aceptable en volumen MVP; (b) el detector puede marcar falso positivo con listas de números separados por espacio (10+ dígitos compactados), decisión deliberada de priorizar cerrar la fuga; (c) `chat_violaciones` es solo el contador — sin acción de ban conectada (sub-proyecto 7); (d) asimetría cosmética de sufijo regex entre el gemelo TS y el trigger SQL, sin impacto de seguridad (solo el trigger es fuente de verdad).
 
 ### Fase 4.3 — Aceptar/rechazar → abre chat — 2026-07-24
 
