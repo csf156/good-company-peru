@@ -8,6 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -17,6 +18,7 @@ import {
   subscribeMensajes,
   type Mensaje,
 } from '@/lib/chat';
+import { getCitaDetalle, confirmarCita, type CitaDetalle } from '@/lib/citas';
 import { ayni, ayniTypography } from '@/lib/theme';
 
 export default function ChatDetailScreen() {
@@ -26,8 +28,20 @@ export default function ChatDetailScreen() {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
 
+  const [cita, setCita] = useState<CitaDetalle | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [zona, setZona] = useState('');
+  const [hora, setHora] = useState('');
+  const [mensajeCita, setMensajeCita] = useState('');
+  const [confirmando, setConfirmando] = useState(false);
+  const [errorConfirmar, setErrorConfirmar] = useState<string | null>(null);
+
   const recargar = useCallback(() => {
     getMensajes(id).then(setMensajes);
+  }, [id]);
+
+  const recargarCita = useCallback(() => {
+    getCitaDetalle(id).then(setCita);
   }, [id]);
 
   useEffect(() => {
@@ -35,12 +49,17 @@ export default function ChatDetailScreen() {
     // Carga inicial en un solo settle (alias + mensajes) para no encadenar
     // actualizaciones de estado sueltas.
     (async () => {
-      const [a, ms] = await Promise.all([getContraparteAlias(id), getMensajes(id)]);
+      const [a, ms, c] = await Promise.all([
+        getContraparteAlias(id),
+        getMensajes(id),
+        getCitaDetalle(id),
+      ]);
       if (!activo) {
         return;
       }
       setAlias(a);
       setMensajes(ms);
+      setCita(c);
     })();
     // La RLS gobierna el stream: un mensaje oculto de la contraparte ni llega.
     const unsubscribe = subscribeMensajes(id, recargar);
@@ -49,6 +68,36 @@ export default function ChatDetailScreen() {
       unsubscribe();
     };
   }, [id, recargar]);
+
+  async function handleConfirmar() {
+    if (confirmando) {
+      return;
+    }
+    // Chequeo mínimo antes de llamar al servidor (evita el viaje de red en el
+    // caso obvio); la fuente de verdad de la validación sigue siendo el Edge
+    // Function / la función SQL confirmar_cita.
+    if (!zona.trim() || !hora.trim()) {
+      setErrorConfirmar('Zona y hora son requeridas.');
+      return;
+    }
+    setConfirmando(true);
+    setErrorConfirmar(null);
+    const { resultado, error } = await confirmarCita(
+      id,
+      zona.trim(),
+      hora.trim(),
+      mensajeCita.trim() || null,
+    );
+    setConfirmando(false);
+    if (error) {
+      setErrorConfirmar(error);
+      return;
+    }
+    if (resultado === 'confirmada' || resultado === 'ya_confirmada') {
+      setModalVisible(false);
+      recargarCita();
+    }
+  }
 
   // Un mensaje propio oculto = fue marcado por moderación anti-fuga. Aviso al
   // emisor (el "warning" del plan), sin canal de notificación aparte.
@@ -78,6 +127,26 @@ export default function ChatDetailScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {cita?.estado === 'confirmada' && (
+          <View style={styles.resumen}>
+            <Text style={styles.resumenLabel}>Cita confirmada</Text>
+            {cita.bebidaNombre && (
+              <Text style={styles.resumenTitulo}>{cita.bebidaNombre}</Text>
+            )}
+            <View style={styles.resumenFila}>
+              {cita.valorV !== null && (
+                <Text style={styles.resumenDato}>{cita.valorV} V</Text>
+              )}
+              {cita.tiempoEstimadoMin !== null && (
+                <Text style={styles.resumenDato}>~{cita.tiempoEstimadoMin} min</Text>
+              )}
+            </View>
+            {cita.zona && <Text style={styles.resumenTexto}>{cita.zona}</Text>}
+            {cita.hora && <Text style={styles.resumenTexto}>{cita.hora}</Text>}
+            {cita.mensaje && <Text style={styles.resumenMensaje}>&ldquo;{cita.mensaje}&rdquo;</Text>}
+          </View>
+        )}
+
         {hayOcultoPropio && (
           <View style={styles.warning}>
             <Text style={styles.warningText}>
@@ -102,6 +171,18 @@ export default function ChatDetailScreen() {
         ))}
       </ScrollView>
 
+      {cita?.estado === 'pendiente' && cita.esAmigo && (
+        <View style={styles.confirmarWrap}>
+          <Pressable
+            accessibilityLabel="Confirmar cita"
+            style={styles.confirmarButton}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text style={styles.confirmarButtonLabel}>Confirmar cita</Text>
+          </Pressable>
+        </View>
+      )}
+
       <View style={styles.composer}>
         <TextInput
           style={styles.input}
@@ -120,6 +201,66 @@ export default function ChatDetailScreen() {
           <Text style={styles.sendLabel}>{enviando ? '…' : 'Enviar'}</Text>
         </Pressable>
       </View>
+
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalEyebrow}>Confirmar cita</Text>
+            <Text style={styles.modalTitulo}>Detalles del encuentro</Text>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Zona de encuentro</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={zona}
+                onChangeText={setZona}
+                placeholder="Zona de encuentro"
+                placeholderTextColor={ayni.mutedForeground}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Día y hora</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={hora}
+                onChangeText={setHora}
+                placeholder="Hora (ej. 2026-07-25 21:30)"
+                placeholderTextColor={ayni.mutedForeground}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Mensaje adicional</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={mensajeCita}
+                onChangeText={setMensajeCita}
+                placeholder="Mensaje adicional (opcional)"
+                placeholderTextColor={ayni.mutedForeground}
+                multiline
+              />
+            </View>
+
+            {errorConfirmar && <Text style={styles.modalError}>{errorConfirmar}</Text>}
+
+            <Pressable
+              accessibilityLabel="Guardar cita"
+              style={styles.modalSubmit}
+              onPress={handleConfirmar}
+              disabled={confirmando}
+            >
+              <Text style={styles.modalSubmitLabel}>
+                {confirmando ? 'Confirmando…' : 'Guardar cita'}
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={() => setModalVisible(false)}>
+              <Text style={styles.modalCancelar}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -231,5 +372,140 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 12,
     textTransform: 'uppercase',
+  },
+  resumen: {
+    backgroundColor: ayni.surface2,
+    borderWidth: 1,
+    borderColor: ayni.primary,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 8,
+  },
+  resumenLabel: {
+    fontFamily: ayniTypography.fontFamily.mono,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: ayni.primary,
+    marginBottom: 6,
+  },
+  resumenTitulo: {
+    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontStyle: 'italic',
+    fontSize: 18,
+    color: ayni.foreground,
+  },
+  resumenFila: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  resumenDato: {
+    fontFamily: ayniTypography.fontFamily.mono,
+    fontVariant: ['tabular-nums'],
+    fontSize: 13,
+    color: ayni.foreground,
+  },
+  resumenTexto: {
+    marginTop: 4,
+    fontSize: 13,
+    color: ayni.mutedForeground,
+  },
+  resumenMensaje: {
+    marginTop: 8,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: ayni.foreground,
+  },
+  confirmarWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  confirmarButton: {
+    borderWidth: 1,
+    borderColor: ayni.primary,
+    backgroundColor: ayni.surface2,
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  confirmarButtonLabel: {
+    color: ayni.primary,
+    fontWeight: '700',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalSheet: {
+    backgroundColor: ayni.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    gap: 4,
+  },
+  modalEyebrow: {
+    fontFamily: ayniTypography.fontFamily.mono,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: ayni.primary,
+  },
+  modalTitulo: {
+    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontStyle: 'italic',
+    fontSize: 22,
+    color: ayni.foreground,
+    marginBottom: 12,
+  },
+  field: {
+    borderWidth: 1,
+    borderColor: ayni.border,
+    backgroundColor: ayni.background,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  fieldLabel: {
+    fontFamily: ayniTypography.fontFamily.mono,
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: ayni.mutedForeground,
+    marginBottom: 2,
+  },
+  fieldInput: {
+    color: ayni.foreground,
+    fontSize: 14,
+    padding: 0,
+  },
+  modalError: {
+    color: ayni.destructive,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  modalSubmit: {
+    backgroundColor: ayni.primary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  modalSubmitLabel: {
+    color: ayni.primaryForeground,
+    fontWeight: '700',
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  modalCancelar: {
+    textAlign: 'center',
+    color: ayni.mutedForeground,
+    fontSize: 12,
+    marginTop: 14,
   },
 });

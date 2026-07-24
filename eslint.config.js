@@ -24,6 +24,7 @@ module.exports = [
       'supabase/functions/crear-invitacion/*',
       'supabase/functions/responder-invitacion/*',
       'supabase/functions/pago-webhook/*',
+      'supabase/functions/confirmar-cita/*',
     ],
   },
 ];
