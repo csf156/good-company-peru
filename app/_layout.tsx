@@ -25,7 +25,7 @@ export default function RootLayout() {
 
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>('none');
   const [kycEstado, setKycEstado] = useState<KycEstado>('pendiente');
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(Boolean(session));
   // Reset profile state synchronously during render when the session identity
   // changes, instead of setState-in-effect (see React docs: "Resetting state
   // when a prop changes").
