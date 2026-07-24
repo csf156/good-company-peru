@@ -643,12 +643,16 @@ a:
 
 y agregar `fontsLoaded` y `fontError` al array de dependencias del `useEffect`.
 
-Finalmente, cambiar el `return` para no montar el árbol antes de tiempo:
+Finalmente, cambiar el `return` para no montar el árbol antes de tiempo. **Nota:** `_layout.tsx` ya envuelve `<Stack>` en `<SafeAreaProvider>` (cambio externo posterior a este plan) — mantener ese envoltorio, solo agregar el guard antes:
 
 ```ts
   if (!fontsLoaded && !fontError) return null;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </SafeAreaProvider>
+  );
 ```
 
 - [ ] **Step 6: Correr los tests**
