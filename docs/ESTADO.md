@@ -32,7 +32,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 4.0 | Schema invitaciones + chat | ✅ |
 | 4.1 | Descubrimiento simple (swipe) | ✅ |
 | 4.2 | Crear invitación/solicitud + bloqueo fondos | ✅ |
-| 4.3 | Aceptar/rechazar → abre chat | ⬜ |
+| 4.3 | Aceptar/rechazar → abre chat | ✅ |
 | 4.4 | Chat realtime + moderación | ⬜ |
 | 4.5 | Confirmar cita | ⬜ |
 | 4.6 | Revisión SP4 | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 4.3 — Aceptar/rechazar → abre chat — 2026-07-24
+
+- **Qué se construyó:** Edge Function `responder-invitacion` + función SQL atómica `responder_invitacion` (mismo patrón `SECURITY DEFINER`+lock que `crear_invitacion`). El receptor de una invitación/solicitud `pendiente` la acepta o rechaza. Rechazar libera la bebida a `disponible` si la invitación era de tipo `invitacion` (ya bloqueada desde 4.2); una `solicitud` nunca tuvo bebida. Aceptar: si es `invitacion`, no toma bebida adicional; si es `solicitud`, el receptor (rentador) DEBE asignar y bloquear una bebida de su propio bar; en ambos casos crea la fila `citas` (vacía, estado default `pendiente`) — su sola existencia habilita el chat a las dos partes vía la RLS que la fase 4.0 ya dejó lista. Ejecutado con `superpowers:subagent-driven-development`: implementador Opus 4.8 → controller detectó un bug de diseño antes de enviar a review → fix del implementador → task-reviewer Opus 4.8 (security-review) → aprobado sin hallazgos Critical/Important.
+- **Archivos/pantallas clave:** `supabase/functions/responder-invitacion/index.ts`, `supabase/functions/_shared/invitaciones.ts` (ampliado con `validarResponderInvitacion`), `supabase/tests/20_responder_invitacion.sql` (pgTAP).
+- **Tablas / Edge Functions / migraciones:** migraciones `20260724150000_responder_invitacion.sql` (función `responder_invitacion`), `20260724160000_responder_invitacion_kyc_scope.sql` (fix pre-review: el gate KYC aplicaba a rechazar Y aceptar; se reescopa a solo aceptar). Edge Function nueva: `responder-invitacion` (`verify_jwt=true`). Función SQL nueva: `responder_invitacion()` (`SECURITY DEFINER`, execute solo `service_role`).
+- **Decisiones tomadas en la fase:** (1) **Idempotencia "ya_resuelta", no `idempotency_key`:** a diferencia de `crear_invitacion` (que CREA una fila y necesita idempotencia por-intento), `responder_invitacion` MUTA una fila existente por su id — el reintento seguro es chequear `estado <> 'pendiente'` y devolver `'ya_resuelta'` sin reaplicar (mismo criterio que `confirmar_orden_pago`). (2) **Gate KYC corregido antes de llegar a review:** la primera versión exigía receptor verificado para responder CUALQUIER acción; el controller detectó que eso crea un deadlock — rechazar nunca compromete escrow, solo libera una bebida, así que gatearlo tras KYC dejaría la bebida del emisor `bloqueada` para siempre si el receptor no estuviera verificado. Se corrigió (migración `20260724160000`) para que el gate aplique SOLO al aceptar; rechazar funciona sin importar el estado KYC del receptor. (3) **Sin push notifications:** el repo no tiene ninguna infraestructura de push (ni `expo-notifications`, ni tabla de push token) pese a que el plan menciona "notifica push" en varias fases sin que ninguna la construya explícitamente — se dejó fuera de alcance (un `TODO(push)` de una línea en el SQL) y anotado en backlog para que 5.2 (Cronómetro + notificaciones) la siente como costura real. (4) **`cita` nace vacía** (solo `invitacion_id`, resto por default) — zona/hora/mensaje y la transición a `estado='confirmada'` son la fase 4.5, no esta.
+- **Tests:** 168→198 pgTAP (file 20 nuevo: 30 aserciones cubriendo los dos casos nombrados por el plan — "rechazo devuelve la bebida a disponible" y "aceptar habilita chat solo a las dos partes" — más el fix de KYC, anti-suplantación, ya_resuelta, ambos tipos de aceptar, bebida de otro bar) verdes; 206→214 jest verdes; lint y `tsc --noEmit` limpios. `security-review` vía subagente Opus 4.8: aprobado, 0 Critical/Important, 3 Minor anotados en backlog.
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — (a) sin infraestructura de push (candidata natural: 5.2); (b) el runner casero de migraciones (`apply-migrations.mjs`) deriva versión del prefijo del nombre de archivo y salta EN SILENCIO una migración si dos comparten prefijo (pasó una vez en 4.2/hardening, resuelto renombrando; el runner debería fallar ruidosamente ante la colisión, no confiar en que no se repita); (c) `responder_invitacion` distingue `AY404` (invitación inexistente) de `AY403` (existe pero no eres el receptor) — revela existencia a un tercero, riesgo bajo (UUIDs no enumerables).
 
 ### Fase 4.2 — Crear invitación/solicitud + bloqueo de fondos — 2026-07-24
 
