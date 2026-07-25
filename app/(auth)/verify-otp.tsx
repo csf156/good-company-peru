@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { verifyOtp, requestOtp, type Contact } from '@/lib/auth';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
 import { useResendCooldown } from '@/hooks/useResendCooldown';
-import { colors, typography, touchTarget, tabularNums } from '@/lib/theme';
+import { colors, radius, spacing, fontSize, textStyles, touchTarget, tabularNums } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 
@@ -52,14 +52,15 @@ export default function VerifyOtpScreen() {
   }
 
   return (
-    <Screen background={colors.light.bg} scroll center contentStyle={styles.content}>
+    <Screen scroll center contentStyle={styles.content}>
+      <Text style={styles.eyebrow}>Verificación</Text>
       <Text style={styles.title}>Ingresa el código</Text>
       <Text style={styles.subtitle}>Enviado a {params.value}</Text>
 
       <TextInput
         style={styles.input}
         placeholder="000000"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         keyboardType="number-pad"
         maxLength={6}
         value={code}
@@ -88,48 +89,53 @@ export default function VerifyOtpScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 24,
-    gap: 16,
+    padding: spacing[6],
+    gap: spacing[4],
+  },
+  eyebrow: {
+    ...textStyles.label,
+    fontSize: fontSize.caption,
+    color: colors.primary,
   },
   title: {
-    fontFamily: typography.fontFamily.heading,
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.light.text,
+    ...textStyles.display,
+    fontSize: fontSize.heading,
+    fontWeight: '700',
+    color: colors.foreground,
   },
   subtitle: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.textMuted,
+    ...textStyles.body,
+    color: colors.mutedForeground,
   },
   input: {
-    fontFamily: typography.fontFamily.body,
+    ...textStyles.body,
     ...tabularNums,
-    fontSize: typography.fontSize.xl,
+    fontSize: fontSize.display,
     letterSpacing: 8,
     textAlign: 'center',
-    color: colors.light.text,
-    backgroundColor: colors.light.surface,
+    color: colors.foreground,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.light.border,
-    borderRadius: 12,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.lg,
     minHeight: 44,
-    paddingVertical: 12,
+    paddingVertical: spacing[3],
   },
   resendButton: {
     ...touchTarget,
     alignSelf: 'center',
   },
   error: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.danger,
+    ...textStyles.body,
+    color: colors.destructiveText,
   },
   resend: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.primary,
-    fontWeight: typography.fontWeight.semibold,
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
+    color: colors.primary,
     textAlign: 'center',
   },
   resendDisabled: {
-    color: colors.light.textMuted,
+    color: colors.mutedForeground,
   },
 });
