@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { getOwnProfile, updateOwnProfile, type OwnProfile } from '@/lib/profile';
 import { getPhotoSignedUrl, uploadProfilePhoto } from '@/lib/storage';
 import { parseListInput } from '@/lib/validation';
-import { colors, typography } from '@/lib/theme';
+import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 
@@ -97,7 +97,7 @@ export default function OwnProfileScreen() {
 
   if (!profile) {
     return (
-      <Screen background={colors.light.bg} center contentStyle={styles.content}>
+      <Screen center contentStyle={styles.content}>
         <Text style={styles.subtitle}>Cargando…</Text>
       </Screen>
     );
@@ -105,7 +105,7 @@ export default function OwnProfileScreen() {
 
   if (!editing) {
     return (
-      <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
+      <Screen scroll contentStyle={styles.content}>
         {photoUrl && <Image source={{ uri: photoUrl }} style={styles.photo} />}
         <Text style={styles.title}>{profile.nombre}</Text>
         <Text style={styles.subtitle}>{profile.alias}</Text>
@@ -120,7 +120,7 @@ export default function OwnProfileScreen() {
   }
 
   return (
-    <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
+    <Screen scroll contentStyle={styles.content}>
       <Text style={styles.title}>Editar perfil</Text>
 
       <TextInput style={styles.input} value={nombre} onChangeText={setNombre} />
@@ -138,7 +138,7 @@ export default function OwnProfileScreen() {
 
       <Button
         label={newFotoPath ? 'Foto lista ✓' : 'Cambiar foto'}
-        variant="accent"
+        variant="secondary"
         onPress={handleChangePhoto}
         disabled={loading}
       />
@@ -152,52 +152,54 @@ export default function OwnProfileScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 24,
-    gap: 10,
+    padding: spacing[6],
+    gap: spacing[3],
   },
   photo: {
     width: 96,
     height: 96,
     borderRadius: 48,
     alignSelf: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   title: {
-    fontFamily: typography.fontFamily.heading,
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.light.text,
+    ...textStyles.display,
+    fontSize: fontSize.display,
+    color: colors.foreground,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.textMuted,
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
+    color: colors.mutedForeground,
     textAlign: 'center',
   },
   badge: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.success,
-    fontWeight: typography.fontWeight.semibold,
+    ...textStyles.body,
+    color: colors.success,
+    fontWeight: '600',
     textAlign: 'center',
   },
   field: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.text,
+    ...textStyles.body,
+    color: colors.foreground,
     textAlign: 'center',
   },
   input: {
-    fontFamily: typography.fontFamily.body,
-    fontSize: typography.fontSize.base,
-    color: colors.light.text,
-    backgroundColor: colors.light.surface,
+    ...textStyles.body,
+    fontSize: fontSize.bodyLg,
+    color: colors.foreground,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.light.border,
-    borderRadius: 12,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.lg,
     minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
   },
   error: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.danger,
+    ...textStyles.body,
+    color: colors.destructiveText,
   },
 });
