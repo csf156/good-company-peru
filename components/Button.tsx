@@ -1,7 +1,7 @@
 import { Pressable, Text, StyleSheet } from 'react-native';
-import { colors, typography } from '@/lib/theme';
+import { colors, radius, spacing, fontSize, textStyles, touchTarget } from '@/lib/theme';
 
-type ButtonVariant = 'primary' | 'accent';
+type ButtonVariant = 'primary' | 'secondary';
 
 type ButtonProps = {
   label: string;
@@ -11,6 +11,8 @@ type ButtonProps = {
 };
 
 export function Button({ label, variant = 'primary', disabled = false, onPress }: ButtonProps) {
+  const isPrimary = variant === 'primary';
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -19,12 +21,12 @@ export function Button({ label, variant = 'primary', disabled = false, onPress }
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' ? styles.primary : styles.accent,
-        pressed && (variant === 'primary' ? styles.primaryPressed : styles.accentPressed),
+        isPrimary ? styles.primary : styles.secondary,
+        pressed && (isPrimary ? styles.primaryPressed : styles.secondaryPressed),
         disabled && styles.disabled,
       ]}
     >
-      <Text style={[styles.label, variant === 'primary' ? styles.labelOnPrimary : styles.labelOnAccent]}>
+      <Text style={[styles.label, isPrimary ? styles.labelOnPrimary : styles.labelOnSecondary]}>
         {label}
       </Text>
     </Pressable>
@@ -33,36 +35,34 @@ export function Button({ label, variant = 'primary', disabled = false, onPress }
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 44,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 12,
+    ...touchTarget,
+    paddingHorizontal: spacing[5],
+    borderRadius: radius.lg,
   },
   primary: {
-    backgroundColor: colors.light.primary,
+    backgroundColor: colors.primary,
   },
   primaryPressed: {
-    backgroundColor: colors.light.primaryDark,
+    backgroundColor: colors.primaryGlow,
   },
-  accent: {
-    backgroundColor: colors.light.accent,
+  secondary: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
-  accentPressed: {
-    backgroundColor: colors.light.accentDark,
+  secondaryPressed: {
+    backgroundColor: colors.surface2,
   },
   disabled: {
     opacity: 0.5,
   },
   label: {
-    fontFamily: typography.fontFamily.body,
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    ...textStyles.label,
+    fontSize: fontSize.caption,
   },
   labelOnPrimary: {
-    color: colors.light.surface,
+    color: colors.primaryForeground,
   },
-  labelOnAccent: {
-    color: colors.light.text,
+  labelOnSecondary: {
+    color: colors.primary,
   },
 });

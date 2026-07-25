@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { Button } from '@/components/Button';
-import { colors } from '@/lib/theme';
+import { colors, fontFamily } from '@/lib/theme';
 
 describe('Button', () => {
   it('renders the label', async () => {
@@ -29,10 +29,23 @@ describe('Button', () => {
     expect(button.props.accessibilityState.disabled).toBe(true);
   });
 
-  it('uses AA-compliant dark text on the accent variant', async () => {
-    await render(<Button label="Invitar" variant="accent" onPress={() => {}} />);
+  it('usa texto oscuro sobre el primary, que cumple AA', async () => {
+    await render(<Button label="Invitar" onPress={() => {}} />);
     const label = screen.getByText('Invitar');
     const flatStyle = StyleSheet.flatten(label.props.style);
-    expect(flatStyle.color).toBe(colors.light.text);
+    expect(flatStyle.color).toBe(colors.primaryForeground);
+  });
+
+  it('la variante secondary es contorno, no relleno', async () => {
+    await render(<Button label="Invitar" variant="secondary" onPress={() => {}} />);
+    const label = screen.getByText('Invitar');
+    expect(StyleSheet.flatten(label.props.style).color).toBe(colors.primary);
+  });
+
+  it('rotula en mayusculas con la tipografia de label', async () => {
+    await render(<Button label="Invitar" onPress={() => {}} />);
+    const flatStyle = StyleSheet.flatten(screen.getByText('Invitar').props.style);
+    expect(flatStyle.fontFamily).toBe(fontFamily.label);
+    expect(flatStyle.textTransform).toBe('uppercase');
   });
 });
