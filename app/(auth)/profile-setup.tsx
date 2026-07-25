@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
 import { isValidEdad, parseListInput } from '@/lib/validation';
-import { colors, typography } from '@/lib/theme';
+import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import type { RolUsuario } from '@/lib/auth';
@@ -100,27 +100,28 @@ export default function ProfileSetupScreen() {
   }
 
   return (
-    <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
+    <Screen scroll contentStyle={styles.content}>
+      <Text style={styles.eyebrow}>Tu perfil</Text>
       <Text style={styles.title}>Completa tu perfil</Text>
 
       <TextInput
         style={styles.input}
         placeholder="Nombre completo"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         value={nombre}
         onChangeText={setNombre}
       />
       <TextInput
         style={styles.input}
         placeholder="Alias"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         value={alias}
         onChangeText={setAlias}
       />
       <TextInput
         style={styles.input}
         placeholder="Edad"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         keyboardType="number-pad"
         value={edadText}
         onChangeText={setEdadText}
@@ -128,28 +129,28 @@ export default function ProfileSetupScreen() {
       <TextInput
         style={styles.input}
         placeholder="Género"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         value={genero}
         onChangeText={setGenero}
       />
       <TextInput
         style={styles.input}
         placeholder="Profesión"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         value={profesion}
         onChangeText={setProfesion}
       />
       <TextInput
         style={styles.input}
         placeholder="Hobbies (separados por coma)"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         value={hobbies}
         onChangeText={setHobbies}
       />
       <TextInput
         style={styles.input}
         placeholder="Intereses (separados por coma)"
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         value={intereses}
         onChangeText={setIntereses}
       />
@@ -158,7 +159,7 @@ export default function ProfileSetupScreen() {
         <TextInput
           style={styles.input}
           placeholder="Distritos (separados por coma)"
-          placeholderTextColor={colors.light.textMuted}
+          placeholderTextColor={colors.mutedForeground}
           value={distritos}
           onChangeText={setDistritos}
         />
@@ -166,7 +167,7 @@ export default function ProfileSetupScreen() {
 
       <Button
         label={fotoPath ? 'Foto lista ✓' : 'Elegir foto'}
-        variant="accent"
+        variant="secondary"
         onPress={handlePickPhoto}
         disabled={loading}
       />
@@ -180,30 +181,35 @@ export default function ProfileSetupScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 24,
-    gap: 12,
+    padding: spacing[6],
+    gap: spacing[3],
+  },
+  eyebrow: {
+    ...textStyles.label,
+    fontSize: fontSize.caption,
+    color: colors.primary,
   },
   title: {
-    fontFamily: typography.fontFamily.heading,
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.light.text,
-    marginBottom: 8,
+    ...textStyles.display,
+    fontSize: fontSize.heading,
+    fontWeight: '700',
+    color: colors.foreground,
+    marginBottom: spacing[2],
   },
   input: {
-    fontFamily: typography.fontFamily.body,
-    fontSize: typography.fontSize.base,
-    color: colors.light.text,
-    backgroundColor: colors.light.surface,
+    ...textStyles.body,
+    fontSize: fontSize.bodyLg,
+    color: colors.foreground,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.light.border,
-    borderRadius: 12,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.lg,
     minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
   },
   error: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.danger,
+    ...textStyles.body,
+    color: colors.destructiveText,
   },
 });
