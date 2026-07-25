@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { getMiBar, type BarItem, type EstadoBar } from '@/lib/bar';
-import { ayni, ayniTypography } from '@/lib/theme';
+import { colors, fontFamily } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 
 const ESTADO_LABEL: Record<EstadoBar, string> = {
@@ -22,7 +22,7 @@ export default function BarScreen() {
   }, []);
 
   return (
-    <Screen background={ayni.background} scroll contentStyle={styles.content}>
+    <Screen background={colors.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Mi Bar</Text>
       <Text style={styles.title}>Tu inventario</Text>
       <Text style={styles.subtitle}>
@@ -63,25 +63,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
   title: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 30,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   subtitle: {
     fontSize: 13,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     marginBottom: 8,
   },
   empty: {
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     fontSize: 13,
     marginTop: 16,
     textAlign: 'center',
@@ -95,8 +95,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
   },
@@ -104,26 +104,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowTipo: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 9,
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
   rowNombre: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 16,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   rowEstado: {
     fontSize: 11,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     marginTop: 2,
   },
   invitar: {
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getChats, type ChatResumen } from '@/lib/chat';
-import { ayni, ayniTypography } from '@/lib/theme';
+import { colors, fontFamily } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 
 export default function ChatsScreen() {
@@ -18,7 +18,7 @@ export default function ChatsScreen() {
   }, []);
 
   return (
-    <Screen background={ayni.background} scroll contentStyle={styles.content}>
+    <Screen background={colors.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Conversaciones</Text>
       <Text style={styles.title}>Tus chats</Text>
       <Text style={styles.subtitle}>
@@ -55,25 +55,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
   title: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 30,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   subtitle: {
     fontSize: 13,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     marginBottom: 8,
   },
   empty: {
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     fontSize: 13,
     marginTop: 16,
     textAlign: 'center',
@@ -85,20 +85,20 @@ const styles = StyleSheet.create({
   row: {
     minHeight: 44,
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
     gap: 4,
   },
   alias: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 16,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   ultimo: {
     fontSize: 12,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
   },
 });

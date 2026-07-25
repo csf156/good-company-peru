@@ -7,7 +7,7 @@ import {
   type Bebida,
   type TipoInvitacion,
 } from '@/lib/tienda';
-import { ayni, ayniTypography, touchTarget, tabularNums } from '@/lib/theme';
+import { colors, fontFamily, touchTarget, tabularNums } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 
 const FILTROS: { key: TipoInvitacion | 'todos'; label: string }[] = [
@@ -76,7 +76,7 @@ export default function StoreScreen() {
   }
 
   return (
-    <Screen background={ayni.background} scroll contentStyle={styles.content}>
+    <Screen background={colors.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>La Cava</Text>
       <Text style={styles.title}>Tienda de bebidas</Text>
       <Text style={styles.subtitle}>Cada bebida es un tipo de invitación. Elige el gesto correcto.</Text>
@@ -142,21 +142,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
   title: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 30,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   subtitle: {
     fontSize: 13,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     marginBottom: 8,
   },
   filters: {
@@ -165,43 +165,43 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginRight: 8,
   },
   chipActive: {
-    borderColor: ayni.primary,
-    backgroundColor: ayni.primary,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   chipLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
   },
   chipLabelActive: {
-    color: ayni.primaryForeground,
+    color: colors.primaryForeground,
   },
   banner: {
-    backgroundColor: ayni.success,
-    color: ayni.foreground,
+    backgroundColor: colors.success,
+    color: colors.foreground,
     padding: 10,
     borderRadius: 12,
     fontSize: 13,
     marginTop: 8,
   },
   errorBanner: {
-    backgroundColor: ayni.destructive,
-    color: ayni.foreground,
+    backgroundColor: colors.destructive,
+    color: colors.foreground,
     padding: 10,
     borderRadius: 12,
     fontSize: 13,
     marginTop: 8,
   },
   empty: {
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     fontSize: 13,
     marginTop: 16,
     textAlign: 'center',
@@ -215,8 +215,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
   },
@@ -224,25 +224,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowTipo: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 9,
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
   rowNombre: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 16,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   rowAction: {
     alignItems: 'flex-end',
   },
   rowValor: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     ...tabularNums,
     fontSize: 14,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   buyButton: {
     ...touchTarget,
@@ -253,6 +253,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
 });

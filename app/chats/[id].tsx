@@ -20,7 +20,7 @@ import {
   type Mensaje,
 } from '@/lib/chat';
 import { getCitaDetalle, confirmarCita, type CitaDetalle } from '@/lib/citas';
-import { ayni, ayniTypography } from '@/lib/theme';
+import { colors, fontFamily } from '@/lib/theme';
 
 export default function ChatDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -191,7 +191,7 @@ export default function ChatDetailScreen() {
           value={texto}
           onChangeText={setTexto}
           placeholder="Escribe un mensaje…"
-          placeholderTextColor={ayni.mutedForeground}
+          placeholderTextColor={colors.mutedForeground}
           multiline
         />
         <Pressable
@@ -217,7 +217,7 @@ export default function ChatDetailScreen() {
                 value={zona}
                 onChangeText={setZona}
                 placeholder="Zona de encuentro"
-                placeholderTextColor={ayni.mutedForeground}
+                placeholderTextColor={colors.mutedForeground}
               />
             </View>
 
@@ -228,7 +228,7 @@ export default function ChatDetailScreen() {
                 value={hora}
                 onChangeText={setHora}
                 placeholder="Hora (ej. 2026-07-25 21:30)"
-                placeholderTextColor={ayni.mutedForeground}
+                placeholderTextColor={colors.mutedForeground}
               />
             </View>
 
@@ -239,7 +239,7 @@ export default function ChatDetailScreen() {
                 value={mensajeCita}
                 onChangeText={setMensajeCita}
                 placeholder="Mensaje adicional (opcional)"
-                placeholderTextColor={ayni.mutedForeground}
+                placeholderTextColor={colors.mutedForeground}
                 multiline
               />
             </View>
@@ -271,23 +271,23 @@ export default function ChatDetailScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: ayni.background,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: ayni.background,
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: ayni.border,
+    borderBottomColor: colors.border,
   },
   headerAlias: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 20,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   scroll: {
     flex: 1,
@@ -297,15 +297,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   warning: {
-    backgroundColor: ayni.muted,
+    backgroundColor: colors.muted,
     borderWidth: 1,
-    borderColor: ayni.destructive,
+    borderColor: colors.destructive,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
   },
   warningText: {
-    color: ayni.foreground,
+    color: colors.foreground,
     fontSize: 12,
   },
   bubbleRow: {
@@ -324,29 +324,29 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   bubbleMine: {
-    backgroundColor: ayni.primary,
+    backgroundColor: colors.primary,
     borderBottomRightRadius: 4,
   },
   bubbleOther: {
-    backgroundColor: ayni.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: ayni.border,
+    borderColor: colors.border,
     borderBottomLeftRadius: 4,
   },
   textMine: {
-    color: ayni.primaryForeground,
+    color: colors.primaryForeground,
     fontSize: 13,
   },
   textOther: {
-    color: ayni.foreground,
+    color: colors.foreground,
     fontSize: 13,
   },
   ocultoTag: {
     marginTop: 4,
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 9,
     textTransform: 'uppercase',
-    color: ayni.primaryForeground,
+    color: colors.primaryForeground,
   },
   composer: {
     flexDirection: 'row',
@@ -354,54 +354,54 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderTopWidth: 1,
-    borderTopColor: ayni.border,
+    borderTopColor: colors.border,
   },
   input: {
     flex: 1,
     maxHeight: 120,
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    color: ayni.foreground,
+    color: colors.foreground,
     fontSize: 14,
   },
   sendButton: {
     minHeight: 44,
     justifyContent: 'center',
-    backgroundColor: ayni.primary,
+    backgroundColor: colors.primary,
     borderRadius: 20,
     paddingHorizontal: 18,
   },
   sendLabel: {
-    color: ayni.primaryForeground,
+    color: colors.primaryForeground,
     fontWeight: '700',
     fontSize: 12,
     textTransform: 'uppercase',
   },
   resumen: {
-    backgroundColor: ayni.surface2,
+    backgroundColor: colors.surface2,
     borderWidth: 1,
-    borderColor: ayni.primary,
+    borderColor: colors.primary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 8,
   },
   resumenLabel: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    color: ayni.primary,
+    color: colors.primary,
     marginBottom: 6,
   },
   resumenTitulo: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 18,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   resumenFila: {
     flexDirection: 'row',
@@ -409,21 +409,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   resumenDato: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontVariant: ['tabular-nums'],
     fontSize: 13,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   resumenTexto: {
     marginTop: 4,
     fontSize: 13,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
   },
   resumenMensaje: {
     marginTop: 8,
     fontSize: 12,
     fontStyle: 'italic',
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   confirmarWrap: {
     paddingHorizontal: 12,
@@ -433,14 +433,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: ayni.primary,
-    backgroundColor: ayni.surface2,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface2,
     borderRadius: 16,
     paddingVertical: 12,
     alignItems: 'center',
   },
   confirmarButtonLabel: {
-    color: ayni.primary,
+    color: colors.primary,
     fontWeight: '700',
     fontSize: 12,
     textTransform: 'uppercase',
@@ -452,63 +452,63 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   modalSheet: {
-    backgroundColor: ayni.surface,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     gap: 4,
   },
   modalEyebrow: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    color: ayni.primary,
+    color: colors.primary,
   },
   modalTitulo: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 22,
-    color: ayni.foreground,
+    color: colors.foreground,
     marginBottom: 12,
   },
   field: {
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.background,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 10,
     marginBottom: 10,
   },
   fieldLabel: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 9,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     marginBottom: 2,
   },
   fieldInput: {
-    color: ayni.foreground,
+    color: colors.foreground,
     fontSize: 14,
     padding: 0,
   },
   modalError: {
-    color: ayni.destructive,
+    color: colors.destructive,
     fontSize: 12,
     marginBottom: 8,
   },
   modalSubmit: {
     minHeight: 44,
     justifyContent: 'center',
-    backgroundColor: ayni.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 4,
   },
   modalSubmitLabel: {
-    color: ayni.primaryForeground,
+    color: colors.primaryForeground,
     fontWeight: '700',
     fontSize: 13,
     textTransform: 'uppercase',
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   },
   modalCancelar: {
     textAlign: 'center',
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     fontSize: 12,
     marginTop: 14,
   },

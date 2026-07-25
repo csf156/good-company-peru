@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { getPerfilesDescubrir, type Descubrimiento } from '@/lib/descubrimiento';
-import { ayni, ayniTypography, tabularNums } from '@/lib/theme';
+import { colors, fontFamily, tabularNums } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 
 const CTA_LABEL: Record<'amigo' | 'rentador', string> = {
@@ -34,7 +34,7 @@ export default function DiscoverScreen() {
   }
 
   return (
-    <Screen background={ayni.background} scroll contentStyle={styles.content}>
+    <Screen background={colors.background} scroll contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Ayni</Text>
       <Text style={styles.title}>Descubre</Text>
 
@@ -93,55 +93,55 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: ayni.primary,
+    color: colors.primary,
   },
   title: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 30,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   empty: {
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     fontSize: 13,
     marginTop: 16,
     textAlign: 'center',
   },
   counter: {
-    fontFamily: ayniTypography.fontFamily.mono,
+    fontFamily: fontFamily.label,
     ...tabularNums,
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     marginTop: 12,
   },
   card: {
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 20,
     marginTop: 12,
     gap: 4,
   },
   alias: {
-    fontFamily: ayniTypography.fontFamily.serifItalic,
+    fontFamily: fontFamily.display,
     fontStyle: 'italic',
     fontSize: 24,
-    color: ayni.foreground,
+    color: colors.foreground,
   },
   meta: {
     fontSize: 13,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
   },
   hobbies: {
     fontSize: 12,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
     marginTop: 6,
   },
   nav: {
@@ -154,18 +154,18 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: ayni.border,
-    backgroundColor: ayni.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navGlyph: {
     fontSize: 20,
-    color: ayni.mutedForeground,
+    color: colors.mutedForeground,
   },
   cta: {
     marginTop: 20,
-    backgroundColor: ayni.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
@@ -175,6 +175,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    color: ayni.primaryForeground,
+    color: colors.primaryForeground,
   },
 });
