@@ -3,7 +3,7 @@ import { Text, Image, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getPublicProfile, type PublicProfile } from '@/lib/profile';
 import { getPhotoSignedUrl } from '@/lib/storage';
-import { colors, typography } from '@/lib/theme';
+import { colors, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 
 export default function PublicProfileScreen() {
@@ -28,7 +28,7 @@ export default function PublicProfileScreen() {
 
   if (notFound) {
     return (
-      <Screen background={colors.light.bg} center contentStyle={styles.content}>
+      <Screen center contentStyle={styles.content}>
         <Text style={styles.subtitle}>Perfil no encontrado.</Text>
       </Screen>
     );
@@ -36,14 +36,14 @@ export default function PublicProfileScreen() {
 
   if (!profile) {
     return (
-      <Screen background={colors.light.bg} center contentStyle={styles.content}>
+      <Screen center contentStyle={styles.content}>
         <Text style={styles.subtitle}>Cargando…</Text>
       </Screen>
     );
   }
 
   return (
-    <Screen background={colors.light.bg} scroll contentStyle={styles.content}>
+    <Screen scroll contentStyle={styles.content}>
       {photoUrl && <Image source={{ uri: photoUrl }} style={styles.photo} />}
       <Text style={styles.title}>{profile.alias}</Text>
       {profile.kyc_estado === 'verificado' && <Text style={styles.badge}>Verificado ✓</Text>}
@@ -63,8 +63,8 @@ export default function PublicProfileScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 24,
-    gap: 8,
+    padding: spacing[6],
+    gap: spacing[2],
   },
   photo: {
     width: 96,
@@ -73,26 +73,26 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontFamily: typography.fontFamily.heading,
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.light.text,
+    ...textStyles.display,
+    fontSize: fontSize.heading,
+    fontWeight: '700',
+    color: colors.foreground,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.textMuted,
+    ...textStyles.body,
+    color: colors.mutedForeground,
     textAlign: 'center',
   },
   badge: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.success,
-    fontWeight: typography.fontWeight.semibold,
+    ...textStyles.body,
+    color: colors.success,
+    fontWeight: '600',
     textAlign: 'center',
   },
   field: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.text,
+    ...textStyles.body,
+    color: colors.foreground,
     textAlign: 'center',
   },
 });
