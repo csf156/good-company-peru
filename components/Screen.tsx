@@ -9,15 +9,15 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { colors } from '@/lib/theme';
 
 type ScreenProps = {
   children: ReactNode;
   /**
-   * Color de fondo de la pantalla. Explícito (sin default) para que cada
-   * pantalla conserve su paleta: las 1.x claras pasan `colors.light.bg`, las
-   * 3.x/4.x oscuras pasan `ayni.background`. El primitivo es palette-agnóstico.
+   * Color de fondo de la pantalla. Por defecto el de la paleta; se pasa
+   * explícito solo cuando una pantalla necesita otra superficie.
    */
-  background: string;
+  background?: string;
   /** Envuelve el contenido en un ScrollView (contenido largo / con teclado). */
   scroll?: boolean;
   /** Centra el contenido verticalmente (formularios cortos). */
@@ -38,7 +38,7 @@ const DEFAULT_EDGES: readonly Edge[] = ['top', 'bottom'];
  */
 export function Screen({
   children,
-  background,
+  background = colors.background,
   scroll = false,
   center = false,
   contentStyle,

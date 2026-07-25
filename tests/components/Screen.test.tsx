@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { colors } from '@/lib/theme';
 
 describe('Screen', () => {
   it('renders its children', async () => {
@@ -40,5 +41,15 @@ describe('Screen', () => {
       </Screen>,
     );
     expect(screen.queryByTestId('screen-scroll')).toBeNull();
+  });
+
+  it('usa el fondo de la paleta por defecto', async () => {
+    await render(
+      <Screen testID="pantalla">
+        <Text>hola</Text>
+      </Screen>,
+    );
+    const root = screen.getByTestId('pantalla');
+    expect(StyleSheet.flatten(root.props.style).backgroundColor).toBe(colors.background);
   });
 });
