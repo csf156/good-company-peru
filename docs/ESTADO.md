@@ -34,7 +34,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 4.2 | Crear invitación/solicitud + bloqueo fondos | ✅ |
 | 4.3 | Aceptar/rechazar → abre chat | ✅ |
 | 4.4 | Chat realtime + moderación | ✅ |
-| 4.5 | Confirmar cita | ⬜ |
+| 4.5 | Confirmar cita | ✅ |
 | 4.6 | Revisión SP4 | ⬜ |
 | 5.0 | Sesión + token QR rotativo | ⬜ |
 | 5.1 | Scan mutuo + geofence | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 4.5 — Confirmar cita (resumen) — 2026-07-24
+
+- **Qué se construyó:** flujo "Confirmar cita" dentro del chat (`app/chats/[id].tsx`, extendiendo la pantalla de 4.4). El amigo (determinado dinámicamente vía join `invitaciones`+`profiles.rol` — nunca fijo a emisor ni receptor, porque `invitacion` y `solicitud` invierten quién es cada rol) captura zona/hora/mensaje; al confirmar, `citas.estado` pasa de `'pendiente'` a `'confirmada'` guardando esos detalles + `confirmada_at`. Ambas partes ven el resumen "Cita confirmada" (bebida, V, tiempo estimado, zona, hora). Ejecutado con `superpowers:subagent-driven-development`: implementador **Sonnet 5** (no Opus — es lo que pide esta fase específica del plan) → verificación de seguridad rápida del controller (sin task-reviewer subagente dedicado, ya que esta fase no trae `security-review` en su lista de skills, a diferencia de 4.2/4.3/4.4).
+- **Archivos/pantallas clave:** `app/chats/[id].tsx` (ampliado), `lib/citas.ts` (`getCitaDetalle`, `confirmarCita`), `supabase/functions/confirmar-cita/index.ts`, `supabase/functions/_shared/citas.ts` (validación de forma, Jest).
+- **Tablas / Edge Functions / migraciones:** migración `20260724180000_confirmar_cita.sql` (función `confirmar_cita`, `SECURITY DEFINER`, `search_path` fijo, execute solo `service_role` — mismo patrón que `crear_invitacion`/`responder_invitacion`, pero deliberadamente más simple: sin bloqueo de `bar`, un solo `for update` sobre `citas`, porque esta fase no mueve bebidas ni escrow). Edge Function nueva: `confirmar-cita` (`verify_jwt=true`). Sin tablas nuevas — usa las columnas `zona`/`hora`/`mensaje`/`confirmada_at` de `citas` que la fase 4.0 ya había sembrado sin usar.
+- **Decisiones tomadas en la fase:** (1) **"El amigo" se determina dinámicamente**, nunca asumido por dirección de la invitación — mismo criterio que `responder_invitacion` (4.3) usó para "quién responde". (2) **Idempotencia benigna igual que 4.3:** confirmar una cita ya `'confirmada'` devuelve `'ya_confirmada'` sin pisar zona/hora/mensaje ya guardados; otros estados (todos de fase 5.x) son conflicto (`AY409`). (3) **Orden de chequeos:** primero el actor (AY403 "solo el amigo puede confirmar"), después la idempotencia — así una invitación ya confirmada por otra persona sigue rechazando la suplantación aunque el estado ya no sea `'pendiente'`. (4) **Recorte de alcance del Lovable original** (mismo criterio que 3.3/4.4): el resumen mostrado es exactamente el que pide el texto del plan (bebida/V/tiempo/zona/hora), NO el de Lovable; sin botón "Ir a la cita activa" ni nav a `/date/:id` (fase 5.x). (5) **Campo "hora" es texto libre** (validado con `Date.parse` cliente+servidor) — no existe date-picker nativo en el repo y agregarlo se consideró fuera de alcance para una fase "medium"; funciona pero la UX es básica (anotado en backlog). (6) **Sin push** — mismo caso que 4.3, sin infraestructura.
+- **Tests:** 210→230 pgTAP (file 22 nuevo: 20 aserciones, incluyendo los dos casos nombrados por el plan — "solo el amigo puede confirmar" en ambas direcciones `invitacion`/`solicitud` — y "confirmar setea estado y detalles" — más idempotencia, estados no confirmables, revoke del cliente) verdes; 241→262 jest (`_shared/citas.ts`, `lib/citas.ts`, pantalla de chat ampliada) verdes; lint y `tsc --noEmit` limpios. Sin ciclo de `security-review` subagente (no lo pide esta fase); revisión rápida del controller: anti-suplantación correcta, actor nunca del body, patrón `SECURITY DEFINER`/revoke-grant correcto, sin hallazgos que bloqueen.
+- **Deuda / notas para fases futuras:** anotado en `docs/backlog.md` — (a) input de hora como texto libre, sin date-picker; (b) `crear_invitacion` (4.2) no valida que emisor/receptor tengan roles coherentes con `tipo` (solo exige que no sean el mismo perfil) — `confirmar_cita` falla seguro ante esa inconsistencia (nadie matchea `rol='amigo'` → rechaza a cualquiera, nunca a la persona equivocada), no explotable hoy pero la causa raíz sigue sin validarse en el punto de creación.
 
 ### Fase 4.4 — Chat realtime + moderación anti-fuga — 2026-07-24
 
