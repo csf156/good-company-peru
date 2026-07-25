@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { requestOtp } from '@/lib/auth';
 import { isValidEmail, toE164Peru } from '@/lib/validation';
-import { colors, typography } from '@/lib/theme';
+import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 
@@ -46,7 +46,8 @@ export default function SignInScreen() {
   }
 
   return (
-    <Screen background={colors.light.bg} scroll center contentStyle={styles.content}>
+    <Screen scroll center contentStyle={styles.content}>
+      <Text style={styles.eyebrow}>Bienvenido</Text>
       <Text style={styles.title}>Ingresa a tu cuenta</Text>
 
       <View style={styles.tabs}>
@@ -81,7 +82,7 @@ export default function SignInScreen() {
       <TextInput
         style={styles.input}
         placeholder={contactType === 'phone' ? '987 654 321' : 'tu@correo.com'}
-        placeholderTextColor={colors.light.textMuted}
+        placeholderTextColor={colors.mutedForeground}
         keyboardType={contactType === 'phone' ? 'phone-pad' : 'email-address'}
         autoCapitalize="none"
         value={value}
@@ -97,57 +98,63 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 24,
-    gap: 16,
+    padding: spacing[6],
+    gap: spacing[4],
+  },
+  eyebrow: {
+    ...textStyles.label,
+    fontSize: fontSize.caption,
+    color: colors.primary,
   },
   title: {
-    fontFamily: typography.fontFamily.heading,
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.light.text,
-    marginBottom: 8,
+    ...textStyles.display,
+    fontSize: fontSize.display,
+    fontWeight: '700',
+    color: colors.foreground,
+    marginBottom: spacing[2],
   },
   tabs: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing[2],
   },
   tab: {
     flex: 1,
     minHeight: 44,
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: spacing[2],
+    borderRadius: radius.md,
     alignItems: 'center',
-    backgroundColor: colors.light.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.light.border,
+    borderColor: colors.border,
   },
   tabActive: {
-    backgroundColor: colors.light.primaryLight,
-    borderColor: colors.light.primary,
+    backgroundColor: colors.surface2,
+    borderColor: colors.primary,
   },
   tabLabel: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.textMuted,
-    fontWeight: typography.fontWeight.semibold,
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
+    color: colors.mutedForeground,
+    fontWeight: '600',
   },
   tabLabelActive: {
-    color: colors.light.primaryDark,
+    color: colors.accent,
   },
   input: {
-    fontFamily: typography.fontFamily.body,
-    fontSize: typography.fontSize.base,
-    color: colors.light.text,
-    backgroundColor: colors.light.surface,
+    ...textStyles.body,
+    fontSize: fontSize.bodyLg,
+    color: colors.foreground,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.light.border,
-    borderRadius: 12,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.lg,
     minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
   },
   error: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.danger,
+    ...textStyles.body,
+    color: colors.destructiveText,
   },
 });
