@@ -1,4 +1,4 @@
-import { colors, levels, radius, spacing } from '@/lib/theme';
+import { colors, fontFamily, levels, radius, spacing, textStyles } from '@/lib/theme';
 
 /**
  * Convierte HSL (los valores tal como aparecen en el `:root` de
@@ -93,5 +93,32 @@ describe('paleta Ayni', () => {
 
   it('define la escala de espaciado en grid de 4px', () => {
     expect(Object.values(spacing)).toEqual([4, 8, 12, 16, 20, 24]);
+  });
+
+  it('las variantes de peso de fontFamily apuntan a las caras exactas registradas en app/_layout.tsx', () => {
+    // Si un nombre de clave se desalinea del nombre de cara que useFonts()
+    // registra, la fuente cae silenciosamente al tipo del sistema en vez de
+    // fallar — por eso este test fija los ocho nombres literales.
+    expect(fontFamily.display).toBe('PlayfairDisplay-Italic');
+    expect(fontFamily.displaySemiBold).toBe('PlayfairDisplay-Italic-SemiBold');
+    expect(fontFamily.label).toBe('JetBrainsMono-Regular');
+    expect(fontFamily.labelMedium).toBe('JetBrainsMono-Medium');
+    expect(fontFamily.body).toBe('Inter-Regular');
+    expect(fontFamily.bodyMedium).toBe('Inter-Medium');
+    expect(fontFamily.bodySemiBold).toBe('Inter-SemiBold');
+    expect(fontFamily.bodyBold).toBe('Inter-Bold');
+  });
+
+  it('las variantes de peso de textStyles reusan el tratamiento de su variante base', () => {
+    expect(textStyles.displaySemiBold.letterSpacing).toBe(textStyles.display.letterSpacing);
+    expect(textStyles.displaySemiBold.fontFamily).toBe(fontFamily.displaySemiBold);
+
+    expect(textStyles.labelMedium.textTransform).toBe(textStyles.label.textTransform);
+    expect(textStyles.labelMedium.letterSpacing).toBe(textStyles.label.letterSpacing);
+    expect(textStyles.labelMedium.fontFamily).toBe(fontFamily.labelMedium);
+
+    expect(textStyles.bodyMedium.fontFamily).toBe(fontFamily.bodyMedium);
+    expect(textStyles.bodySemiBold.fontFamily).toBe(fontFamily.bodySemiBold);
+    expect(textStyles.bodyBold.fontFamily).toBe(fontFamily.bodyBold);
   });
 });

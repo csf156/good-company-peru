@@ -176,9 +176,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   badge: {
-    ...textStyles.body,
+    ...textStyles.bodySemiBold,
     color: colors.success,
-    fontWeight: '600',
     textAlign: 'center',
   },
   field: {

@@ -73,9 +73,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    ...textStyles.display,
+    ...textStyles.displaySemiBold,
     fontSize: fontSize.heading,
-    fontWeight: '700',
     color: colors.foreground,
     textAlign: 'center',
   },
@@ -85,9 +84,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   badge: {
-    ...textStyles.body,
+    ...textStyles.bodySemiBold,
     color: colors.success,
-    fontWeight: '600',
     textAlign: 'center',
   },
   field: {

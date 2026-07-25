@@ -98,9 +98,8 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   title: {
-    ...textStyles.display,
+    ...textStyles.displaySemiBold,
     fontSize: fontSize.heading,
-    fontWeight: '700',
     color: colors.foreground,
   },
   subtitle: {

@@ -107,9 +107,8 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   title: {
-    ...textStyles.display,
+    ...textStyles.displaySemiBold,
     fontSize: fontSize.display,
-    fontWeight: '700',
     color: colors.foreground,
     marginBottom: spacing[2],
   },
@@ -133,13 +132,12 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   tabLabel: {
-    ...textStyles.label,
+    ...textStyles.labelMedium,
     fontSize: fontSize.tiny,
     color: colors.mutedForeground,
-    fontWeight: '600',
   },
   tabLabelActive: {
-    color: colors.accent,
+    color: colors.primary,
   },
   input: {
     ...textStyles.body,

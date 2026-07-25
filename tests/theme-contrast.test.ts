@@ -40,4 +40,8 @@ describe('contraste de la paleta', () => {
   it('destructive crudo NO alcanza AA para texto — por eso existe destructiveText', () => {
     expect(contrast(colors.destructive, colors.background)).toBeLessThan(4.5);
   });
+
+  it('accent NO alcanza AA para texto sobre surface2 — por eso los estados activos usan primary', () => {
+    expect(contrast(colors.accent, colors.surface2)).toBeLessThan(4.5);
+  });
 });

@@ -112,8 +112,13 @@ export const tabularNums: TextStyle = { fontVariant: ['tabular-nums'] };
  */
 export const fontFamily = {
   display: 'PlayfairDisplay-Italic',
+  displaySemiBold: 'PlayfairDisplay-Italic-SemiBold',
   label: 'JetBrainsMono-Regular',
+  labelMedium: 'JetBrainsMono-Medium',
   body: 'Inter-Regular',
+  bodyMedium: 'Inter-Medium',
+  bodySemiBold: 'Inter-SemiBold',
+  bodyBold: 'Inter-Bold',
 } as const;
 
 /**
@@ -130,12 +135,30 @@ export const textStyles = {
     fontFamily: fontFamily.display,
     letterSpacing: -0.5,
   },
+  displaySemiBold: {
+    fontFamily: fontFamily.displaySemiBold,
+    letterSpacing: -0.5,
+  },
   label: {
     fontFamily: fontFamily.label,
     textTransform: 'uppercase',
     letterSpacing: 1.6,
   },
+  labelMedium: {
+    fontFamily: fontFamily.labelMedium,
+    textTransform: 'uppercase',
+    letterSpacing: 1.6,
+  },
   body: {
     fontFamily: fontFamily.body,
+  },
+  bodyMedium: {
+    fontFamily: fontFamily.bodyMedium,
+  },
+  bodySemiBold: {
+    fontFamily: fontFamily.bodySemiBold,
+  },
+  bodyBold: {
+    fontFamily: fontFamily.bodyBold,
   },
 } satisfies Record<string, TextStyle>;
