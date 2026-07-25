@@ -12,6 +12,14 @@ module.exports = [
     },
   },
   {
+    // jest.config.js calcula su propio testMatch en JS plano (ver comentario
+    // del archivo) para evitar la sustitución rota de <rootDir> de Jest.
+    files: ['jest.config.js'],
+    languageOptions: {
+      globals: { __dirname: 'readonly', require: 'readonly', module: 'writable' },
+    },
+  },
+  {
     ignores: [
       'dist/*',
       'node_modules/*',
