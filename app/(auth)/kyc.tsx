@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadDniDocument } from '@/lib/storage';
 import { startKycVerification } from '@/lib/kyc';
-import { colors, typography } from '@/lib/theme';
+import { colors, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 
@@ -59,7 +59,8 @@ export default function KycScreen() {
   const canVerify = Boolean(dniPath && selfiePath) && !loading;
 
   return (
-    <Screen background={colors.light.bg} scroll center contentStyle={styles.content}>
+    <Screen scroll center contentStyle={styles.content}>
+      <Text style={styles.eyebrow}>Verificación</Text>
       <Text style={styles.title}>Verifica tu identidad</Text>
       <Text style={styles.subtitle}>
         Escanea tu DNI y toma una selfie para confirmar que eres tú.
@@ -72,7 +73,7 @@ export default function KycScreen() {
       />
       <Button
         label={selfiePath ? 'Selfie lista ✓' : 'Tomar selfie'}
-        variant="accent"
+        variant="secondary"
         onPress={() => capture('selfie', setSelfiePath)}
         disabled={loading}
       />
@@ -80,7 +81,7 @@ export default function KycScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
       {pending && (
         <Text style={styles.pending}>
-          Tu identidad está en revisión. Te avisaremos apenas se confirme.
+          ⏳ Tu identidad está en revisión. Te avisaremos apenas se confirme.
         </Text>
       )}
 
@@ -91,25 +92,30 @@ export default function KycScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 24,
-    gap: 16,
+    padding: spacing[6],
+    gap: spacing[4],
+  },
+  eyebrow: {
+    ...textStyles.label,
+    fontSize: fontSize.caption,
+    color: colors.primary,
   },
   title: {
-    fontFamily: typography.fontFamily.heading,
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.light.text,
+    ...textStyles.display,
+    fontSize: fontSize.heading,
+    fontWeight: '700',
+    color: colors.foreground,
   },
   subtitle: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.textMuted,
+    ...textStyles.body,
+    color: colors.mutedForeground,
   },
   error: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.danger,
+    ...textStyles.body,
+    color: colors.destructiveText,
   },
   pending: {
-    fontFamily: typography.fontFamily.body,
-    color: colors.light.warning,
+    ...textStyles.body,
+    color: colors.primary,
   },
 });
