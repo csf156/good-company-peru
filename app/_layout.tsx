@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
+import { useFonts } from 'expo-font';
+import {
+  PlayfairDisplay_400Regular_Italic,
+  PlayfairDisplay_600SemiBold_Italic,
+} from '@expo-google-fonts/playfair-display';
+import { JetBrainsMono_400Regular, JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
 import {
@@ -20,6 +27,18 @@ const AUTH_SEGMENTS: AuthSegment[] = [
 ];
 
 export default function RootLayout() {
+  // Solo los pesos que el design system usa — no las familias completas: buena
+  // parte del publico objetivo esta en Android de gama media.
+  const [fontsLoaded, fontError] = useFonts({
+    'PlayfairDisplay-Italic': PlayfairDisplay_400Regular_Italic,
+    'PlayfairDisplay-Italic-SemiBold': PlayfairDisplay_600SemiBold_Italic,
+    'JetBrainsMono-Regular': JetBrainsMono_400Regular,
+    'JetBrainsMono-Medium': JetBrainsMono_500Medium,
+    'Inter-Regular': Inter_400Regular,
+    'Inter-Medium': Inter_500Medium,
+    'Inter-SemiBold': Inter_600SemiBold,
+    'Inter-Bold': Inter_700Bold,
+  });
   const router = useRouter();
   const segments = useSegments();
   const { session, loading: sessionLoading } = useAuthSession();
@@ -60,7 +79,9 @@ export default function RootLayout() {
     : null;
 
   useEffect(() => {
-    if (sessionLoading || profileLoading) return;
+    // `fontError` cuenta como "resuelto": si una fuente no carga, la app sigue
+    // con el tipo del sistema en vez de quedarse en blanco para siempre.
+    if (sessionLoading || profileLoading || (!fontsLoaded && !fontError)) return;
     const redirect = computeRedirect({
       hasSession: Boolean(session),
       profileStatus,
@@ -70,7 +91,19 @@ export default function RootLayout() {
     if (redirect) {
       router.replace(redirect as never);
     }
-  }, [sessionLoading, profileLoading, session, profileStatus, kycEstado, authSegment, router]);
+  }, [
+    sessionLoading,
+    profileLoading,
+    session,
+    profileStatus,
+    kycEstado,
+    authSegment,
+    router,
+    fontsLoaded,
+    fontError,
+  ]);
+
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <SafeAreaProvider>

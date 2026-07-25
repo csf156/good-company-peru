@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 import RootLayout from '@/app/_layout';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { useFonts } from 'expo-font';
 
 jest.mock('@/hooks/useAuthSession', () => ({
   useAuthSession: jest.fn(),
@@ -9,6 +10,7 @@ jest.mock('@/lib/profile', () => ({
   getOwnProfile: jest.fn(),
   isProfileComplete: jest.fn(),
 }));
+jest.mock('expo-font', () => ({ useFonts: jest.fn() }));
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
@@ -18,14 +20,34 @@ jest.mock('expo-router', () => ({
 }));
 
 const mockedUseAuthSession = useAuthSession as jest.Mock;
+const mockedUseFonts = useFonts as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedUseFonts.mockReturnValue([true, null]);
 });
 
 describe('RootLayout auth guard', () => {
   it('redirects to sign-in when there is no session', async () => {
     mockedUseAuthSession.mockReturnValue({ session: null, loading: false });
+
+    await render(<RootLayout />);
+
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+  });
+
+  it('no renderiza el arbol hasta que las fuentes resuelven', async () => {
+    mockedUseAuthSession.mockReturnValue({ session: null, loading: false });
+    mockedUseFonts.mockReturnValue([false, null]);
+
+    await render(<RootLayout />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('renderiza igual si la carga de fuentes falla', async () => {
+    mockedUseAuthSession.mockReturnValue({ session: null, loading: false });
+    mockedUseFonts.mockReturnValue([false, new Error('font load failed')]);
 
     await render(<RootLayout />);
 

@@ -105,3 +105,37 @@ export const touchTarget = {
 // `readonly ['tabular-nums']`, que no es asignable al `FontVariant[]` mutable
 // que espera TextStyle.
 export const tabularNums: TextStyle = { fontVariant: ['tabular-nums'] };
+
+/**
+ * Familias tipográficas de Lovable. Los nombres son las claves que
+ * `useFonts` registra en `app/_layout.tsx` — deben coincidir exactamente.
+ */
+export const fontFamily = {
+  display: 'PlayfairDisplay-Italic',
+  label: 'JetBrainsMono-Regular',
+  body: 'Inter-Regular',
+} as const;
+
+/**
+ * Los tres roles tipográficos del producto, derivados de los patrones reales
+ * de Lovable (font-serif+italic para títulos; font-mono+uppercase+
+ * tracking-widest para labels; Inter para el resto).
+ *
+ * Se exponen como estilos completos, no solo como familias, para que ninguna
+ * pantalla vuelva a componer fontFamily + letterSpacing + textTransform a mano
+ * y se desvíe en el camino.
+ */
+export const textStyles = {
+  display: {
+    fontFamily: fontFamily.display,
+    letterSpacing: -0.5,
+  },
+  label: {
+    fontFamily: fontFamily.label,
+    textTransform: 'uppercase',
+    letterSpacing: 1.6,
+  },
+  body: {
+    fontFamily: fontFamily.body,
+  },
+} satisfies Record<string, TextStyle>;
