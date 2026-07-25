@@ -2,14 +2,19 @@ import { colors } from '@/lib/theme';
 
 /** Luminancia relativa según WCAG 2.x. */
 function luminance(hex: string): number {
-  const channels = [1, 3, 5]
-    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  const toLinear = (channelHex: string) => {
+    const v = parseInt(channelHex, 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const r = toLinear(hex.slice(1, 3));
+  const g = toLinear(hex.slice(3, 5));
+  const b = toLinear(hex.slice(5, 7));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  const hi = Math.max(luminance(a), luminance(b));
+  const lo = Math.min(luminance(a), luminance(b));
   return (hi + 0.05) / (lo + 0.05);
 }
 
