@@ -35,7 +35,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 4.3 | Aceptar/rechazar → abre chat | ✅ |
 | 4.4 | Chat realtime + moderación | ✅ |
 | 4.5 | Confirmar cita | ✅ |
-| 4.6 | Revisión SP4 | ⬜ |
+| 4.6 | Revisión SP4 | ✅ |
 | 5.0 | Sesión + token QR rotativo | ⬜ |
 | 5.1 | Scan mutuo + geofence | ⬜ |
 | 5.2 | Cronómetro + notificaciones | ⬜ |
@@ -89,6 +89,15 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase 4.6 — Revisión SP4 — 2026-07-31
+
+- **Qué se construyó:** revisión de cierre del sub-proyecto 4 (invitaciones/citas/chat/moderación) vía `superpowers:requesting-code-review` + `superpowers:security-review` (Opus 4.8, esfuerzo high, como pide el plan). Sin código nuevo de producto; un fix puntual salió del review: `confirmar-cita` no tenía `verify_jwt` pinneado en `config.toml` (4.2/4.3 sí lo hacían, 4.5 lo había omitido) — corregido por consistencia con el patrón ya establecido.
+- **Archivos/pantallas clave:** `supabase/config.toml` (pin de `verify_jwt=true` para `confirmar-cita`). Ningún archivo de app/lib tocado.
+- **Tablas / Edge Functions / migraciones:** ninguna migración nueva. Verificación de la máquina de estados invitación→cita, aislamiento RLS de chat, moderación anti-fuga, y consistencia bloqueo/liberación de bebida vs escrow — todo confirmado coherente sobre el esquema ya existente (3.0–4.5).
+- **Decisiones tomadas en la fase:** ningún hallazgo Critical/Important. Tres hallazgos Minor/Info documentados en `docs/backlog.md` en vez de corregidos en esta fase (por disciplina fase-por-fase, ninguno explotable hoy): (1) invitación `pendiente` sin expiración deja bebida `bloqueada` huérfana indefinidamente — no hay cron en el MVP; (2) no existe punto de entrada de UI para crear/responder invitaciones (CTA de descubrimiento y "Invitar" inertes, sin pantalla de invitaciones entrantes) — el chat/confirmar-cita están cableados pero inalcanzables end-to-end desde la app; (3) el campo `hora` de confirmar-cita (texto libre) se castea a `timestamptz` bajo sesión Postgres en UTC, corriendo 5h respecto a la hora local de Lima — sin impacto visible hoy (se muestra el string crudo a ambas partes) pero latente para el cronómetro/no-show de 5.x.
+- **Tests:** sin cambios de cobertura (291 jest / 230 pgTAP heredados de 4.0–4.5, todos verdes); lint y `tsc --noEmit` limpios. Suite completa re-verificada al cerrar esta fase.
+- **Deuda / notas para fases futuras:** los tres hallazgos de esta revisión quedan en `docs/backlog.md` (sección Pendiente, entradas "Expiración de invitación...", "Sin punto de entrada cliente...", "`hora` de confirmar cita..."). El punto (2) es el más relevante para decidir antes de 5.x: sin cableado de UI de invitaciones, el motor de cita (5.0+) no tiene forma real de alcanzarse desde la app salvo insertando filas a mano — requiere decisión de alcance con el usuario sobre cuándo se construye esa pantalla.
 
 ### Fase 4.5 — Confirmar cita (resumen) — 2026-07-24
 
