@@ -1,5 +1,10 @@
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, toE164Peru } from '@/lib/validation';
+
+// Requerido por expo-web-browser en web para cerrar el flujo de auth al volver.
+WebBrowser.maybeCompleteAuthSession();
 
 export type Contact = { type: 'email'; value: string } | { type: 'phone'; value: string };
 
@@ -67,4 +72,49 @@ export async function createProfile(rol: RolUsuario): Promise<AuthResult> {
   const { error } = await supabase.from('profiles').insert({ id: user.id, rol });
 
   return { error: error?.message ?? null };
+}
+
+/**
+ * Establece la sesión de Supabase a partir de la URL de retorno del flujo
+ * OAuth (contiene access_token/refresh_token en el fragmento `#`). Separada
+ * de signInWithGoogle para poder testear el parseo sin mockear WebBrowser.
+ */
+export async function completeGoogleSignIn(url: string): Promise<AuthResult> {
+  const fragment = url.split('#')[1] ?? '';
+  const params = new URLSearchParams(fragment);
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (!accessToken || !refreshToken) {
+    return { error: 'No se pudo completar el ingreso con Google.' };
+  }
+
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  return { error: error?.message ?? null };
+}
+
+/** Inicia sesión con Google: abre el navegador, espera el resultado, establece la sesión. */
+export async function signInWithGoogle(): Promise<AuthResult> {
+  const redirectTo = makeRedirectUri();
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo, skipBrowserRedirect: true },
+  });
+
+  if (error || !data.url) {
+    return { error: error?.message ?? 'No se pudo iniciar el ingreso con Google.' };
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+  if (result.type !== 'success') {
+    return { error: 'Ingreso con Google cancelado.' };
+  }
+
+  return completeGoogleSignIn(result.url);
 }

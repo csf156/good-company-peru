@@ -1,4 +1,5 @@
-import { requestOtp, verifyOtp, createProfile } from '@/lib/auth';
+import * as WebBrowser from 'expo-web-browser';
+import { requestOtp, verifyOtp, createProfile, signInWithGoogle, completeGoogleSignIn } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 jest.mock('@/lib/supabase', () => ({
@@ -7,9 +8,18 @@ jest.mock('@/lib/supabase', () => ({
       signInWithOtp: jest.fn(),
       verifyOtp: jest.fn(),
       getUser: jest.fn(),
+      signInWithOAuth: jest.fn(),
+      setSession: jest.fn(),
     },
     from: jest.fn(),
   },
+}));
+jest.mock('expo-web-browser', () => ({
+  maybeCompleteAuthSession: jest.fn(),
+  openAuthSessionAsync: jest.fn(),
+}));
+jest.mock('expo-auth-session', () => ({
+  makeRedirectUri: jest.fn(() => 'rentafriendperu://redirect'),
 }));
 
 const mockedSupabase = supabase as unknown as {
@@ -17,9 +27,14 @@ const mockedSupabase = supabase as unknown as {
     signInWithOtp: jest.Mock;
     verifyOtp: jest.Mock;
     getUser: jest.Mock;
+    signInWithOAuth: jest.Mock;
+    setSession: jest.Mock;
   };
   from: jest.Mock;
 };
+
+const mockedSignInWithOAuth = mockedSupabase.auth.signInWithOAuth;
+const mockedSetSession = mockedSupabase.auth.setSession;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -134,5 +149,88 @@ describe('createProfile', () => {
 
     expect(result.error).toBe('No hay sesión activa.');
     expect(mockedSupabase.from).not.toHaveBeenCalled();
+  });
+});
+
+describe('completeGoogleSignIn', () => {
+  it('establece la sesión a partir de una URL de retorno válida', async () => {
+    mockedSetSession.mockResolvedValue({ error: null });
+
+    const result = await completeGoogleSignIn(
+      'rentafriendperu://redirect#access_token=tok123&refresh_token=ref456',
+    );
+
+    expect(mockedSetSession).toHaveBeenCalledWith({
+      access_token: 'tok123',
+      refresh_token: 'ref456',
+    });
+    expect(result.error).toBeNull();
+  });
+
+  it('devuelve error si la URL no trae access_token', async () => {
+    const result = await completeGoogleSignIn('rentafriendperu://redirect#error=access_denied');
+
+    expect(result.error).toBeTruthy();
+    expect(mockedSetSession).not.toHaveBeenCalled();
+  });
+
+  it('propaga el error de setSession', async () => {
+    mockedSetSession.mockResolvedValue({ error: { message: 'token inválido' } });
+
+    const result = await completeGoogleSignIn(
+      'rentafriendperu://redirect#access_token=tok123&refresh_token=ref456',
+    );
+
+    expect(result.error).toBe('token inválido');
+  });
+});
+
+describe('signInWithGoogle', () => {
+  const mockedOpenAuthSession = WebBrowser.openAuthSessionAsync as jest.Mock;
+
+  it('abre el browser con la URL de autorización y completa la sesión al volver', async () => {
+    mockedSignInWithOAuth.mockResolvedValue({
+      data: { url: 'https://accounts.google.com/authorize?...' },
+      error: null,
+    });
+    mockedOpenAuthSession.mockResolvedValue({
+      type: 'success',
+      url: 'rentafriendperu://redirect#access_token=tok123&refresh_token=ref456',
+    });
+    mockedSetSession.mockResolvedValue({ error: null });
+
+    const result = await signInWithGoogle();
+
+    expect(mockedSignInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: 'rentafriendperu://redirect', skipBrowserRedirect: true },
+    });
+    expect(mockedOpenAuthSession).toHaveBeenCalledWith(
+      'https://accounts.google.com/authorize?...',
+      'rentafriendperu://redirect',
+    );
+    expect(result.error).toBeNull();
+  });
+
+  it('devuelve error si el usuario cancela el browser', async () => {
+    mockedSignInWithOAuth.mockResolvedValue({
+      data: { url: 'https://accounts.google.com/authorize?...' },
+      error: null,
+    });
+    mockedOpenAuthSession.mockResolvedValue({ type: 'cancel' });
+
+    const result = await signInWithGoogle();
+
+    expect(result.error).toBeTruthy();
+    expect(mockedSetSession).not.toHaveBeenCalled();
+  });
+
+  it('devuelve error si Supabase no puede iniciar el flujo', async () => {
+    mockedSignInWithOAuth.mockResolvedValue({ data: { url: null }, error: { message: 'proveedor no configurado' } });
+
+    const result = await signInWithGoogle();
+
+    expect(result.error).toBe('proveedor no configurado');
+    expect(mockedOpenAuthSession).not.toHaveBeenCalled();
   });
 });
