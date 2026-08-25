@@ -33,3 +33,9 @@ ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
 .design-sync/node_modules
+
+# Claude Code local state (worktrees, permisos locales, locks).
+# `launch.json` (config del preview) sí se versiona: sirve a cualquiera que
+# levante la app, a diferencia del resto, que es de esta máquina.
+.claude/*
+!.claude/launch.json
