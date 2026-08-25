@@ -1,37 +1,29 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { Text, TextInput, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { requestOtp } from '@/lib/auth';
-import { isValidEmail, toE164Peru } from '@/lib/validation';
+import { requestOtp, signInWithGoogle } from '@/lib/auth';
+import { isValidEmail } from '@/lib/validation';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 
-type ContactType = 'phone' | 'email';
-
-const INVALID_MESSAGE: Record<ContactType, string> = {
-  email: 'Correo inválido.',
-  phone: 'Número de celular inválido.',
-};
-
 export default function SignInScreen() {
   const router = useRouter();
-  const [contactType, setContactType] = useState<ContactType>('phone');
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSubmit() {
     setError(null);
 
-    const isValid = contactType === 'email' ? isValidEmail(value) : Boolean(toE164Peru(value));
-    if (!isValid) {
-      setError(INVALID_MESSAGE[contactType]);
+    if (!isValidEmail(value)) {
+      setError('Correo inválido.');
       return;
     }
 
     setLoading(true);
-    const result = await requestOtp({ type: contactType, value });
+    const result = await requestOtp({ type: 'email', value });
     setLoading(false);
 
     if (result.error) {
@@ -41,8 +33,22 @@ export default function SignInScreen() {
 
     router.push({
       pathname: '/(auth)/verify-otp',
-      params: { type: contactType, value },
+      params: { type: 'email', value },
     });
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    setGoogleLoading(true);
+    const result = await signInWithGoogle();
+    setGoogleLoading(false);
+
+    if (result.error) {
+      setError(result.error);
+    }
+    // Si no hay error, supabase.auth.setSession() dispara onAuthStateChange,
+    // que useAuthSession() escucha; app/_layout.tsx reacciona a ese cambio de
+    // sesión y redirige solo — no hace falta router.replace aquí.
   }
 
   return (
@@ -50,40 +56,11 @@ export default function SignInScreen() {
       <Text style={styles.eyebrow}>Bienvenido</Text>
       <Text style={styles.title}>Ingresa a tu cuenta</Text>
 
-      <View style={styles.tabs}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ingresar con celular"
-          onPress={() => {
-            setContactType('phone');
-            setError(null);
-          }}
-          style={[styles.tab, contactType === 'phone' && styles.tabActive]}
-        >
-          <Text style={[styles.tabLabel, contactType === 'phone' && styles.tabLabelActive]}>
-            Celular
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ingresar con correo"
-          onPress={() => {
-            setContactType('email');
-            setError(null);
-          }}
-          style={[styles.tab, contactType === 'email' && styles.tabActive]}
-        >
-          <Text style={[styles.tabLabel, contactType === 'email' && styles.tabLabelActive]}>
-            Correo
-          </Text>
-        </Pressable>
-      </View>
-
       <TextInput
         style={styles.input}
-        placeholder={contactType === 'phone' ? '987 654 321' : 'tu@correo.com'}
+        placeholder="tu@correo.com"
         placeholderTextColor={colors.mutedForeground}
-        keyboardType={contactType === 'phone' ? 'phone-pad' : 'email-address'}
+        keyboardType="email-address"
         autoCapitalize="none"
         value={value}
         onChangeText={setValue}
@@ -91,7 +68,16 @@ export default function SignInScreen() {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Button label="Enviar código" onPress={handleSubmit} disabled={loading} />
+      <Button label="Enviar código" onPress={handleSubmit} disabled={loading || googleLoading} />
+
+      <Text style={styles.separator}>o</Text>
+
+      <Button
+        label="Continuar con Google"
+        variant="secondary"
+        onPress={handleGoogle}
+        disabled={loading || googleLoading}
+      />
     </Screen>
   );
 }
@@ -112,33 +98,6 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     marginBottom: spacing[2],
   },
-  tabs: {
-    flexDirection: 'row',
-    gap: spacing[2],
-  },
-  tab: {
-    flex: 1,
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingVertical: spacing[2],
-    borderRadius: radius.md,
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tabActive: {
-    backgroundColor: colors.surface2,
-    borderColor: colors.primary,
-  },
-  tabLabel: {
-    ...textStyles.labelMedium,
-    fontSize: fontSize.tiny,
-    color: colors.mutedForeground,
-  },
-  tabLabelActive: {
-    color: colors.primary,
-  },
   input: {
     ...textStyles.body,
     fontSize: fontSize.bodyLg,
@@ -154,5 +113,11 @@ const styles = StyleSheet.create({
   error: {
     ...textStyles.body,
     color: colors.destructiveText,
+  },
+  separator: {
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
+    color: colors.mutedForeground,
+    textAlign: 'center',
   },
 });

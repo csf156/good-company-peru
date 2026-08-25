@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import SignInScreen from '@/app/(auth)/sign-in';
-import { requestOtp } from '@/lib/auth';
+import { requestOtp, signInWithGoogle } from '@/lib/auth';
 
 jest.mock('@/lib/auth', () => ({
   requestOtp: jest.fn(),
+  signInWithGoogle: jest.fn(),
 }));
 
 const mockPush = jest.fn();
@@ -12,6 +13,7 @@ jest.mock('expo-router', () => ({
 }));
 
 const mockedRequestOtp = requestOtp as jest.Mock;
+const mockedSignInWithGoogle = signInWithGoogle as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -21,7 +23,6 @@ describe('SignInScreen', () => {
   it('shows a validation error for an invalid email and does not call requestOtp', async () => {
     await render(<SignInScreen />);
 
-    await fireEvent.press(screen.getByText('Correo'));
     await fireEvent.changeText(screen.getByPlaceholderText('tu@correo.com'), 'no-es-un-correo');
     await fireEvent.press(screen.getByText('Enviar código'));
 
@@ -33,7 +34,6 @@ describe('SignInScreen', () => {
     mockedRequestOtp.mockResolvedValue({ error: null });
     await render(<SignInScreen />);
 
-    await fireEvent.press(screen.getByText('Correo'));
     await fireEvent.changeText(screen.getByPlaceholderText('tu@correo.com'), 'ana@example.com');
     await fireEvent.press(screen.getByText('Enviar código'));
 
@@ -50,7 +50,6 @@ describe('SignInScreen', () => {
     mockedRequestOtp.mockResolvedValue({ error: 'rate limit exceeded' });
     await render(<SignInScreen />);
 
-    await fireEvent.press(screen.getByText('Correo'));
     await fireEvent.changeText(screen.getByPlaceholderText('tu@correo.com'), 'ana@example.com');
     await fireEvent.press(screen.getByText('Enviar código'));
 
@@ -58,15 +57,23 @@ describe('SignInScreen', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('defaults to phone mode and validates a Peru number', async () => {
-    mockedRequestOtp.mockResolvedValue({ error: null });
+  it('inicia sesión con Google al presionar el botón', async () => {
+    mockedSignInWithGoogle.mockResolvedValue({ error: null });
     await render(<SignInScreen />);
 
-    await fireEvent.changeText(screen.getByPlaceholderText('987 654 321'), '987654321');
-    await fireEvent.press(screen.getByText('Enviar código'));
+    await fireEvent.press(screen.getByText('Continuar con Google'));
 
     await waitFor(() => {
-      expect(mockedRequestOtp).toHaveBeenCalledWith({ type: 'phone', value: '987654321' });
+      expect(mockedSignInWithGoogle).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('muestra el error si el ingreso con Google falla', async () => {
+    mockedSignInWithGoogle.mockResolvedValue({ error: 'Ingreso con Google cancelado.' });
+    await render(<SignInScreen />);
+
+    await fireEvent.press(screen.getByText('Continuar con Google'));
+
+    expect(await screen.findByText('Ingreso con Google cancelado.')).toBeTruthy();
   });
 });
