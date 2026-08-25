@@ -43,6 +43,19 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 | 5.4 | Liberación de pago + no-show | ⬜ |
 | 5.5 | E2E + revisión final MVP | ⬜ |
 
+### Design system y onboarding (fases "D")
+
+Fases fuera de los dos planes originales, nacidas de specs propios en `docs/superpowers/specs/`.
+
+| Fase | Descripción | Estado |
+|------|-------------|--------|
+| D.1 | Tokens Ayni + migración de 13 pantallas | ✅ |
+| D.2 | Login con Google | ✅ |
+| D.3 | Onboarding paso a paso (wizard de perfil + KYC en pantallas) | ⬜ |
+| D.4 | Carrusel "Cómo funciona" + ToS + costura de referidos | ⬜ |
+
+> **Nota:** D.1 se cerró el 2026-07-25 sin entrada en esta bitácora ni fila en esta tabla — se reconstruye aquí la fila, pero su entrada de bitácora nunca se escribió. Lo que hizo está documentado en `docs/superpowers/specs/2026-07-24-design-system-lovable-design.md` y en los commits entre `723ae3a` y `f0bf0ba`.
+
 ### Escalamiento (`2026-07-01-plan-escalamiento.md`)
 
 | Fase | Descripción | Estado |
@@ -89,6 +102,18 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase D.2 — Login con Google — 2026-08-25
+
+- **Qué se construyó:** ingreso con cuenta de Google además del OTP por correo, siguiendo el patrón oficial de Supabase para Expo (`signInWithOAuth` con `skipBrowserRedirect: true` → `WebBrowser.openAuthSessionAsync` → `setSession` con los tokens de la URL de retorno). Se **retiró la pestaña "Celular"** del login: ofrecía un camino que siempre falla, porque el proveedor de SMS nunca se habilitó (`external_phone_enabled: false`, verificado por Management API). El OTP por correo quedó intacto, misma firma y comportamiento.
+- **Archivos/pantallas clave:** `lib/auth.ts` (`signInWithGoogle`, `completeGoogleSignIn`), `app/(auth)/sign-in.tsx`, `tests/lib/auth.test.ts`, `tests/app/sign-in.test.tsx`. Dependencias nuevas: `expo-auth-session`, `expo-web-browser`.
+- **Tablas / Edge Functions / migraciones:** **ninguna.** Toda la resolución de OAuth vive en Supabase Auth; el cliente solo maneja la URL de ida y vuelta. Sin columna nueva en `profiles`. `lib/route-guard.ts` no cambió.
+- **Decisiones tomadas en la fase:** (1) **Cero secretos de Google en el cliente** — Client ID y Secret viven solo en la config de Supabase. (2) **Sin verificación de celular**, descartada por costo en D.1: no existe proveedor de SMS gratuito para producción. (3) **`flowType` por defecto (implícito)** — se verificó que `lib/supabase.ts` no lo fija y que el default de supabase-js 2.110 es implícito, por lo que parsear `#access_token` del fragmento es correcto y no hace falta `exchangeCodeForSession`.
+- **Tests:** 291→298 jest, 37 suites, verdes. Lint y `tsc --noEmit` limpios. 230 pgTAP verdes (sin cambios de esquema en esta fase). **Verificación manual ejecutada por el usuario en su propio navegador**, que es el criterio que esta fase exigía: el botón abre el consentimiento de Google, vuelve con sesión válida y `route-guard` lo lleva a selección de rol. La pestaña "Celular" ya no aparece.
+- **Deuda / notas para fases futuras:**
+  - **Un falso positivo que cuesta registrar:** durante la verificación, el flujo falló con `ERR_WEB_BROWSER_BLOCKED` en el navegador sandboxeado de la sesión ejecutora. El diagnóstico apuntaba a un bug real —`await supabase.auth.signInWithOAuth(...)` precede a `WebBrowser.openAuthSessionAsync`, que en web es `window.open`, y ese await rompe la cadena de gesto de usuario— pero **en el Chrome real del usuario el flujo funciona sin problema**. No se cambió código. Si alguna vez se reporta popup bloqueado en un navegador real, la causa raíz ya está identificada y el arreglo es precomputar la URL de autorización antes del clic.
+  - **Expo Go no funciona con este login:** `makeRedirectUri()` devuelve `exp://192.168.x.x:8081`, que no está en `uri_allow_list` de Supabase. Web (`localhost:8081`) y build de desarrollo (`rentafriendperu://`) sí están. Si se quiere Expo Go, hay que agregar `exp://**` a la lista — es aflojar los redirects permitidos, decisión del usuario.
+  - **Sin verificar en el deploy de GitHub Pages.** El plan nombraba `csf156.github.io/good-company-peru/` como superficie de verificación, pero eso exige `git push origin master` y el usuario prefirió no publicar todavía. La verificación se hizo en `localhost:8081`, que también está en la allow list. Queda pendiente confirmarlo en el deploy cuando se haga push.
 
 ### Fase 4.6 — Revisión SP4 — 2026-07-31
 
