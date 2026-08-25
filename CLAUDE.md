@@ -15,7 +15,7 @@ El trabajo avanza **una fase a la vez**, siguiendo los planes en `docs/`. **Nunc
 ### Fase actual
 
 ```
-FASE ACTUAL: MVP 5.0
+FASE ACTUAL: D.2
 ```
 
 > El usuario actualiza esta línea al inicio de cada sesión. Si dice algo como `FASE ACTUAL: MVP 3.1`, esa es tu única tarea.
@@ -111,4 +111,4 @@ Estas aplican en **toda** fase que toque plata o datos sensibles:
 
 - **No reutilizar `mock-data.ts` de Lovable como esquema** — es de prototipo. El modelo real lo definen las fases de backend.
 - **La UI de Lovable engaña:** el motor de cita "se ve terminado" pero su QR es `Math.random()`, el timer es local y el pánico es un `toast`. Todo eso es trabajo real pendiente (fases 5.x y 7.0), no está hecho.
-- **Repo separado:** Lovable sincroniza con `good-company-peru`; el proyecto RN/Expo va aparte. No mezclar.
+- **Un repo, dos ramas (no dos repos):** `good-company-peru` (GitHub) tiene rama `main` = prototipo Lovable (referencia visual, `.lovable`/`vite.config.ts`/`src`) y rama `master` = **este proyecto RN/Expo** (lo que hay en esta carpeta, `origin/master`). GitHub Pages del proyecto despliega desde `master` vía Actions, no toca `main`. No mezclar código entre ramas — Lovable sigue siendo solo referencia visual. `rent-a-friend-peru` (otro repo, mismo dueño) es una copia vieja y abandonada de este proyecto (último push 2026-07-05, pre-fase D.2) — no usar, no sincronizar con ella. Verificado por introspección 2026-08-25.
