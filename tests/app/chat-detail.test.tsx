@@ -27,6 +27,14 @@ const mockedSubscribe = subscribeMensajes as jest.Mock;
 const mockedGetCitaDetalle = getCitaDetalle as jest.Mock;
 const mockedConfirmarCita = confirmarCita as jest.Mock;
 
+// La primera transformación de módulos de esta suite excede los 15 s
+// globales cuando corre en paralelo con las otras 36 (jest-expo, Windows,
+// cache fría). Diagnosticado con systematic-debugging: falla solo con
+// maxWorkers por defecto + cache limpia, nunca aislada ni con
+// --maxWorkers=1 ni con --detectOpenHandles limpio → contención de CPU,
+// no un await faltante ni una suscripción sin limpiar.
+jest.setTimeout(30000);
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockedGetAlias.mockResolvedValue('Beto');
