@@ -17,10 +17,10 @@ values
    '22222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
    'bob@test.dev', '', now(), now(), now(), '', '', '', '');
 
-insert into public.profiles (id, rol, nombre, alias, edad, genero, profesion, kyc_estado)
+insert into public.profiles (id, rol, nombre, alias, fecha_nacimiento, genero, profesion, kyc_estado)
 values
-  ('11111111-1111-1111-1111-111111111111', 'amigo', 'Alice Real', 'AliceAlias', 25, 'femenino', 'Diseñadora', 'verificado'),
-  ('22222222-2222-2222-2222-222222222222', 'rentador', 'Roberto Real', 'BobAlias', 30, 'masculino', 'Ingeniero', 'verificado');
+  ('11111111-1111-1111-1111-111111111111', 'amigo', 'Alice Real', 'AliceAlias', current_date - interval '25 years', 'femenino', 'Diseñadora', 'verificado'),
+  ('22222222-2222-2222-2222-222222222222', 'rentador', 'Roberto Real', 'BobAlias', current_date - interval '30 years', 'masculino', 'Ingeniero', 'verificado');
 
 -- impersonar a Alice
 select set_config(
