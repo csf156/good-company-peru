@@ -1,169 +1,184 @@
-import { useEffect, useState } from 'react';
-import { Text, TextInput, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
-import { uploadProfilePhoto } from '@/lib/storage';
-import { isMayorDeEdad, parseListInput } from '@/lib/validation';
+import { useState } from 'react';
+import { Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
-import type { RolUsuario } from '@/lib/auth';
+import { StepHeader } from '@/components/StepHeader';
+import { Icon } from '@/components/Icon';
+
+const TOTAL_PASOS = 7;
+
+const GENERO_OPCIONES = ['Mujer', 'Hombre', 'No binario', 'Prefiero no decirlo', 'Otro'] as const;
+
+const TITULOS: Record<number, string> = {
+  1: 'Nombre y alias',
+  2: 'Fecha de nacimiento',
+  3: 'Género',
+  4: 'Tu foto',
+  5: 'Tus hobbies',
+  6: '¿Qué tipo de salida buscas?',
+  7: 'Distritos donde te mueves',
+};
+
+type Datos = {
+  nombre: string;
+  alias: string;
+  // Paso 2: valor temporal en texto libre (AAAA-MM-DD). La Tarea 4 lo
+  // reemplaza por DateOfBirthPicker sin cambiar la forma del dato.
+  fechaNacimiento: string;
+  genero: string;
+  generoOtro: string;
+  fotoPath: string | null;
+  hobbies: string[];
+  hobbiesOtroTexto: string;
+  tipoSalida: string[];
+  distritos: string[];
+};
+
+const DATOS_INICIALES: Datos = {
+  nombre: '',
+  alias: '',
+  fechaNacimiento: '',
+  genero: '',
+  generoOtro: '',
+  fotoPath: null,
+  hobbies: [],
+  hobbiesOtroTexto: '',
+  tipoSalida: [],
+  distritos: [],
+};
+
+/**
+ * Única fuente de verdad de si se puede avanzar. Pura y testeable aparte de
+ * la UI. El paso 2 hoy solo exige que el campo no esté vacío — la Tarea 4
+ * la conecta a `isMayorDeEdad` cuando el selector real de fecha reemplace el
+ * texto libre temporal.
+ */
+function validarPaso(paso: number, datos: Datos): string | null {
+  switch (paso) {
+    case 1:
+      return !datos.nombre.trim() || !datos.alias.trim() ? 'Completa tu nombre y alias.' : null;
+    case 2:
+      return datos.fechaNacimiento.trim() ? null : 'Ingresa tu fecha de nacimiento.';
+    case 3:
+      if (!datos.genero) return 'Elige una opción.';
+      return datos.genero === 'Otro' && !datos.generoOtro.trim() ? 'Escribe tu género.' : null;
+    default:
+      return null;
+  }
+}
 
 export default function ProfileSetupScreen() {
-  const router = useRouter();
-  const [rol, setRol] = useState<RolUsuario | null>(null);
-
-  const [nombre, setNombre] = useState('');
-  const [alias, setAlias] = useState('');
-  const [fechaNacimiento, setFechaNacimiento] = useState('');
-  const [genero, setGenero] = useState('');
-  const [hobbies, setHobbies] = useState('');
-  const [intereses, setIntereses] = useState('');
-  const [distritos, setDistritos] = useState('');
-  const [fotoPath, setFotoPath] = useState<string | null>(null);
-
+  const [paso, setPaso] = useState(1);
+  const [datos, setDatos] = useState<Datos>(DATOS_INICIALES);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    getOwnProfile().then((profile) => {
-      if (profile) setRol(profile.rol);
-    });
-  }, []);
-
-  async function handlePickPhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError('Necesitamos acceso a tus fotos para continuar.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
-    if (result.canceled || !result.assets?.[0]) {
-      return;
-    }
-
-    const upload = await uploadProfilePhoto(result.assets[0].uri);
-    if (upload.error || !upload.path) {
-      setError(upload.error ?? 'No se pudo subir la foto.');
-      return;
-    }
-    setFotoPath(upload.path);
-    setError(null);
+  function actualizar(cambios: Partial<Datos>) {
+    setDatos((prev) => ({ ...prev, ...cambios }));
   }
 
-  async function handleSubmit() {
+  const motivo = validarPaso(paso, datos);
+
+  function handleVolver() {
+    setError(null);
+    setPaso((p) => Math.max(1, p - 1));
+  }
+
+  function handleContinuar() {
+    if (motivo) return;
     setError(null);
 
-    if (!nombre.trim() || !alias.trim() || !genero.trim() || !fotoPath) {
-      setError('Completa todos los campos obligatorios.');
-      return;
-    }
-    if (!isMayorDeEdad(fechaNacimiento)) {
-      setError('Debes ser mayor de 18 años.');
+    if (paso < TOTAL_PASOS) {
+      setPaso((p) => p + 1);
       return;
     }
 
-    setLoading(true);
-    const result = await updateOwnProfile({
-      nombre: nombre.trim(),
-      alias: alias.trim(),
-      fecha_nacimiento: fechaNacimiento,
-      genero: genero.trim(),
-      hobbies: parseListInput(hobbies),
-      tipo_salida: parseListInput(intereses),
-      foto_url: fotoPath,
-    });
-
-    if (result.error) {
-      setLoading(false);
-      setError(result.error);
-      return;
-    }
-
-    if (rol === 'amigo') {
-      const prefsResult = await upsertPreferenciasSalida({ distritos: parseListInput(distritos) });
-      setLoading(false);
-      if (prefsResult.error) {
-        setError(prefsResult.error);
-        return;
-      }
-    } else {
-      setLoading(false);
-    }
-
-    router.replace('/');
+    // La persistencia final llega en la Tarea 6.
   }
 
   return (
     <Screen scroll contentStyle={styles.content}>
-      <Text style={styles.eyebrow}>Tu perfil</Text>
-      <Text style={styles.title}>Completa tu perfil</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Nombre completo"
-        placeholderTextColor={colors.mutedForeground}
-        value={nombre}
-        onChangeText={setNombre}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Alias"
-        placeholderTextColor={colors.mutedForeground}
-        value={alias}
-        onChangeText={setAlias}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Fecha de nacimiento (AAAA-MM-DD)"
-        placeholderTextColor={colors.mutedForeground}
-        value={fechaNacimiento}
-        onChangeText={setFechaNacimiento}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Género"
-        placeholderTextColor={colors.mutedForeground}
-        value={genero}
-        onChangeText={setGenero}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Hobbies (separados por coma)"
-        placeholderTextColor={colors.mutedForeground}
-        value={hobbies}
-        onChangeText={setHobbies}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Intereses (separados por coma)"
-        placeholderTextColor={colors.mutedForeground}
-        value={intereses}
-        onChangeText={setIntereses}
+      <StepHeader
+        paso={paso}
+        total={TOTAL_PASOS}
+        titulo={TITULOS[paso] ?? ''}
+        onVolver={paso > 1 ? handleVolver : undefined}
       />
 
-      {rol === 'amigo' && (
+      {paso === 1 && (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Nombre completo"
+            placeholderTextColor={colors.mutedForeground}
+            value={datos.nombre}
+            onChangeText={(nombre) => actualizar({ nombre })}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Alias"
+            placeholderTextColor={colors.mutedForeground}
+            value={datos.alias}
+            onChangeText={(alias) => actualizar({ alias })}
+          />
+        </>
+      )}
+
+      {paso === 2 && (
         <TextInput
           style={styles.input}
-          placeholder="Distritos (separados por coma)"
+          placeholder="Fecha de nacimiento (AAAA-MM-DD)"
           placeholderTextColor={colors.mutedForeground}
-          value={distritos}
-          onChangeText={setDistritos}
+          value={datos.fechaNacimiento}
+          onChangeText={(fechaNacimiento) => actualizar({ fechaNacimiento })}
         />
       )}
 
-      <Button
-        label={fotoPath ? 'Foto lista ✓' : 'Elegir foto'}
-        variant="secondary"
-        onPress={handlePickPhoto}
-        disabled={loading}
-      />
+      {paso === 3 && (
+        <>
+          {GENERO_OPCIONES.map((opcion) => {
+            const seleccionado = datos.genero === opcion;
+            return (
+              <Pressable
+                key={opcion}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: seleccionado }}
+                accessibilityLabel={opcion}
+                onPress={() =>
+                  actualizar({
+                    genero: opcion,
+                    generoOtro: opcion === 'Otro' ? datos.generoOtro : '',
+                  })
+                }
+                style={[styles.opcion, seleccionado && styles.opcionSeleccionada]}
+              >
+                <Text style={[styles.opcionText, seleccionado && styles.opcionTextSeleccionado]}>
+                  {opcion}
+                </Text>
+                {seleccionado && <Icon name="check" size="sm" tone="accent" />}
+              </Pressable>
+            );
+          })}
+          {datos.genero === 'Otro' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Escribe tu género"
+              placeholderTextColor={colors.mutedForeground}
+              value={datos.generoOtro}
+              onChangeText={(generoOtro) => actualizar({ generoOtro })}
+            />
+          )}
+        </>
+      )}
 
       {error && <Text style={styles.error}>{error}</Text>}
+      {motivo && <Text style={styles.hint}>{motivo}</Text>}
 
-      <Button label="Continuar" onPress={handleSubmit} disabled={loading} />
+      <Button
+        label={paso < TOTAL_PASOS ? 'Continuar' : 'Terminar'}
+        onPress={handleContinuar}
+        disabled={!!motivo}
+      />
     </Screen>
   );
 }
@@ -172,17 +187,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing[6],
     gap: spacing[3],
-  },
-  eyebrow: {
-    ...textStyles.label,
-    fontSize: fontSize.caption,
-    color: colors.primary,
-  },
-  title: {
-    ...textStyles.displaySemiBold,
-    fontSize: fontSize.heading,
-    color: colors.foreground,
-    marginBottom: spacing[2],
   },
   input: {
     ...textStyles.body,
@@ -196,8 +200,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4],
     paddingVertical: spacing[3],
   },
+  opcion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  opcionSeleccionada: {
+    borderColor: colors.primary,
+  },
+  opcionText: {
+    ...textStyles.body,
+    fontSize: fontSize.bodyLg,
+    color: colors.foreground,
+  },
+  opcionTextSeleccionado: {
+    color: colors.primary,
+  },
   error: {
     ...textStyles.body,
     color: colors.destructiveText,
+  },
+  hint: {
+    ...textStyles.body,
+    color: colors.mutedForeground,
   },
 });
