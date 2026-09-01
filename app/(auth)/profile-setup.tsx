@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
-import { isValidEdad, parseListInput } from '@/lib/validation';
+import { isMayorDeEdad, parseListInput } from '@/lib/validation';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -16,9 +16,8 @@ export default function ProfileSetupScreen() {
 
   const [nombre, setNombre] = useState('');
   const [alias, setAlias] = useState('');
-  const [edadText, setEdadText] = useState('');
+  const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [genero, setGenero] = useState('');
-  const [profesion, setProfesion] = useState('');
   const [hobbies, setHobbies] = useState('');
   const [intereses, setIntereses] = useState('');
   const [distritos, setDistritos] = useState('');
@@ -56,13 +55,12 @@ export default function ProfileSetupScreen() {
 
   async function handleSubmit() {
     setError(null);
-    const edad = Number(edadText);
 
-    if (!nombre.trim() || !alias.trim() || !genero.trim() || !profesion.trim() || !fotoPath) {
+    if (!nombre.trim() || !alias.trim() || !genero.trim() || !fotoPath) {
       setError('Completa todos los campos obligatorios.');
       return;
     }
-    if (!isValidEdad(edad)) {
+    if (!isMayorDeEdad(fechaNacimiento)) {
       setError('Debes ser mayor de 18 años.');
       return;
     }
@@ -71,11 +69,10 @@ export default function ProfileSetupScreen() {
     const result = await updateOwnProfile({
       nombre: nombre.trim(),
       alias: alias.trim(),
-      edad,
+      fecha_nacimiento: fechaNacimiento,
       genero: genero.trim(),
-      profesion: profesion.trim(),
       hobbies: parseListInput(hobbies),
-      intereses: parseListInput(intereses),
+      tipo_salida: parseListInput(intereses),
       foto_url: fotoPath,
     });
 
@@ -120,11 +117,10 @@ export default function ProfileSetupScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="Edad"
+        placeholder="Fecha de nacimiento (AAAA-MM-DD)"
         placeholderTextColor={colors.mutedForeground}
-        keyboardType="number-pad"
-        value={edadText}
-        onChangeText={setEdadText}
+        value={fechaNacimiento}
+        onChangeText={setFechaNacimiento}
       />
       <TextInput
         style={styles.input}
@@ -132,13 +128,6 @@ export default function ProfileSetupScreen() {
         placeholderTextColor={colors.mutedForeground}
         value={genero}
         onChangeText={setGenero}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Profesión"
-        placeholderTextColor={colors.mutedForeground}
-        value={profesion}
-        onChangeText={setProfesion}
       />
       <TextInput
         style={styles.input}

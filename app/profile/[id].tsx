@@ -54,8 +54,8 @@ export default function PublicProfileScreen() {
       {profile.hobbies?.length > 0 && (
         <Text style={styles.field}>Hobbies: {profile.hobbies.join(', ')}</Text>
       )}
-      {profile.intereses?.length > 0 && (
-        <Text style={styles.field}>Intereses: {profile.intereses.join(', ')}</Text>
+      {profile.tipo_salida?.length > 0 && (
+        <Text style={styles.field}>Tipo de salida: {profile.tipo_salida.join(', ')}</Text>
       )}
     </Screen>
   );

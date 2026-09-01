@@ -24,7 +24,7 @@ const publicProfile = {
   genero: 'masculino',
   profesion: 'Ingeniero',
   hobbies: ['fútbol'],
-  intereses: ['tecnología'],
+  tipo_salida: ['tecnología'],
   foto_url: 'user-2/foto.jpg',
   kyc_estado: 'verificado',
 };

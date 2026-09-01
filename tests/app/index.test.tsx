@@ -20,7 +20,7 @@ const AMIGO_1 = {
   genero: 'masculino',
   profesion: 'Diseñador',
   hobbies: ['fútbol'],
-  intereses: ['cine'],
+  tipo_salida: ['cine'],
   foto_url: null,
   kyc_estado: 'verificado',
 };
@@ -33,7 +33,7 @@ const AMIGO_2 = {
   genero: 'femenino',
   profesion: 'Chef',
   hobbies: ['cocina'],
-  intereses: ['viajes'],
+  tipo_salida: ['viajes'],
   foto_url: null,
   kyc_estado: 'verificado',
 };

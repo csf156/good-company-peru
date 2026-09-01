@@ -17,7 +17,7 @@ export default function OwnProfileScreen() {
 
   const [nombre, setNombre] = useState('');
   const [alias, setAlias] = useState('');
-  const [edadText, setEdadText] = useState('');
+  const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [genero, setGenero] = useState('');
   const [profesion, setProfesion] = useState('');
   const [hobbies, setHobbies] = useState('');
@@ -38,11 +38,11 @@ export default function OwnProfileScreen() {
     if (!profile) return;
     setNombre(profile.nombre ?? '');
     setAlias(profile.alias ?? '');
-    setEdadText(profile.edad ? String(profile.edad) : '');
+    setFechaNacimiento(profile.fecha_nacimiento ?? '');
     setGenero(profile.genero ?? '');
     setProfesion(profile.profesion ?? '');
     setHobbies((profile.hobbies ?? []).join(', '));
-    setIntereses((profile.intereses ?? []).join(', '));
+    setIntereses((profile.tipo_salida ?? []).join(', '));
     setNewFotoPath(null);
     setError(null);
     setEditing(true);
@@ -71,11 +71,11 @@ export default function OwnProfileScreen() {
     const fields = {
       nombre: nombre.trim(),
       alias: alias.trim(),
-      edad: Number(edadText),
+      fecha_nacimiento: fechaNacimiento,
       genero: genero.trim(),
       profesion: profesion.trim(),
       hobbies: parseListInput(hobbies),
-      intereses: parseListInput(intereses),
+      tipo_salida: parseListInput(intereses),
       ...(newFotoPath ? { foto_url: newFotoPath } : {}),
     };
 
@@ -112,7 +112,7 @@ export default function OwnProfileScreen() {
         {profile.kyc_estado === 'verificado' && (
           <Text style={styles.badge}>Verificado ✓</Text>
         )}
-        <Text style={styles.field}>{profile.edad} años · {profile.genero}</Text>
+        <Text style={styles.field}>{profile.fecha_nacimiento} · {profile.genero}</Text>
         <Text style={styles.field}>{profile.profesion}</Text>
         <Button label="Editar" onPress={startEditing} />
       </Screen>
@@ -127,9 +127,8 @@ export default function OwnProfileScreen() {
       <TextInput style={styles.input} value={alias} onChangeText={setAlias} />
       <TextInput
         style={styles.input}
-        keyboardType="number-pad"
-        value={edadText}
-        onChangeText={setEdadText}
+        value={fechaNacimiento}
+        onChangeText={setFechaNacimiento}
       />
       <TextInput style={styles.input} value={genero} onChangeText={setGenero} />
       <TextInput style={styles.input} value={profesion} onChangeText={setProfesion} />

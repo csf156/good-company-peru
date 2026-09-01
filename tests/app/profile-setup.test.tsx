@@ -33,9 +33,11 @@ const mockedRequestPermission = ImagePicker.requestMediaLibraryPermissionsAsync 
 async function fillRequiredFields() {
   await fireEvent.changeText(screen.getByPlaceholderText('Nombre completo'), 'Ana Torres');
   await fireEvent.changeText(screen.getByPlaceholderText('Alias'), 'Ani');
-  await fireEvent.changeText(screen.getByPlaceholderText('Edad'), '25');
+  await fireEvent.changeText(
+    screen.getByPlaceholderText('Fecha de nacimiento (AAAA-MM-DD)'),
+    '2000-01-01',
+  );
   await fireEvent.changeText(screen.getByPlaceholderText('Género'), 'femenino');
-  await fireEvent.changeText(screen.getByPlaceholderText('Profesión'), 'Diseñadora');
 
   mockedRequestPermission.mockResolvedValue({ granted: true });
   mockedPickImage.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///photo.jpg' }] });
@@ -67,11 +69,17 @@ describe('ProfileSetupScreen (amigo)', () => {
     await render(<ProfileSetupScreen />);
     await screen.findByText('Continuar');
 
+    const hace5Anios = new Date();
+    hace5Anios.setFullYear(hace5Anios.getFullYear() - 5);
+    const fechaMenorDeEdad = hace5Anios.toISOString().slice(0, 10);
+
     await fireEvent.changeText(screen.getByPlaceholderText('Nombre completo'), 'Ana Torres');
     await fireEvent.changeText(screen.getByPlaceholderText('Alias'), 'Ani');
-    await fireEvent.changeText(screen.getByPlaceholderText('Edad'), '17');
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('Fecha de nacimiento (AAAA-MM-DD)'),
+      fechaMenorDeEdad,
+    );
     await fireEvent.changeText(screen.getByPlaceholderText('Género'), 'femenino');
-    await fireEvent.changeText(screen.getByPlaceholderText('Profesión'), 'Diseñadora');
 
     mockedRequestPermission.mockResolvedValue({ granted: true });
     mockedPickImage.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///photo.jpg' }] });
@@ -105,11 +113,10 @@ describe('ProfileSetupScreen (amigo)', () => {
       expect(mockedUpdateOwnProfile).toHaveBeenCalledWith({
         nombre: 'Ana Torres',
         alias: 'Ani',
-        edad: 25,
+        fecha_nacimiento: '2000-01-01',
         genero: 'femenino',
-        profesion: 'Diseñadora',
         hobbies: ['cine', 'viajar'],
-        intereses: ['música'],
+        tipo_salida: ['música'],
         foto_url: 'user-1/foto.jpg',
       });
     });

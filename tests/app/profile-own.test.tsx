@@ -28,12 +28,12 @@ const baseProfile = {
   rol: 'amigo',
   nombre: 'Ana Torres',
   alias: 'Ani',
-  edad: 25,
+  fecha_nacimiento: '2000-01-01',
   genero: 'femenino',
   profesion: 'Diseñadora',
   foto_url: 'user-1/foto.jpg',
   hobbies: ['cine'],
-  intereses: ['viajar'],
+  tipo_salida: ['viajar'],
   kyc_estado: 'verificado',
 };
 
@@ -80,11 +80,11 @@ describe('OwnProfileScreen — edit mode', () => {
       expect(mockedUpdateOwnProfile).toHaveBeenCalledWith({
         nombre: 'Ana Torres',
         alias: 'Ani2',
-        edad: 25,
+        fecha_nacimiento: '2000-01-01',
         genero: 'femenino',
         profesion: 'Diseñadora',
         hobbies: ['cine'],
-        intereses: ['viajar'],
+        tipo_salida: ['viajar'],
       });
     });
     expect(await screen.findByText('Ani2')).toBeTruthy();

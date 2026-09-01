@@ -36,7 +36,7 @@ describe('VerifyOtpScreen', () => {
     rol: 'amigo',
     nombre: 'Ana',
     alias: 'Ani',
-    edad: 25,
+    fecha_nacimiento: '2000-01-01',
     genero: 'femenino',
     profesion: 'Diseñadora',
     foto_url: 'user-1/foto.jpg',
