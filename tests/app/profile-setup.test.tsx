@@ -57,10 +57,12 @@ describe('ProfileSetupScreen — navegación (pasos 1-3)', () => {
     await fireEvent.press(screen.getByText('Continuar'));
     await screen.findByText('Paso 2 de 7');
 
-    await fireEvent.changeText(
-      screen.getByPlaceholderText('Fecha de nacimiento (AAAA-MM-DD)'),
-      '2000-01-01',
-    );
+    await fireEvent.press(screen.getByLabelText('Día'));
+    await fireEvent.press(screen.getByText('5'));
+    await fireEvent.press(screen.getByLabelText('Mes'));
+    await fireEvent.press(screen.getByText('marzo'));
+    await fireEvent.press(screen.getByLabelText('Año'));
+    await fireEvent.press(screen.getByText('2000'));
     await fireEvent.press(screen.getByText('Continuar'));
     await screen.findByText('Paso 3 de 7');
 

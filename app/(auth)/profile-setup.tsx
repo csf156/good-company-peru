@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { isMayorDeEdad } from '@/lib/validation';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { StepHeader } from '@/components/StepHeader';
 import { Icon } from '@/components/Icon';
+import { DateOfBirthPicker } from '@/components/DateOfBirthPicker';
 
 const TOTAL_PASOS = 7;
 
@@ -23,8 +25,6 @@ const TITULOS: Record<number, string> = {
 type Datos = {
   nombre: string;
   alias: string;
-  // Paso 2: valor temporal en texto libre (AAAA-MM-DD). La Tarea 4 lo
-  // reemplaza por DateOfBirthPicker sin cambiar la forma del dato.
   fechaNacimiento: string;
   genero: string;
   generoOtro: string;
@@ -48,18 +48,14 @@ const DATOS_INICIALES: Datos = {
   distritos: [],
 };
 
-/**
- * Única fuente de verdad de si se puede avanzar. Pura y testeable aparte de
- * la UI. El paso 2 hoy solo exige que el campo no esté vacío — la Tarea 4
- * la conecta a `isMayorDeEdad` cuando el selector real de fecha reemplace el
- * texto libre temporal.
- */
+/** Única fuente de verdad de si se puede avanzar. Pura y testeable aparte de la UI. */
 function validarPaso(paso: number, datos: Datos): string | null {
   switch (paso) {
     case 1:
       return !datos.nombre.trim() || !datos.alias.trim() ? 'Completa tu nombre y alias.' : null;
     case 2:
-      return datos.fechaNacimiento.trim() ? null : 'Ingresa tu fecha de nacimiento.';
+      if (!datos.fechaNacimiento) return 'Ingresa tu fecha de nacimiento.';
+      return isMayorDeEdad(datos.fechaNacimiento) ? null : 'Debes ser mayor de 18 años.';
     case 3:
       if (!datos.genero) return 'Elige una opción.';
       return datos.genero === 'Otro' && !datos.generoOtro.trim() ? 'Escribe tu género.' : null;
@@ -125,12 +121,9 @@ export default function ProfileSetupScreen() {
       )}
 
       {paso === 2 && (
-        <TextInput
-          style={styles.input}
-          placeholder="Fecha de nacimiento (AAAA-MM-DD)"
-          placeholderTextColor={colors.mutedForeground}
-          value={datos.fechaNacimiento}
-          onChangeText={(fechaNacimiento) => actualizar({ fechaNacimiento })}
+        <DateOfBirthPicker
+          value={datos.fechaNacimiento || null}
+          onChange={(fechaNacimiento) => actualizar({ fechaNacimiento })}
         />
       )}
 
