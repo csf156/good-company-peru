@@ -101,9 +101,13 @@ Dejarla llamándose `intereses` con contenido de otra cosa garantiza que alguien
 
 El radio de impacto es el mismo que ya se paga por §2.1 (vista pública + grants), así que no agrega riesgo nuevo.
 
-### 2.3 `profesion` queda muerta, no se borra
+### 2.3 `profesion` sale del alta y pasa a ser opcional
 
-Sale del formulario, **pero la columna y su entrada en `perfiles_publicos` se conservan**. Borrarla obligaría a tocar la vista y los grants por una ganancia nula, y es irreversible si el usuario cambia de opinión. Queda como columna sin escritores.
+Sale del wizard de alta, **pero la columna y su entrada en `perfiles_publicos` se conservan**. Borrarla obligaría a tocar la vista y los grants por una ganancia nula, y es irreversible si el usuario cambia de opinión.
+
+**Aclaración del usuario (2026-08-25), tras revisar el bloque 1:** "profesión no debe mostrarse" se refería **solo al alta**. La pantalla de editar perfil propio (`app/profile.tsx`) **sigue ofreciéndola**, y el perfil público (`app/profile/[id].tsx`) sigue mostrándola cuando existe. Deja de ser un campo obligatorio del onboarding y pasa a ser **un campo opcional que se completa después, si la persona quiere** — no una columna muerta.
+
+Consecuencia asumida: quien complete el wizard nuevo termina con `profesion = null` y su perfil público no mostrará profesión hasta que la agregue por su cuenta. Es el comportamiento buscado.
 
 **Detalle crítico que esto arrastra:** `lib/profile-complete.ts:18` lista `profesion` entre los `REQUIRED_FIELDS`. Si el formulario deja de pedirla sin sacarla de esa lista, **`route-guard` considerará todo perfil incompleto para siempre y devolverá al usuario al wizard en bucle**. Sacarla de `REQUIRED_FIELDS` es parte obligatoria de esta fase, no un detalle de limpieza.
 
