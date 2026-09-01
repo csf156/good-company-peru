@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
+import { registrarPasoOnboarding, registrarOnboardingCompletado } from '@/lib/onboarding-analytics';
 import { isMayorDeEdad, parseListInput } from '@/lib/validation';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
@@ -95,6 +96,17 @@ export default function ProfileSetupScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // La medición nunca debe romper el alta: se envuelve aparte de
+    // cualquier fallo propio de la función (aunque hoy nunca lanza síncrono
+    // — es defensa en profundidad, no confianza ciega en su implementación).
+    try {
+      registrarPasoOnboarding(paso);
+    } catch {
+      // Silencio deliberado.
+    }
+  }, [paso]);
+
+  useEffect(() => {
     getOwnProfile().then((profile) => {
       if (profile) setRol(profile.rol);
     });
@@ -182,6 +194,11 @@ export default function ProfileSetupScreen() {
       setLoading(false);
     }
 
+    try {
+      registrarOnboardingCompletado();
+    } catch {
+      // Silencio deliberado.
+    }
     router.replace('/');
   }
 

@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import ProfileSetupScreen from '@/app/(auth)/profile-setup';
 import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
+import { registrarPasoOnboarding, registrarOnboardingCompletado } from '@/lib/onboarding-analytics';
 import * as ImagePicker from 'expo-image-picker';
 
 jest.mock('@/lib/profile', () => ({
@@ -11,6 +12,10 @@ jest.mock('@/lib/profile', () => ({
 }));
 jest.mock('@/lib/storage', () => ({
   uploadProfilePhoto: jest.fn(),
+}));
+jest.mock('@/lib/onboarding-analytics', () => ({
+  registrarPasoOnboarding: jest.fn(),
+  registrarOnboardingCompletado: jest.fn(),
 }));
 jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(),
@@ -29,6 +34,8 @@ const mockedUpsertPreferencias = upsertPreferenciasSalida as jest.Mock;
 const mockedUploadPhoto = uploadProfilePhoto as jest.Mock;
 const mockedPickImage = ImagePicker.launchImageLibraryAsync as jest.Mock;
 const mockedRequestPermission = ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock;
+const mockedRegistrarPaso = registrarPasoOnboarding as jest.Mock;
+const mockedRegistrarCompletado = registrarOnboardingCompletado as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -328,5 +335,49 @@ describe('ProfileSetupScreen — persistencia final', () => {
     expect(await screen.findByText(/falló la red/i)).toBeTruthy();
     expect(screen.getByText('Paso 7 de 7')).toBeTruthy();
     expect(screen.getByText('Miraflores')).toBeTruthy();
+  });
+});
+
+describe('ProfileSetupScreen — medición de abandono', () => {
+  it('registra el paso al entrar en él', async () => {
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+    expect(mockedRegistrarPaso).toHaveBeenCalledWith(1);
+
+    await fireEvent.changeText(screen.getByPlaceholderText('Nombre completo'), 'Ana Torres');
+    await fireEvent.changeText(screen.getByPlaceholderText('Alias'), 'ana');
+    await fireEvent.press(screen.getByText('Continuar'));
+    await screen.findByText('Paso 2 de 7');
+
+    expect(mockedRegistrarPaso).toHaveBeenCalledWith(2);
+  });
+
+  it('registra el completado al guardar con éxito', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: null });
+    mockedUpsertPreferencias.mockResolvedValue({ error: null });
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    await waitFor(() => {
+      expect(mockedRegistrarCompletado).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('un fallo de la analítica no rompe el alta', async () => {
+    mockedRegistrarPaso.mockImplementation(() => {
+      throw new Error('sin red');
+    });
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+
+    await fireEvent.changeText(screen.getByPlaceholderText('Nombre completo'), 'Ana Torres');
+    await fireEvent.changeText(screen.getByPlaceholderText('Alias'), 'ana');
+    await fireEvent.press(screen.getByText('Continuar'));
+
+    expect(await screen.findByText('Paso 2 de 7')).toBeTruthy();
+    expect(screen.queryByText(/sin red/i)).toBeNull();
   });
 });
