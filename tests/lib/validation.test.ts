@@ -1,4 +1,4 @@
-import { isValidEmail, toE164Peru, isValidEdad, parseListInput } from '@/lib/validation';
+import { isValidEmail, toE164Peru, isMayorDeEdad, parseListInput } from '@/lib/validation';
 
 describe('isValidEmail', () => {
   it('accepts a standard email', () => {
@@ -46,29 +46,36 @@ describe('toE164Peru', () => {
   });
 });
 
-describe('isValidEdad', () => {
-  it('accepts exactly 18', () => {
-    expect(isValidEdad(18)).toBe(true);
+describe('isMayorDeEdad', () => {
+  // Fecha fija para que el test no dependa del día en que corre.
+  const HOY = new Date('2026-08-25T12:00:00Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(HOY);
   });
 
-  it('accepts an adult age', () => {
-    expect(isValidEdad(30)).toBe(true);
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  it('rejects under 18', () => {
-    expect(isValidEdad(17)).toBe(false);
+  it('acepta a quien cumple exactamente 18 hoy', () => {
+    expect(isMayorDeEdad('2008-08-25')).toBe(true);
   });
 
-  it('rejects negative numbers', () => {
-    expect(isValidEdad(-1)).toBe(false);
+  it('rechaza a quien cumple 18 mañana', () => {
+    expect(isMayorDeEdad('2008-08-26')).toBe(false);
   });
 
-  it('rejects non-integer ages', () => {
-    expect(isValidEdad(18.5)).toBe(false);
+  it('rechaza 17 años y 11 meses', () => {
+    expect(isMayorDeEdad('2008-09-25')).toBe(false);
   });
 
-  it('rejects NaN', () => {
-    expect(isValidEdad(NaN)).toBe(false);
+  it('rechaza una fecha inválida', () => {
+    expect(isMayorDeEdad('no-es-fecha')).toBe(false);
+  });
+
+  it('rechaza una fecha futura', () => {
+    expect(isMayorDeEdad('2030-01-01')).toBe(false);
   });
 });
 

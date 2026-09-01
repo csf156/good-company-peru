@@ -24,9 +24,19 @@ export function toE164Peru(value: string): string | null {
   return `+51${digits}`;
 }
 
-/** Peru requires 18+ for both roles (KYC gate happens later; this is form-level). */
-export function isValidEdad(edad: number): boolean {
-  return Number.isInteger(edad) && edad >= 18;
+/** True si la fecha de nacimiento (YYYY-MM-DD) corresponde a alguien de 18 o más. */
+export function isMayorDeEdad(fechaNacimiento: string): boolean {
+  const nacimiento = new Date(`${fechaNacimiento}T00:00:00`);
+  if (Number.isNaN(nacimiento.getTime())) return false;
+
+  const hoy = new Date();
+  const dieciocho = new Date(
+    nacimiento.getFullYear() + 18,
+    nacimiento.getMonth(),
+    nacimiento.getDate(),
+  );
+
+  return dieciocho <= hoy;
 }
 
 /** Parses a comma-separated free-text field (hobbies, intereses) into a clean list. */

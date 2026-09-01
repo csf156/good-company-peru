@@ -5,7 +5,8 @@ import { isProfileComplete, type OwnProfile } from '@/lib/profile-complete';
 export type { OwnProfile };
 export { isProfileComplete };
 
-const PROFILE_SELECT = 'rol, nombre, alias, edad, genero, profesion, foto_url, hobbies, intereses, kyc_estado';
+const PROFILE_SELECT =
+  'rol, nombre, alias, fecha_nacimiento, genero, profesion, foto_url, hobbies, tipo_salida, kyc_estado';
 
 /** Returns the signed-in user's profile, or null if none exists yet. */
 export async function getOwnProfile(): Promise<OwnProfile | null> {
@@ -34,7 +35,7 @@ export type PublicProfile = {
   genero: string | null;
   profesion: string | null;
   hobbies: string[];
-  intereses: string[];
+  tipo_salida: string[];
   foto_url: string | null;
   kyc_estado: string;
 };
@@ -54,11 +55,11 @@ export async function getPublicProfile(id: string): Promise<PublicProfile | null
 export type ProfileFormFields = {
   nombre: string;
   alias: string;
-  edad: number;
+  fecha_nacimiento: string;
   genero: string;
   profesion: string;
   hobbies: string[];
-  intereses: string[];
+  tipo_salida: string[];
   foto_url?: string;
 };
 

@@ -1,7 +1,6 @@
 import {
   getOwnProfile,
   getPublicProfile,
-  isProfileComplete,
   updateOwnProfile,
   upsertPreferenciasSalida,
 } from '@/lib/profile';
@@ -45,7 +44,7 @@ describe('getOwnProfile', () => {
     expect(profile).toBeNull();
     expect(mockedSupabase.from).toHaveBeenCalledWith('profiles');
     expect(select).toHaveBeenCalledWith(
-      'rol, nombre, alias, edad, genero, profesion, foto_url, hobbies, intereses, kyc_estado',
+      'rol, nombre, alias, fecha_nacimiento, genero, profesion, foto_url, hobbies, tipo_salida, kyc_estado',
     );
     expect(eq).toHaveBeenCalledWith('id', 'user-1');
   });
@@ -56,12 +55,12 @@ describe('getOwnProfile', () => {
       rol: 'amigo',
       nombre: 'Ana',
       alias: 'Ani',
-      edad: 25,
+      fecha_nacimiento: '2000-01-01',
       genero: 'femenino',
       profesion: 'Diseñadora',
       foto_url: 'user-1/foto.jpg',
       hobbies: ['cine'],
-      intereses: ['viajar'],
+      tipo_salida: ['viajar'],
       kyc_estado: 'pendiente',
     };
     const maybeSingle = jest.fn().mockResolvedValue({ data: rowData });
@@ -75,36 +74,6 @@ describe('getOwnProfile', () => {
   });
 });
 
-describe('isProfileComplete', () => {
-  const base = {
-    rol: 'amigo' as const,
-    nombre: 'Ana',
-    alias: 'Ani',
-    edad: 25,
-    genero: 'femenino',
-    profesion: 'Diseñadora',
-    foto_url: 'user-1/foto.jpg',
-    hobbies: ['cine'],
-    intereses: ['viajar'],
-    kyc_estado: 'pendiente' as const,
-  };
-
-  it('returns true when all required fields are present', () => {
-    expect(isProfileComplete(base)).toBe(true);
-  });
-
-  it('returns false when null', () => {
-    expect(isProfileComplete(null)).toBe(false);
-  });
-
-  it.each(['nombre', 'alias', 'edad', 'genero', 'profesion', 'foto_url'] as const)(
-    'returns false when %s is missing',
-    (field) => {
-      expect(isProfileComplete({ ...base, [field]: null })).toBe(false);
-    },
-  );
-});
-
 describe('updateOwnProfile', () => {
   it('updates only the editable fields for the signed-in user', async () => {
     mockedSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
@@ -115,11 +84,11 @@ describe('updateOwnProfile', () => {
     const fields = {
       nombre: 'Ana',
       alias: 'Ani',
-      edad: 25,
+      fecha_nacimiento: '2000-01-01',
       genero: 'femenino',
       profesion: 'Diseñadora',
       hobbies: ['cine'],
-      intereses: ['viajar'],
+      tipo_salida: ['viajar'],
     };
     const result = await updateOwnProfile(fields);
 
@@ -181,7 +150,7 @@ describe('getPublicProfile', () => {
       genero: 'masculino',
       profesion: 'Ingeniero',
       hobbies: ['fútbol'],
-      intereses: ['tecnología'],
+      tipo_salida: ['tecnología'],
       foto_url: 'user-2/foto.jpg',
       kyc_estado: 'verificado',
     };
