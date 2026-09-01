@@ -7,7 +7,7 @@ module.exports = {
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
-    plugins: ['expo-router', 'expo-font'],
+    plugins: ['expo-router', 'expo-font', 'expo-asset'],
     ios: {
       supportsTablet: true,
     },
