@@ -1,5 +1,5 @@
 -- Fase D.3 bloque 2 — embudo de onboarding.
-select plan(6);
+select plan(8);
 
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
@@ -13,12 +13,31 @@ values
    '44444444-4444-4444-4444-444444444444', 'authenticated', 'authenticated',
    'beto-onboarding@test.dev', '', now(), now(), now(), '', '', '', '');
 
+-- perfil_id de onboarding_eventos referencia public.profiles, no auth.users
+-- directo: la fila de profiles ya existe cuando arranca el wizard (se crea
+-- al elegir rol).
+insert into public.profiles (id, rol, alias)
+values
+  ('33333333-3333-3333-3333-333333333333', 'amigo', 'AnaOnboarding'),
+  ('44444444-4444-4444-4444-444444444444', 'amigo', 'BetoOnboarding');
+
 -- Forma de la tabla
 select has_table('public', 'onboarding_eventos', 'existe la tabla de eventos de onboarding');
 select columns_are(
   'public', 'onboarding_eventos',
   array['id', 'perfil_id', 'paso', 'evento', 'created_at'],
   'onboarding_eventos tiene exactamente las columnas esperadas'
+);
+
+-- Sin sesión no se toca nada de esto (defensa en profundidad, igual que
+-- chat_mensajes): la RLS ya bloquearía, pero anon no debería ni intentarlo.
+select ok(
+  not has_table_privilege('anon', 'public.onboarding_eventos', 'SELECT'),
+  'anon NO puede leer onboarding_eventos'
+);
+select ok(
+  not has_table_privilege('anon', 'public.onboarding_eventos', 'INSERT'),
+  'anon NO puede insertar en onboarding_eventos'
 );
 
 -- Impersonar a Ana e insertar un evento propio
@@ -65,15 +84,17 @@ select is(
   'Ana no puede leer los eventos de onboarding de Beto'
 );
 
-reset role;
-select set_config('request.jwt.claims', null, true);
-
--- Append-only: ni UPDATE ni DELETE para authenticated, igual que el ledger.
+-- Append-only: ni UPDATE para authenticated, igual que el ledger. Tiene que
+-- correr TODAVÍA como authenticated — el REVOKE no frena al owner/postgres,
+-- así que probarlo después del `reset role` no probaría nada.
 select throws_ok(
   $$update public.onboarding_eventos set paso = 5 where perfil_id = '33333333-3333-3333-3333-333333333333'$$,
   '42501',
   null,
   'authenticated no puede actualizar onboarding_eventos (append-only)'
 );
+
+reset role;
+select set_config('request.jwt.claims', null, true);
 
 select * from finish();
