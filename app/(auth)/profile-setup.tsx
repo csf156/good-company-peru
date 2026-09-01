@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { getOwnProfile } from '@/lib/profile';
+import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
 import { isMayorDeEdad, parseListInput } from '@/lib/validation';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
@@ -85,11 +86,13 @@ function validarPaso(paso: number, datos: Datos): string | null {
 }
 
 export default function ProfileSetupScreen() {
+  const router = useRouter();
   const [rol, setRol] = useState<RolUsuario | null>(null);
   const [paso, setPaso] = useState(1);
   const [datos, setDatos] = useState<Datos>(DATOS_INICIALES);
   const [error, setError] = useState<string | null>(null);
   const [otroHobbiesAbierto, setOtroHobbiesAbierto] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     getOwnProfile().then((profile) => {
@@ -136,7 +139,7 @@ export default function ProfileSetupScreen() {
     setError(null);
   }
 
-  function handleContinuar() {
+  async function handleContinuar() {
     if (motivo) return;
     setError(null);
 
@@ -145,7 +148,41 @@ export default function ProfileSetupScreen() {
       return;
     }
 
-    // La persistencia final llega en la Tarea 6.
+    // Un solo updateOwnProfile con todo, al terminar — nunca a medias en
+    // pasos intermedios. Si "Otro" de género/hobbies está lleno, prevalece
+    // sobre la opción de la grilla.
+    setLoading(true);
+    const generoFinal = datos.genero === 'Otro' ? datos.generoOtro.trim() : datos.genero;
+    const hobbiesFinal = [...datos.hobbies, ...parseListInput(datos.hobbiesOtroTexto)];
+
+    const result = await updateOwnProfile({
+      nombre: datos.nombre.trim(),
+      alias: datos.alias.trim(),
+      fecha_nacimiento: datos.fechaNacimiento,
+      genero: generoFinal,
+      hobbies: hobbiesFinal,
+      tipo_salida: datos.tipoSalida,
+      ...(datos.fotoPath ? { foto_url: datos.fotoPath } : {}),
+    });
+
+    if (result.error) {
+      setLoading(false);
+      setError(result.error);
+      return;
+    }
+
+    if (rol === 'amigo') {
+      const prefsResult = await upsertPreferenciasSalida({ distritos: datos.distritos });
+      setLoading(false);
+      if (prefsResult.error) {
+        setError(prefsResult.error);
+        return;
+      }
+    } else {
+      setLoading(false);
+    }
+
+    router.replace('/');
   }
 
   return (
@@ -280,7 +317,7 @@ export default function ProfileSetupScreen() {
       <Button
         label={paso < totalPasos ? 'Continuar' : 'Terminar'}
         onPress={handleContinuar}
-        disabled={!!motivo}
+        disabled={!!motivo || loading}
       />
     </Screen>
   );

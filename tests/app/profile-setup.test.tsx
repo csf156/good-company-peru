@@ -1,11 +1,13 @@
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import ProfileSetupScreen from '@/app/(auth)/profile-setup';
-import { getOwnProfile } from '@/lib/profile';
+import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
 import * as ImagePicker from 'expo-image-picker';
 
 jest.mock('@/lib/profile', () => ({
   getOwnProfile: jest.fn(),
+  updateOwnProfile: jest.fn(),
+  upsertPreferenciasSalida: jest.fn(),
 }));
 jest.mock('@/lib/storage', () => ({
   uploadProfilePhoto: jest.fn(),
@@ -16,7 +18,14 @@ jest.mock('expo-image-picker', () => ({
   MediaTypeOptions: { Images: 'Images' },
 }));
 
+const mockReplace = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}));
+
 const mockedGetOwnProfile = getOwnProfile as jest.Mock;
+const mockedUpdateOwnProfile = updateOwnProfile as jest.Mock;
+const mockedUpsertPreferencias = upsertPreferenciasSalida as jest.Mock;
 const mockedUploadPhoto = uploadProfilePhoto as jest.Mock;
 const mockedPickImage = ImagePicker.launchImageLibraryAsync as jest.Mock;
 const mockedRequestPermission = ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock;
@@ -229,5 +238,95 @@ describe('ProfileSetupScreen — rentador', () => {
     mockedGetOwnProfile.mockResolvedValue({ rol: 'rentador' });
     await render(<ProfileSetupScreen />);
     expect(await screen.findByText('Paso 1 de 6')).toBeTruthy();
+  });
+});
+
+async function completarWizardCompleto() {
+  await fireEvent.changeText(screen.getByPlaceholderText('Nombre completo'), 'Ana Torres');
+  await fireEvent.changeText(screen.getByPlaceholderText('Alias'), 'ana');
+  await fireEvent.press(screen.getByText('Continuar'));
+  await screen.findByText('Paso 2 de 7');
+
+  await fireEvent.press(screen.getByLabelText('Día'));
+  await fireEvent.press(screen.getByText('5'));
+  await fireEvent.press(screen.getByLabelText('Mes'));
+  await fireEvent.press(screen.getByText('marzo'));
+  await fireEvent.press(screen.getByLabelText('Año'));
+  await fireEvent.press(screen.getByText('1995'));
+  await fireEvent.press(screen.getByText('Continuar'));
+  await screen.findByText('Paso 3 de 7');
+
+  await fireEvent.press(screen.getByText('Mujer'));
+  await fireEvent.press(screen.getByText('Continuar'));
+  await screen.findByText('Paso 4 de 7');
+
+  mockedRequestPermission.mockResolvedValue({ granted: true });
+  mockedPickImage.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///photo.jpg' }] });
+  mockedUploadPhoto.mockResolvedValue({ path: 'user-1/foto.jpg', error: null });
+  await fireEvent.press(screen.getByText('Elegir foto'));
+  await screen.findByText('Foto lista ✓');
+  await fireEvent.press(screen.getByText('Continuar'));
+  await screen.findByText('Paso 5 de 7');
+
+  await fireEvent.press(screen.getByText('Fútbol'));
+  await fireEvent.press(screen.getByText('Continuar'));
+  await screen.findByText('Paso 6 de 7');
+
+  await fireEvent.press(screen.getByText('Conversar / café'));
+  await fireEvent.press(screen.getByText('Continuar'));
+  await screen.findByText('Paso 7 de 7');
+
+  await fireEvent.press(screen.getByText('Miraflores'));
+}
+
+describe('ProfileSetupScreen — persistencia final', () => {
+  it('guarda todo de una sola vez al terminar el paso 7', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: null });
+    mockedUpsertPreferencias.mockResolvedValue({ error: null });
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    await waitFor(() => {
+      expect(mockedUpdateOwnProfile).toHaveBeenCalledTimes(1);
+    });
+    expect(mockedUpdateOwnProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: 'Ana Torres',
+        alias: 'ana',
+        fecha_nacimiento: '1995-03-05',
+        genero: 'Mujer',
+        hobbies: expect.arrayContaining(['futbol']),
+        tipo_salida: ['conversar'],
+      }),
+    );
+    expect(mockedUpsertPreferencias).toHaveBeenCalledWith({ distritos: ['Miraflores'] });
+    expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('no escribe nada en pasos intermedios', async () => {
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+
+    await avanzarHasta(4);
+    await screen.findByText('Paso 4 de 7');
+
+    expect(mockedUpdateOwnProfile).not.toHaveBeenCalled();
+    expect(mockedUpsertPreferencias).not.toHaveBeenCalled();
+  });
+
+  it('un fallo al guardar deja al usuario en el paso 7 con el error visible y sin perder datos', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: 'Falló la red' });
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    expect(await screen.findByText(/falló la red/i)).toBeTruthy();
+    expect(screen.getByText('Paso 7 de 7')).toBeTruthy();
+    expect(screen.getByText('Miraflores')).toBeTruthy();
   });
 });
