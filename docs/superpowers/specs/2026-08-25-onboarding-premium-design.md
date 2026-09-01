@@ -35,7 +35,7 @@
 
 ## 1. Wizard de perfil
 
-`profile-setup.tsx` deja de ser una pantalla y pasa a ser un flujo de **seis pasos**, uno por pantalla:
+`profile-setup.tsx` deja de ser una pantalla y pasa a ser un flujo de **siete pasos**, uno por pantalla:
 
 | Paso | Contenido | Validación |
 |---|---|---|
@@ -45,6 +45,7 @@
 | 4 | Foto | Obligatoria (igual que hoy) |
 | 5 | Hobbies | 1 a 5 seleccionados |
 | 6 | Tipo de salida | 1 o 2 seleccionados |
+| 7 | Distritos | 1 a 5 seleccionados |
 
 **Reglas del wizard:**
 
@@ -72,6 +73,17 @@ Más **"Otro"**, que abre un campo de texto donde se agregan valores separados p
 Conversar / café · Salir a comer · Vida nocturna · Conciertos y eventos · Cine y cultura · Deporte o aire libre · Turistear la ciudad · Acompañamiento a evento · Estudiar o trabajar juntos · Sin plan fijo
 
 **Sin campo abierto, deliberadamente.** Con un conjunto cerrado, la fase 2.0 (Preferencias + filtros) puede filtrar por estos valores sin normalizar texto libre. Y evita que la vía de escape se use para declarar tipos de salida que el producto no ofrece (§7).
+
+### 1.4 Distritos — lista de Lima, máximo 5
+
+**Hallazgo que corrige este spec (2026-08-25, al escribir el plan del bloque 2):** la versión original definía seis pasos y omitía los distritos. La pantalla de alta actual **sí los captura** (`app/(auth)/profile-setup.tsx`, campo de texto libre separado por comas) y los guarda en la tabla `preferencias_salida` vía `upsertPreferenciasSalida` (`lib/profile.ts:93`). Se omitieron porque viven en otra tabla, no en `profiles`. Un wizard de seis pasos habría dejado de capturarlos **en silencio**.
+
+**Decisión del usuario:** entran como **séptimo paso, con lista de distritos** — no texto libre.
+
+- Selección múltiple sobre los distritos de Lima Metropolitana y Callao, **máximo 5**.
+- **Sin iconos** (un distrito no tiene icono que lo represente sin caer en clipart) y **sin "Otro"**: el conjunto cerrado es justamente lo que permite a la fase 2.0 filtrar sin normalizar texto libre.
+- La lista es larga (~43 distritos), a diferencia de hobbies y tipo de salida. Necesita **búsqueda o agrupación**, no una grilla plana — es la única pantalla del wizard con ese problema.
+- Sigue guardándose en `preferencias_salida.distritos`; **no cambia el esquema**. Es una mejora de captura, no de modelo.
 
 ---
 
