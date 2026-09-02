@@ -2,6 +2,23 @@ import { render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { colors } from '@/lib/theme';
+import { useWindowSize } from '@/hooks/useWindowSize';
+
+// Se mockea el wrapper local (@/hooks/useWindowSize), no `useWindowDimensions`
+// de 'react-native' directo: mockear el hook nativo rompe la inicialización
+// de módulos internos de React Native bajo jest-expo (DevMenu y compañía).
+jest.mock('@/hooks/useWindowSize', () => ({ useWindowSize: jest.fn() }));
+
+const mockedUseWindowDimensions = useWindowSize as jest.Mock;
+
+beforeEach(() => {
+  mockedUseWindowDimensions.mockReturnValue({
+    width: 1280,
+    height: 900,
+    scale: 1,
+    fontScale: 1,
+  });
+});
 
 describe('Screen', () => {
   it('renders its children', async () => {
@@ -51,5 +68,61 @@ describe('Screen', () => {
     );
     const root = screen.getByTestId('pantalla');
     expect(StyleSheet.flatten(root.props.style).backgroundColor).toBe(colors.background);
+  });
+
+  describe('framed', () => {
+    it('limita el ancho del contenido y lo centra', async () => {
+      await render(
+        <Screen framed>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      const contenido = screen.getByTestId('screen-content');
+      expect(contenido.props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ maxWidth: expect.any(Number) })]),
+      );
+    });
+
+    it('no muestra textura lateral en pantallas angostas', async () => {
+      mockedUseWindowDimensions.mockReturnValue({ width: 375, height: 812, scale: 1, fontScale: 1 });
+      await render(
+        <Screen framed>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      expect(screen.queryByTestId('side-texture')).toBeNull();
+    });
+
+    it('muestra textura lateral en pantallas anchas', async () => {
+      mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
+      await render(
+        <Screen framed>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      expect(screen.getAllByTestId('side-texture', { hidden: true })).toHaveLength(2);
+    });
+
+    it('la textura es decorativa para lectores de pantalla', async () => {
+      mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
+      await render(
+        <Screen framed>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      const [primerPanel] = screen.getAllByTestId('side-texture', { hidden: true });
+      expect(primerPanel?.props.accessibilityElementsHidden).toBe(true);
+    });
+
+    it('no cambia el comportamiento de pantallas existentes (framed por defecto en false)', async () => {
+      mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
+      await render(
+        <Screen>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      expect(screen.queryByTestId('side-texture')).toBeNull();
+      expect(screen.queryByTestId('screen-content')).toBeNull();
+    });
   });
 });

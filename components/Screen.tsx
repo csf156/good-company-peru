@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { colors } from '@/lib/theme';
+import { SideTexture } from '@/components/SideTexture';
+import { useWindowSize } from '@/hooks/useWindowSize';
 
 type ScreenProps = {
   children: ReactNode;
@@ -27,9 +29,19 @@ type ScreenProps = {
   /** Bordes seguros a respetar. Default: superior e inferior. */
   edges?: readonly Edge[];
   testID?: string;
+  /**
+   * Ancho máximo centrado + textura lateral en pantallas anchas. Default
+   * `false` para no alterar pantallas existentes — se activa pantalla por
+   * pantalla (bloque 2b: solo `profile-setup`, ver `docs/backlog.md` para
+   * el resto).
+   */
+  framed?: boolean;
 };
 
 const DEFAULT_EDGES: readonly Edge[] = ['top', 'bottom'];
+/** ~520px de contenido legible; por encima de ~900px de viewport hay lateral que decorar. */
+const MAX_CONTENT_WIDTH = 520;
+const WIDE_BREAKPOINT = 900;
 
 /**
  * Andamiaje mobile-first compartido: área segura (notch / home-indicator),
@@ -44,8 +56,25 @@ export function Screen({
   contentStyle,
   edges = DEFAULT_EDGES,
   testID,
+  framed = false,
 }: ScreenProps) {
+  const { width, height } = useWindowSize();
   const contentJustify = center ? styles.center : undefined;
+  const showTexture = framed && width >= WIDE_BREAKPOINT;
+
+  const inner = scroll ? (
+    <ScrollView
+      testID="screen-scroll"
+      style={styles.fill}
+      contentContainerStyle={[styles.scrollContent, contentJustify, contentStyle]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    <View style={[styles.fill, contentJustify, contentStyle]}>{children}</View>
+  );
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: background }]} edges={edges} testID={testID}>
@@ -53,18 +82,16 @@ export function Screen({
         style={styles.fill}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {scroll ? (
-          <ScrollView
-            testID="screen-scroll"
-            style={styles.fill}
-            contentContainerStyle={[styles.scrollContent, contentJustify, contentStyle]}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-          >
-            {children}
-          </ScrollView>
+        {framed ? (
+          <View style={styles.framedRow}>
+            {showTexture && <SideTexture height={height} />}
+            <View style={[styles.framedContent]} testID="screen-content">
+              {inner}
+            </View>
+            {showTexture && <SideTexture height={height} />}
+          </View>
         ) : (
-          <View style={[styles.fill, contentJustify, contentStyle]}>{children}</View>
+          inner
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -80,6 +107,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  framedRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  framedContent: {
+    flex: 1,
+    maxWidth: MAX_CONTENT_WIDTH,
+    width: '100%',
+    alignSelf: 'center',
   },
   center: {
     justifyContent: 'center',
