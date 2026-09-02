@@ -2,6 +2,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { requestOtp, verifyOtp, createProfile, signInWithGoogle, completeGoogleSignIn } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { expoConfig: { experiments: { baseUrl: '/good-company-peru' } } },
+}));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
@@ -232,5 +236,71 @@ describe('signInWithGoogle', () => {
 
     expect(result.error).toBe('proveedor no configurado');
     expect(mockedOpenAuthSession).not.toHaveBeenCalled();
+  });
+});
+
+// En web, `makeRedirectUri()` de expo-auth-session arma el redirect solo con
+// `window.location.origin` (SessionUrlProvider.js), sin el sub-path del
+// deploy (`experiments.baseUrl`, ej. `/good-company-peru`). Con GitHub Pages
+// eso manda a los usuarios a un origin pelado que no tiene sitio de Pages
+// propio ("There isn't a GitHub Pages site here") — bug real reproducido
+// 2026-08-25. En web hay que armar el redirect a mano con origin + baseUrl.
+describe('en web (origin + baseUrl del build, no el origin pelado)', () => {
+  const originalWindow = (global as { window?: unknown }).window;
+
+  beforeEach(() => {
+    (global as { window?: unknown }).window = {
+      location: { origin: 'https://csf156.github.io' },
+    };
+  });
+
+  afterEach(() => {
+    (global as { window?: unknown }).window = originalWindow;
+  });
+
+  it('signInWithGoogle usa origin + baseUrl como redirectTo, no el origin pelado', async () => {
+    mockedSignInWithOAuth.mockResolvedValue({
+      data: { url: 'https://accounts.google.com/authorize?...' },
+      error: null,
+    });
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({
+      type: 'success',
+      url: 'https://csf156.github.io/good-company-peru/#access_token=tok123&refresh_token=ref456',
+    });
+    mockedSetSession.mockResolvedValue({ error: null });
+
+    const result = await signInWithGoogle();
+
+    expect(mockedSignInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://csf156.github.io/good-company-peru/',
+        skipBrowserRedirect: true,
+      },
+    });
+    expect(result.error).toBeNull();
+  });
+
+  it('requestOtp por correo pasa emailRedirectTo con origin + baseUrl', async () => {
+    mockedSupabase.auth.signInWithOtp.mockResolvedValue({ error: null });
+
+    const result = await requestOtp({ type: 'email', value: 'ana@example.com' });
+
+    expect(result.error).toBeNull();
+    expect(mockedSupabase.auth.signInWithOtp).toHaveBeenCalledWith({
+      email: 'ana@example.com',
+      options: { emailRedirectTo: 'https://csf156.github.io/good-company-peru/' },
+    });
+  });
+
+  it('requestOtp por celular no manda emailRedirectTo (no aplica a SMS)', async () => {
+    mockedSupabase.auth.signInWithOtp.mockResolvedValue({ error: null });
+
+    const result = await requestOtp({ type: 'phone', value: '987654321' });
+
+    expect(result.error).toBeNull();
+    expect(mockedSupabase.auth.signInWithOtp).toHaveBeenCalledWith({
+      phone: '+51987654321',
+    });
   });
 });

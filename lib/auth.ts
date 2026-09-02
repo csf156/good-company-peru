@@ -1,10 +1,30 @@
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, toE164Peru } from '@/lib/validation';
 
 // Requerido por expo-web-browser en web para cerrar el flujo de auth al volver.
 WebBrowser.maybeCompleteAuthSession();
+
+/**
+ * En web, `makeRedirectUri()` de expo-auth-session arma el redirect con
+ * `window.location.origin` a secas (ver SessionUrlProvider.js), ignorando el
+ * sub-path del deploy (`experiments.baseUrl`, ej. `/good-company-peru` en
+ * GitHub Pages). Eso manda el retorno de OAuth/OTP a un origin sin sitio de
+ * Pages propio. Se arma a mano con origin + baseUrl del build.
+ */
+function webRedirectUri(): string {
+  const baseUrl = Constants.expoConfig?.experiments?.baseUrl ?? '';
+  return `${window.location.origin}${baseUrl}/`;
+}
+
+// `typeof window` no alcanza: el entorno de test (jest-expo) define un
+// `window` global sin `location` (alias de `global`), y nativo real no
+// define `window` en absoluto. `window.location` sí distingue web real.
+function isWeb(): boolean {
+  return typeof window !== 'undefined' && typeof window.location !== 'undefined';
+}
 
 export type Contact = { type: 'email'; value: string } | { type: 'phone'; value: string };
 
@@ -32,9 +52,11 @@ export async function requestOtp(contact: Contact): Promise<AuthResult> {
     return { error: INVALID_MESSAGE[contact.type] };
   }
 
-  const { error } = await supabase.auth.signInWithOtp({
-    [normalized.field]: normalized.value,
-  } as { email: string } | { phone: string });
+  const { error } = await supabase.auth.signInWithOtp(
+    normalized.field === 'email' && isWeb()
+      ? { email: normalized.value, options: { emailRedirectTo: webRedirectUri() } }
+      : ({ [normalized.field]: normalized.value } as { email: string } | { phone: string }),
+  );
 
   return { error: error?.message ?? null };
 }
@@ -99,7 +121,7 @@ export async function completeGoogleSignIn(url: string): Promise<AuthResult> {
 
 /** Inicia sesión con Google: abre el navegador, espera el resultado, establece la sesión. */
 export async function signInWithGoogle(): Promise<AuthResult> {
-  const redirectTo = makeRedirectUri();
+  const redirectTo = isWeb() ? webRedirectUri() : makeRedirectUri();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
