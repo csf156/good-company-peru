@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
 import { registrarPasoOnboarding, registrarOnboardingCompletado } from '@/lib/onboarding-analytics';
+import { useProfileRefresh } from '@/lib/profile-context';
 import { isMayorDeEdad, parseListInput } from '@/lib/validation';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
@@ -88,6 +89,7 @@ function validarPaso(paso: number, datos: Datos): string | null {
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
+  const refreshProfile = useProfileRefresh();
   const [rol, setRol] = useState<RolUsuario | null>(null);
   const [paso, setPaso] = useState(1);
   const [datos, setDatos] = useState<Datos>(DATOS_INICIALES);
@@ -199,6 +201,10 @@ export default function ProfileSetupScreen() {
     } catch {
       // Silencio deliberado.
     }
+    // El perfil ya está guardado en la base, pero _layout solo lo relee
+    // cuando cambia la sesión — sin esto, el guardián sigue viendo
+    // profileStatus:'incomplete' y devuelve al usuario al paso 1.
+    refreshProfile();
     router.replace('/');
   }
 

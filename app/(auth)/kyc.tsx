@@ -4,12 +4,14 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadDniDocument } from '@/lib/storage';
 import { startKycVerification } from '@/lib/kyc';
+import { useProfileRefresh } from '@/lib/profile-context';
 import { colors, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 
 export default function KycScreen() {
   const router = useRouter();
+  const refreshProfile = useProfileRefresh();
   const [dniPath, setDniPath] = useState<string | null>(null);
   const [selfiePath, setSelfiePath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,9 @@ export default function KycScreen() {
     }
 
     if (result.estado === 'verificado') {
+      // Mismo bug que el alta: kyc_estado cambia en la base pero _layout
+      // solo relee el perfil cuando cambia la sesión.
+      refreshProfile();
       router.replace('/');
     } else {
       setPending(true);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
@@ -11,6 +11,7 @@ import { JetBrainsMono_400Regular, JetBrainsMono_500Medium } from '@expo-google-
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
+import { ProfileRefreshContext } from '@/lib/profile-context';
 import {
   computeRedirect,
   type AuthSegment,
@@ -57,21 +58,39 @@ export default function RootLayout() {
     setProfileLoading(Boolean(session));
   }
 
+  // Aplica una fila de profiles al estado del guardián. Extraída para no
+  // duplicar el cálculo entre la carga inicial y `refreshProfile` — pero
+  // sin hacer la petición ella misma, para que el efecto de abajo pueda
+  // seguir con su `.then()` inline (el patrón que ya pasaba el lint) en vez
+  // de una llamada síncrona a una función que hace setState internamente.
+  const aplicarPerfil = useCallback((profile: Awaited<ReturnType<typeof getOwnProfile>>) => {
+    setProfileStatus(
+      profile === null ? 'none' : isProfileComplete(profile) ? 'complete' : 'incomplete',
+    );
+    setKycEstado(profile?.kyc_estado ?? 'pendiente');
+    setProfileLoading(false);
+  }, []);
+
   useEffect(() => {
     if (!session) return;
     let mounted = true;
     getOwnProfile().then((profile) => {
       if (!mounted) return;
-      setProfileStatus(
-        profile === null ? 'none' : isProfileComplete(profile) ? 'complete' : 'incomplete',
-      );
-      setKycEstado(profile?.kyc_estado ?? 'pendiente');
-      setProfileLoading(false);
+      aplicarPerfil(profile);
     });
     return () => {
       mounted = false;
     };
-  }, [session]);
+  }, [session, aplicarPerfil]);
+
+  // Lo que las pantallas piden tras escribir el perfil (Task 1, bloque 2b):
+  // `_layout` solo relee en el efecto de arriba, atado a `[session]`, que
+  // no cambia al terminar el alta ni al verificar KYC. Sin guarda de
+  // `mounted`: se dispara desde una acción puntual del usuario, no compite
+  // con un cambio de sesión concurrente.
+  const refreshProfile = useCallback(() => {
+    getOwnProfile().then(aplicarPerfil);
+  }, [aplicarPerfil]);
 
   const currentSegment = segments[segments.length - 1];
   const authSegment: AuthSegment = AUTH_SEGMENTS.includes(currentSegment as AuthSegment)
@@ -106,8 +125,10 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-    </SafeAreaProvider>
+    <ProfileRefreshContext.Provider value={refreshProfile}>
+      <SafeAreaProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </SafeAreaProvider>
+    </ProfileRefreshContext.Provider>
   );
 }

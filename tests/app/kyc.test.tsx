@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import KycScreen from '@/app/(auth)/kyc';
 import { uploadDniDocument } from '@/lib/storage';
 import { startKycVerification } from '@/lib/kyc';
+import { ProfileRefreshContext } from '@/lib/profile-context';
 import * as ImagePicker from 'expo-image-picker';
 
 jest.mock('@/lib/storage', () => ({
@@ -106,5 +107,39 @@ describe('KycScreen', () => {
 
     expect(await screen.findByText('Rutas inválidas.')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('tras verificar con éxito, vuelve a leer el perfil (mismo bug que el alta: kyc_estado cambia en la base pero el layout se queda con el valor viejo)', async () => {
+    mockedStartKyc.mockResolvedValue({ estado: 'verificado', error: null });
+    const refreshProfile = jest.fn();
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <KycScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await captureDniAndSelfie();
+
+    await fireEvent.press(screen.getByText('Verificar identidad'));
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/');
+    });
+    expect(refreshProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('no vuelve a leer el perfil si la verificación queda pendiente', async () => {
+    mockedStartKyc.mockResolvedValue({ estado: 'pendiente', error: null });
+    const refreshProfile = jest.fn();
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <KycScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await captureDniAndSelfie();
+
+    await fireEvent.press(screen.getByText('Verificar identidad'));
+
+    await screen.findByText(/en revisión/i);
+    expect(refreshProfile).not.toHaveBeenCalled();
   });
 });

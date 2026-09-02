@@ -3,6 +3,7 @@ import ProfileSetupScreen from '@/app/(auth)/profile-setup';
 import { getOwnProfile, updateOwnProfile, upsertPreferenciasSalida } from '@/lib/profile';
 import { uploadProfilePhoto } from '@/lib/storage';
 import { registrarPasoOnboarding, registrarOnboardingCompletado } from '@/lib/onboarding-analytics';
+import { ProfileRefreshContext } from '@/lib/profile-context';
 import * as ImagePicker from 'expo-image-picker';
 
 jest.mock('@/lib/profile', () => ({
@@ -379,5 +380,44 @@ describe('ProfileSetupScreen — medición de abandono', () => {
 
     expect(await screen.findByText('Paso 2 de 7')).toBeTruthy();
     expect(screen.queryByText(/sin red/i)).toBeNull();
+  });
+});
+
+describe('ProfileSetupScreen — refresco del perfil tras guardar', () => {
+  it('tras guardar el alta, vuelve a leer el perfil (si no, el guardián devuelve al paso 1)', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: null });
+    mockedUpsertPreferencias.mockResolvedValue({ error: null });
+    const refreshProfile = jest.fn();
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <ProfileSetupScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    await waitFor(() => {
+      expect(mockedUpdateOwnProfile).toHaveBeenCalledTimes(1);
+    });
+    expect(refreshProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('no vuelve a leer el perfil si el guardado falló', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: 'Falló la red' });
+    const refreshProfile = jest.fn();
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <ProfileSetupScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    await screen.findByText(/falló la red/i);
+    expect(refreshProfile).not.toHaveBeenCalled();
   });
 });
