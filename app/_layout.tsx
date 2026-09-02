@@ -85,11 +85,21 @@ export default function RootLayout() {
 
   // Lo que las pantallas piden tras escribir el perfil (Task 1, bloque 2b):
   // `_layout` solo relee en el efecto de arriba, atado a `[session]`, que
-  // no cambia al terminar el alta ni al verificar KYC. Sin guarda de
-  // `mounted`: se dispara desde una acción puntual del usuario, no compite
-  // con un cambio de sesión concurrente.
+  // no cambia al terminar el alta ni al verificar KYC.
+  //
+  // Devuelve la promesa — la pantalla que llama la espera antes de navegar,
+  // si no, `router.replace` dispara el efecto de redirección con el
+  // `profileStatus` todavía viejo (carrera detectada en revisión del
+  // bloque 2b: navegar sin esperar rebotaba al usuario al paso 1 igual que
+  // el bug original, solo que un instante después).
+  //
+  // Sin guarda de `mounted` en `aplicarPerfil` en este camino: se dispara
+  // desde una pantalla que está por desmontarse (va a navegar apenas
+  // resuelva), no compite con un cambio de sesión concurrente como sí le
+  // pasa al efecto de arriba. Un setState tras desmontar es inocuo en
+  // React 18 — no "arreglar" esto agregando una guarda que no hace falta.
   const refreshProfile = useCallback(() => {
-    getOwnProfile().then(aplicarPerfil);
+    return getOwnProfile().then(aplicarPerfil);
   }, [aplicarPerfil]);
 
   const currentSegment = segments[segments.length - 1];

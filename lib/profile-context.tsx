@@ -11,9 +11,15 @@ import { createContext, useContext } from 'react';
  *
  * Se prefiere esto a releer en cada navegación: una lectura por escritura,
  * en el momento exacto en que el dato cambió.
+ *
+ * Devuelve una promesa (no `void`): la pantalla que llama debe esperarla
+ * antes de `router.replace('/')`. Si no espera, la navegación dispara el
+ * efecto de redirección de `_layout` con el `profileStatus` todavía viejo
+ * — exactamente el mismo bug que este contexto existe para arreglar, solo
+ * que como una carrera en vez de un fetch que nunca ocurre.
  */
-export const ProfileRefreshContext = createContext<() => void>(() => {});
+export const ProfileRefreshContext = createContext<() => Promise<void>>(async () => {});
 
-export function useProfileRefresh(): () => void {
+export function useProfileRefresh(): () => Promise<void> {
   return useContext(ProfileRefreshContext);
 }

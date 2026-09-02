@@ -53,8 +53,14 @@ export default function KycScreen() {
 
     if (result.estado === 'verificado') {
       // Mismo bug que el alta: kyc_estado cambia en la base pero _layout
-      // solo relee el perfil cuando cambia la sesión.
-      refreshProfile();
+      // solo relee el perfil cuando cambia la sesión — hay que ESPERAR el
+      // refresco antes de navegar, si no el guardián redirige con el
+      // estado viejo. Si el refresco falla, navega igual.
+      try {
+        await refreshProfile();
+      } catch {
+        // Silencio deliberado — ver arriba.
+      }
       router.replace('/');
     } else {
       setPending(true);

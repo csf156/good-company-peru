@@ -202,9 +202,16 @@ export default function ProfileSetupScreen() {
       // Silencio deliberado.
     }
     // El perfil ya está guardado en la base, pero _layout solo lo relee
-    // cuando cambia la sesión — sin esto, el guardián sigue viendo
-    // profileStatus:'incomplete' y devuelve al usuario al paso 1.
-    refreshProfile();
+    // cuando cambia la sesión — hay que ESPERAR a que termine antes de
+    // navegar, si no, el guardián redirige con profileStatus todavía
+    // viejo (la misma vuelta al paso 1, solo que como carrera). Si el
+    // refresco falla, navega igual — un perfil ya guardado con éxito no
+    // puede dejar al usuario atrapado por un error de lectura.
+    try {
+      await refreshProfile();
+    } catch {
+      // Silencio deliberado — ver arriba.
+    }
     router.replace('/');
   }
 

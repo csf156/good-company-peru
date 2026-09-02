@@ -420,4 +420,62 @@ describe('ProfileSetupScreen — refresco del perfil tras guardar', () => {
     await screen.findByText(/falló la red/i);
     expect(refreshProfile).not.toHaveBeenCalled();
   });
+
+  it('espera a que termine de releer el perfil antes de navegar (si no, _layout redirige con el estado viejo)', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: null });
+    mockedUpsertPreferencias.mockResolvedValue({ error: null });
+    let resolveRefresh: () => void = () => {};
+    const refreshProfile = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <ProfileSetupScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    // Sin `await` aquí a propósito: `handleContinuar` queda suspendido en
+    // `await refreshProfile()` hasta que el test resuelva esa promesa más
+    // abajo — esperar `fireEvent.press` (que en RNTL v14 espera la promesa
+    // que devuelve el handler) se quedaría trabado para siempre. Por lo
+    // mismo, la consola puede mostrar un warning de `act(...)` benigno para
+    // el `setLoading(false)` que corre antes del await largo — no es un
+    // fallo del test.
+    fireEvent.press(screen.getByText('Terminar'));
+
+    await waitFor(() => {
+      expect(refreshProfile).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    resolveRefresh();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/');
+    });
+  });
+
+  it('navega igual si releer el perfil falla (no deja al usuario atrapado)', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: null });
+    mockedUpsertPreferencias.mockResolvedValue({ error: null });
+    const refreshProfile = jest.fn().mockRejectedValue(new Error('sin red'));
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <ProfileSetupScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/');
+    });
+  });
 });

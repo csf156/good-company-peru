@@ -142,4 +142,56 @@ describe('KycScreen', () => {
     await screen.findByText(/en revisión/i);
     expect(refreshProfile).not.toHaveBeenCalled();
   });
+
+  it('espera a que termine de releer el perfil antes de navegar (si no, _layout redirige con el estado viejo)', async () => {
+    mockedStartKyc.mockResolvedValue({ estado: 'verificado', error: null });
+    let resolveRefresh: () => void = () => {};
+    const refreshProfile = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <KycScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await captureDniAndSelfie();
+
+    // Sin `await` a propósito: `handleVerify` queda suspendido en
+    // `await refreshProfile()` hasta que el test resuelva esa promesa más
+    // abajo — esperar `fireEvent.press` se quedaría trabado para siempre.
+    // La consola puede mostrar un warning de `act(...)` benigno para el
+    // `setLoading(false)` que corre antes del await largo — no es un fallo.
+    fireEvent.press(screen.getByText('Verificar identidad'));
+
+    await waitFor(() => {
+      expect(refreshProfile).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    resolveRefresh();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/');
+    });
+  });
+
+  it('navega igual si releer el perfil falla (no deja al usuario atrapado)', async () => {
+    mockedStartKyc.mockResolvedValue({ estado: 'verificado', error: null });
+    const refreshProfile = jest.fn().mockRejectedValue(new Error('sin red'));
+    await render(
+      <ProfileRefreshContext.Provider value={refreshProfile}>
+        <KycScreen />
+      </ProfileRefreshContext.Provider>,
+    );
+    await captureDniAndSelfie();
+
+    await fireEvent.press(screen.getByText('Verificar identidad'));
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/');
+    });
+  });
 });
