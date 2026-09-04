@@ -61,7 +61,7 @@ Los tests que cubren ambos ya existen y se conservan; la Tarea 4 los reubica al 
 | Archivo | Responsabilidad | Tarea |
 |---|---|---|
 | `supabase/migrations/20260904190000_onboarding_eventos_kyc.sql` | Ensancha el CHECK de `paso` a 1–11 | 1 |
-| `supabase/tests/23_onboarding_eventos_kyc.sql` | pgTAP: acepta 8–11, rechaza 0 y 12, RLS intacta | 1 |
+| `supabase/tests/25_onboarding_eventos_kyc.sql` | pgTAP: acepta 8–11, rechaza 0 y 12, RLS intacta | 1 |
 | `lib/onboarding-analytics.ts` | Añade `registrarPasoKyc` y `registrarKycCompletado` | 2 |
 | `tests/lib/onboarding-analytics.test.ts` | Cobertura de los helpers nuevos | 2 |
 | `app/(auth)/kyc.tsx` | Reescritura: máquina de 4 pasos | 3, 4 |
@@ -73,7 +73,7 @@ Los tests que cubren ambos ya existen y se conservan; la Tarea 4 los reubica al 
 
 **Files:**
 - Create: `supabase/migrations/20260904190000_onboarding_eventos_kyc.sql`
-- Create: `supabase/tests/23_onboarding_eventos_kyc.sql`
+- Create: `supabase/tests/25_onboarding_eventos_kyc.sql`
 
 **Interfaces:**
 - Produces: `onboarding_eventos` acepta `paso` de 1 a 11. La Tarea 2 inserta 8–11.
@@ -90,7 +90,7 @@ Salida esperada: vacía. Si `20260904190000` ya existiera, elige otro timestamp 
 
 - [ ] **Step 2: Escribir el test pgTAP primero (RED)**
 
-Crea `supabase/tests/23_onboarding_eventos_kyc.sql`. Sigue el estilo de los ficheros vecinos (`supabase/tests/*.sql`): `begin;`, `select plan(N);`, aserciones, `select * from finish();`, `rollback;`.
+Crea `supabase/tests/25_onboarding_eventos_kyc.sql`. Sigue el estilo de los ficheros vecinos (`supabase/tests/*.sql`): `begin;`, `select plan(N);`, aserciones, `select * from finish();`, `rollback;`.
 
 ```sql
 begin;
@@ -99,43 +99,43 @@ select plan(6);
 -- Un perfil de prueba propio para no depender de datos ajenos.
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                         email_confirmed_at, created_at, updated_at)
-values ('00000000-0000-0000-0000-0000000000k1'::uuid,
+values ('00000000-0000-0000-0000-0000000000c1'::uuid,
         '00000000-0000-0000-0000-000000000000'::uuid,
         'authenticated', 'authenticated', 'kyc-paso@ayni.test', '',
         now(), now(), now());
 
-insert into public.profiles (id, rol) values ('00000000-0000-0000-0000-0000000000k1'::uuid, 'amigo');
+insert into public.profiles (id, rol) values ('00000000-0000-0000-0000-0000000000c1'::uuid, 'amigo');
 
 -- Los pasos del wizard de perfil siguen siendo válidos.
 select lives_ok(
   $$insert into public.onboarding_eventos (perfil_id, paso, evento)
-    values ('00000000-0000-0000-0000-0000000000k1'::uuid, 7, 'completado')$$,
+    values ('00000000-0000-0000-0000-0000000000c1'::uuid, 7, 'completado')$$,
   'el paso 7 (fin del alta de perfil) sigue aceptandose'
 );
 
 -- Los cuatro pasos de KYC son los que esta migracion habilita.
 select lives_ok(
   $$insert into public.onboarding_eventos (perfil_id, paso, evento)
-    values ('00000000-0000-0000-0000-0000000000k1'::uuid, 8, 'paso_visto')$$,
+    values ('00000000-0000-0000-0000-0000000000c1'::uuid, 8, 'paso_visto')$$,
   'el paso 8 (intro de KYC) se acepta'
 );
 select lives_ok(
   $$insert into public.onboarding_eventos (perfil_id, paso, evento)
-    values ('00000000-0000-0000-0000-0000000000k1'::uuid, 11, 'completado')$$,
+    values ('00000000-0000-0000-0000-0000000000c1'::uuid, 11, 'completado')$$,
   'el paso 11 (KYC completado) se acepta'
 );
 
 -- El rango sigue acotado por los dos extremos.
 select throws_ok(
   $$insert into public.onboarding_eventos (perfil_id, paso, evento)
-    values ('00000000-0000-0000-0000-0000000000k1'::uuid, 12, 'paso_visto')$$,
+    values ('00000000-0000-0000-0000-0000000000c1'::uuid, 12, 'paso_visto')$$,
   '23514',
   null,
   'el paso 12 se rechaza: el rango sigue acotado por arriba'
 );
 select throws_ok(
   $$insert into public.onboarding_eventos (perfil_id, paso, evento)
-    values ('00000000-0000-0000-0000-0000000000k1'::uuid, 0, 'paso_visto')$$,
+    values ('00000000-0000-0000-0000-0000000000c1'::uuid, 0, 'paso_visto')$$,
   '23514',
   null,
   'el paso 0 se rechaza: el rango sigue acotado por abajo'
@@ -208,12 +208,12 @@ Después vuelve a correr la consulta de `pg_constraint` del Step 4 y confirma qu
 set -a; . ./.env; set +a; npm run test:db
 ```
 
-Esperado: las 6 aserciones del fichero 23 en verde, y el total de pgTAP sube en 6 sin que ninguna de las anteriores se rompa.
+Esperado: las 6 aserciones del fichero 25 en verde, y el total de pgTAP sube de 249 a 255 sin que ninguna de las anteriores se rompa.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add supabase/migrations/20260904190000_onboarding_eventos_kyc.sql supabase/tests/23_onboarding_eventos_kyc.sql
+git add supabase/migrations/20260904190000_onboarding_eventos_kyc.sql supabase/tests/25_onboarding_eventos_kyc.sql
 git commit -m "feat(db): onboarding_eventos acepta los pasos de KYC"
 ```
 
