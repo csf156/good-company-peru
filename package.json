@@ -55,7 +55,9 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:db": "node tests/db/run-pgtap.mjs"
+    "test:db": "node tests/db/run-pgtap.mjs",
+    "demo:seed": "node scripts/seed-demo.mjs",
+    "demo:limpiar": "node scripts/seed-demo.mjs --limpiar"
   },
   "private": true
 }

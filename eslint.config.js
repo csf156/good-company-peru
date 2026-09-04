@@ -20,6 +20,15 @@ module.exports = [
     },
   },
   {
+    // scripts/*.mjs corren en Node plano (siembra de demo), no en el runtime
+    // RN — mismo trato que tests/db/*.mjs, que ya vive fuera del bundle de la
+    // app; solo hace falta declarar `Buffer` (expo-config no lo trae).
+    files: ['scripts/*.mjs'],
+    languageOptions: {
+      globals: { Buffer: 'readonly' },
+    },
+  },
+  {
     ignores: [
       'dist/*',
       'node_modules/*',
