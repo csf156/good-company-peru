@@ -667,6 +667,17 @@ async function setRol(client, targetUserId, rol) {
 async function limpiar(client) {
   const ids = await getDemoIds(client);
 
+  // Defensa explícita (Tarea 5, Step 2): si hay MÁS perfiles marcados demo de
+  // los que este script sembró, algo los marcó de más — abortar sin borrar
+  // nada, en vez de arrastrar filas que no sembramos nosotros.
+  if (ids.length > DEMO_PROFILES.length) {
+    throw new Error(
+      `Hay ${ids.length} perfiles con flags->>'demo'='true', pero este script solo sembró ` +
+        `${DEMO_PROFILES.length}. Abortando sin borrar nada — el delete alcanzaría más filas de ` +
+        'las sembradas.',
+    );
+  }
+
   // Ojo: las compras de la Tarea 3 para LA CUENTA DEL USUARIO (bar/ledger/
   // ordenes_pago de su bar de rentador) tienen perfil_id = su id REAL, no uno
   // de `ids` — filtrar solo por perfil_id demo las dejaría huérfanas (rompió
