@@ -185,6 +185,15 @@ const DEMO_PROFILES = [
 
 const byAlias = Object.fromEntries(DEMO_PROFILES.map((p) => [p.alias, p]));
 
+// Compras de la Tarea 3 (bar). Nombradas acá, no como arrays sueltos dentro de
+// seedBar(), porque limpiar() necesita el TOTAL esperado de órdenes para su
+// guarda de conteo (Tarea 5, Step 2) — que salga de estos mismos datos, no de
+// un número suelto que se desincronice si mañana cambia cuántas se compran.
+const COMPRAS_USUARIO = ['A', 'D1', 'D2', 'D3', 'D4', 'spare'];
+const RENTADORES_DEMO = DEMO_PROFILES.filter((p) => p.rol === 'rentador').map((p) => p.alias);
+const BEBIDAS_POR_RENTADOR_DEMO = 2;
+const MAX_ORDENES_DEMO = COMPRAS_USUARIO.length + RENTADORES_DEMO.length * BEBIDAS_POR_RENTADOR_DEMO;
+
 // ============================================================================
 // Dinero: mismo desglose que supabase/functions/_shared/pagos.ts
 // (calcularDesgloseCompra) — rentador free = +15% buyer fee. Duplicado a
@@ -378,21 +387,19 @@ async function seedBar(client, targetUserId) {
   const pick = (i) => catalogo[i % catalogo.length];
 
   const barUsuario = {};
-  const compras = ['A', 'D1', 'D2', 'D3', 'D4', 'spare'];
-  for (let i = 0; i < compras.length; i++) {
-    barUsuario[compras[i]] = await comprarBebidaDemo(client, {
+  for (let i = 0; i < COMPRAS_USUARIO.length; i++) {
+    barUsuario[COMPRAS_USUARIO[i]] = await comprarBebidaDemo(client, {
       perfilId: targetUserId,
       bebida: pick(i),
-      idempotencyKey: `demo-seed:usuario:${compras[i]}`,
+      idempotencyKey: `demo-seed:usuario:${COMPRAS_USUARIO[i]}`,
     });
   }
 
   const barDemoRentador = {};
-  const rentadores = ['Rodri', 'Fer', 'Gaby', 'Diego'];
-  for (const alias of rentadores) {
+  for (const alias of RENTADORES_DEMO) {
     const perfilId = byAlias[alias].id;
     barDemoRentador[alias] = [];
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < BEBIDAS_POR_RENTADOR_DEMO; i++) {
       barDemoRentador[alias].push(
         await comprarBebidaDemo(client, {
           perfilId,
@@ -691,6 +698,19 @@ async function limpiar(client) {
   );
   const ordenIds = ordenes.map((r) => r.id);
 
+  // Defensa explícita del lado del DINERO (Tarea 5, Step 2) — espejo de la de
+  // perfiles de arriba, pero acá importa más: es la que protege el camino
+  // donde el append-only queda desactivado más abajo. Corre ANTES de tocar el
+  // ledger, no después. MAX_ORDENES_DEMO sale de los datos de siembra
+  // (COMPRAS_USUARIO / RENTADORES_DEMO), no de un número suelto.
+  if (ordenIds.length > MAX_ORDENES_DEMO) {
+    throw new Error(
+      `Hay ${ordenIds.length} órdenes con idempotency_key 'demo-seed:%', pero este script solo ` +
+        `siembra hasta ${MAX_ORDENES_DEMO}. Abortando sin tocar el ledger — el delete alcanzaría ` +
+        'más filas de las sembradas.',
+    );
+  }
+
   if (ids.length === 0 && ordenIds.length === 0) {
     console.log('✓ Tarea 5 — nada que limpiar.');
     return;
@@ -704,10 +724,15 @@ async function limpiar(client) {
   // ledger además tiene un trigger que bloquea CUALQUIER delete/update, sin
   // excepción de rol (public.ledger_append_only(), 20260723120000) — es la
   // invariante contable real, no un permiso. `session_replication_role =
-  // replica` desactiva los triggers SOLO dentro de esta transacción (con
-  // SET LOCAL, revierte solo al hacer commit) para esta ÚNICA sentencia de
-  // limpieza de demo, acotada a las órdenes ya identificadas por su prefijo
-  // 'demo-seed:' más arriba. No es un bypass general: fuera de esta
+  // replica` desactiva TODOS los triggers de la transacción — no solo el
+  // append-only, también los de integridad referencial (FK) — así que
+  // cualquier sentencia que corra ahí adentro NO valida FKs. En este alcance
+  // (un DELETE, sobre ids ya acotados por la guarda de arriba) no cambia el
+  // resultado, pero conviene decirlo bien: no es un bypass "solo del
+  // append-only". Con SET LOCAL revierte solo al terminar la transacción — el
+  // `ordenes_pago` va DENTRO de la misma transacción que el ledger (si esa
+  // sentencia fallara fuera, quedarían órdenes confirmadas sin su ledger,
+  // irreparable por ser append-only). No es un bypass general: fuera de esta
   // transacción el append-only sigue absoluto, y el chequeo de conciliación
   // de abajo (detectar_discrepancias_sp3) confirma que no quedó nada
   // descuadrado.
@@ -715,8 +740,8 @@ async function limpiar(client) {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
     await client.query(`delete from public.ledger where referencia_id = any($1::uuid[])`, [ordenIds]);
-    await client.query('commit');
     await client.query(`delete from public.ordenes_pago where id = any($1::uuid[])`, [ordenIds]);
+    await client.query('commit');
   }
 
   // Borrar por auth.users (no por profiles): profiles.id → auth.users.id SÍ
