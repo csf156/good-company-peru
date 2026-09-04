@@ -13,6 +13,7 @@
 // (Jest). El cliente nunca calcula ni mueve estado de escrow.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validarCrearInvitacion } from '../_shared/invitaciones.ts';
+import { corsHeaders, preflightResponse } from '../_shared/cors.ts';
 
 // SQLSTATE personalizados que emite crear_invitacion → status HTTP.
 const ERRCODE_STATUS: Record<string, number> = {
@@ -22,8 +23,17 @@ const ERRCODE_STATUS: Record<string, number> = {
 };
 
 Deno.serve(async (req) => {
+  // Antes de cualquier otra cosa: el navegador manda el preflight OPTIONS
+  // sin Authorization, así que tiene que responderse antes del chequeo de
+  // método/sesión — si no, un OPTIONS cae en el 405 de abajo sin cabeceras
+  // CORS y el navegador nunca llega a mandar la petición real.
+  const preflight = preflightResponse(req);
+  if (preflight) return preflight;
+
+  const cors = corsHeaders(req.headers.get('Origin'));
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response('Method not allowed', { status: 405, headers: cors });
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -39,12 +49,12 @@ Deno.serve(async (req) => {
   } = await callerClient.auth.getUser();
 
   if (!user) {
-    return Response.json({ error: 'No hay sesión activa.' }, { status: 401 });
+    return Response.json({ error: 'No hay sesión activa.' }, { status: 401, headers: cors });
   }
 
   const validacion = validarCrearInvitacion(await req.json(), user.id);
   if (!validacion.ok) {
-    return Response.json({ error: validacion.error }, { status: 400 });
+    return Response.json({ error: validacion.error }, { status: 400, headers: cors });
   }
   const body = validacion.body;
 
@@ -62,7 +72,7 @@ Deno.serve(async (req) => {
   if (!perfil || perfil.kyc_estado !== 'verificado') {
     return Response.json(
       { error: 'Debes verificar tu identidad (KYC) antes de invitar.' },
-      { status: 403 },
+      { status: 403, headers: cors },
     );
   }
 
@@ -79,8 +89,8 @@ Deno.serve(async (req) => {
   if (error) {
     const status = ERRCODE_STATUS[error.code ?? ''] ?? 500;
     const mensaje = status === 500 ? 'No se pudo crear la invitación.' : error.message;
-    return Response.json({ error: mensaje }, { status });
+    return Response.json({ error: mensaje }, { status, headers: cors });
   }
 
-  return Response.json({ invitacion });
+  return Response.json({ invitacion }, { headers: cors });
 });

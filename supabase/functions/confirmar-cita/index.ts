@@ -16,6 +16,7 @@
 // push aún (ver docs/backlog.md, misma nota que 4.3).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validarConfirmarCita } from '../_shared/citas.ts';
+import { corsHeaders, preflightResponse } from '../_shared/cors.ts';
 
 // SQLSTATE personalizados que emite confirmar_cita → status HTTP.
 const ERRCODE_STATUS: Record<string, number> = {
@@ -26,8 +27,17 @@ const ERRCODE_STATUS: Record<string, number> = {
 };
 
 Deno.serve(async (req) => {
+  // Antes de cualquier otra cosa: el navegador manda el preflight OPTIONS
+  // sin Authorization, así que tiene que responderse antes del chequeo de
+  // método/sesión — si no, un OPTIONS cae en el 405 de abajo sin cabeceras
+  // CORS y el navegador nunca llega a mandar la petición real.
+  const preflight = preflightResponse(req);
+  if (preflight) return preflight;
+
+  const cors = corsHeaders(req.headers.get('Origin'));
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response('Method not allowed', { status: 405, headers: cors });
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -43,12 +53,12 @@ Deno.serve(async (req) => {
   } = await callerClient.auth.getUser();
 
   if (!user) {
-    return Response.json({ error: 'No hay sesión activa.' }, { status: 401 });
+    return Response.json({ error: 'No hay sesión activa.' }, { status: 401, headers: cors });
   }
 
   const validacion = validarConfirmarCita(await req.json());
   if (!validacion.ok) {
-    return Response.json({ error: validacion.error }, { status: 400 });
+    return Response.json({ error: validacion.error }, { status: 400, headers: cors });
   }
   const body = validacion.body;
 
@@ -65,8 +75,8 @@ Deno.serve(async (req) => {
   if (error) {
     const status = ERRCODE_STATUS[error.code ?? ''] ?? 500;
     const mensaje = status === 500 ? 'No se pudo confirmar la cita.' : error.message;
-    return Response.json({ error: mensaje }, { status });
+    return Response.json({ error: mensaje }, { status, headers: cors });
   }
 
-  return Response.json({ resultado });
+  return Response.json({ resultado }, { headers: cors });
 });

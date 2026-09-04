@@ -15,10 +15,20 @@ import {
   calcularDesgloseCompra,
   decidePaymentProvider,
 } from '../_shared/pagos.ts';
+import { corsHeaders, preflightResponse } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Antes de cualquier otra cosa: el navegador manda el preflight OPTIONS
+  // sin Authorization, así que tiene que responderse antes del chequeo de
+  // método/sesión — si no, un OPTIONS cae en el 405 de abajo sin cabeceras
+  // CORS y el navegador nunca llega a mandar la petición real.
+  const preflight = preflightResponse(req);
+  if (preflight) return preflight;
+
+  const cors = corsHeaders(req.headers.get('Origin'));
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response('Method not allowed', { status: 405, headers: cors });
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -34,12 +44,15 @@ Deno.serve(async (req) => {
   } = await callerClient.auth.getUser();
 
   if (!user) {
-    return Response.json({ error: 'No hay sesión activa.' }, { status: 401 });
+    return Response.json({ error: 'No hay sesión activa.' }, { status: 401, headers: cors });
   }
 
   const { bebidaId, idempotencyKey } = await req.json();
   if (typeof bebidaId !== 'string' || typeof idempotencyKey !== 'string' || !idempotencyKey) {
-    return Response.json({ error: 'bebidaId e idempotencyKey son requeridos.' }, { status: 400 });
+    return Response.json(
+      { error: 'bebidaId e idempotencyKey son requeridos.' },
+      { status: 400, headers: cors },
+    );
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey);
@@ -54,7 +67,7 @@ Deno.serve(async (req) => {
   if (!perfil || perfil.kyc_estado !== 'verificado') {
     return Response.json(
       { error: 'Debes verificar tu identidad (KYC) antes de comprar.' },
-      { status: 403 },
+      { status: 403, headers: cors },
     );
   }
 
@@ -67,7 +80,7 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (!bebida || !bebida.activo) {
-    return Response.json({ error: 'Bebida no disponible.' }, { status: 404 });
+    return Response.json({ error: 'Bebida no disponible.' }, { status: 404, headers: cors });
   }
 
   // Desglose calculado en el servidor (MVP: rentador free = +15%).
@@ -107,19 +120,22 @@ Deno.serve(async (req) => {
         .eq('idempotency_key', idempotencyKey)
         .maybeSingle();
       if (existente) {
-        return Response.json({
-          estado: existente.estado,
-          ordenId: existente.id,
-          desglose: {
-            valorV: Number(existente.valor_v),
-            buyerFee: Number(existente.buyer_fee),
-            total: Number(existente.total),
+        return Response.json(
+          {
+            estado: existente.estado,
+            ordenId: existente.id,
+            desglose: {
+              valorV: Number(existente.valor_v),
+              buyerFee: Number(existente.buyer_fee),
+              total: Number(existente.total),
+            },
+            idempotente: true,
           },
-          idempotente: true,
-        });
+          { headers: cors },
+        );
       }
     }
-    return Response.json({ error: 'No se pudo crear la orden.' }, { status: 500 });
+    return Response.json({ error: 'No se pudo crear la orden.' }, { status: 500, headers: cors });
   }
 
   if (provider === 'mock') {
@@ -131,9 +147,12 @@ Deno.serve(async (req) => {
       p_escrow_ref: escrowRef,
     });
     if (rpcError) {
-      return Response.json({ error: 'No se pudo confirmar la compra.' }, { status: 500 });
+      return Response.json(
+        { error: 'No se pudo confirmar la compra.' },
+        { status: 500, headers: cors },
+      );
     }
-    return Response.json({ estado: 'confirmada', ordenId, desglose, resultado });
+    return Response.json({ estado: 'confirmada', ordenId, desglose, resultado }, { headers: cors });
   }
 
   // Modo Red Pontis real: crear la orden en el partner (fondos a subcuenta de
@@ -151,10 +170,10 @@ Deno.serve(async (req) => {
   });
   if (!partnerRes.ok) {
     await admin.from('ordenes_pago').update({ estado: 'fallida' }).eq('id', ordenId);
-    return Response.json({ error: 'No se pudo iniciar el pago.' }, { status: 502 });
+    return Response.json({ error: 'No se pudo iniciar el pago.' }, { status: 502, headers: cors });
   }
   const { id: providerRef, checkout_url: checkoutUrl } = await partnerRes.json();
   await admin.from('ordenes_pago').update({ provider_ref: providerRef }).eq('id', ordenId);
 
-  return Response.json({ estado: 'pendiente', ordenId, desglose, checkoutUrl });
+  return Response.json({ estado: 'pendiente', ordenId, desglose, checkoutUrl }, { headers: cors });
 });
