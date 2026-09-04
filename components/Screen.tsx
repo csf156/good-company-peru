@@ -30,12 +30,22 @@ type ScreenProps = {
   edges?: readonly Edge[];
   testID?: string;
   /**
-   * Ancho máximo centrado + textura lateral en pantallas anchas. Default
-   * `false` para no alterar pantallas existentes — se activa pantalla por
-   * pantalla (bloque 2b: solo `profile-setup`, ver `docs/backlog.md` para
-   * el resto).
+   * Ancho máximo centrado en pantallas anchas — pedido del usuario para
+   * TODA la app tras verlo estirarse de borde a borde en escritorio
+   * (bloque 2b, extensión). Default `true`: cualquier pantalla nueva lo
+   * hereda sin que nadie tenga que acordarse de pedirlo. Usar
+   * `framed={false}` solo si una pantalla concreta necesita el ancho
+   * completo genuinamente — repórtalo si lo usas, es la señal de que
+   * `MAX_CONTENT_WIDTH` puede estar corto para ese contenido.
    */
   framed?: boolean;
+  /**
+   * Textura lateral de puntos en los paneles que deja `framed`. Solo tiene
+   * efecto si `framed` es `true`. Default `false` — a diferencia del ancho
+   * máximo, el usuario no pidió esto para toda la app, solo para el alta;
+   * extenderla es decisión de diseño, no un pedido suyo.
+   */
+  textured?: boolean;
 };
 
 const DEFAULT_EDGES: readonly Edge[] = ['top', 'bottom'];
@@ -56,11 +66,12 @@ export function Screen({
   contentStyle,
   edges = DEFAULT_EDGES,
   testID,
-  framed = false,
+  framed = true,
+  textured = false,
 }: ScreenProps) {
   const { width, height } = useWindowSize();
   const contentJustify = center ? styles.center : undefined;
-  const showTexture = framed && width >= WIDE_BREAKPOINT;
+  const showTexture = framed && textured && width >= WIDE_BREAKPOINT;
 
   const inner = scroll ? (
     <ScrollView
@@ -83,7 +94,7 @@ export function Screen({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {framed ? (
-          <View style={styles.framedRow}>
+          <View style={styles.framedRow} testID="screen-framed-row">
             {showTexture && <SideTexture height={height} />}
             <View style={[styles.framedContent]} testID="screen-content">
               {inner}
@@ -111,6 +122,12 @@ const styles = StyleSheet.create({
   framedRow: {
     flex: 1,
     flexDirection: 'row',
+    // `framedRow` es fila, así que su eje principal es el horizontal —
+    // `alignSelf: 'center'` en `framedContent` solo centra el eje
+    // transversal (vertical). Sin esto, el contenido (limitado a
+    // `maxWidth` vía flex:1) queda pegado al inicio y el sobrante horizontal
+    // cae entero a la derecha.
+    justifyContent: 'center',
   },
   framedContent: {
     flex: 1,

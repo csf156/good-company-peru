@@ -71,9 +71,9 @@ describe('Screen', () => {
   });
 
   describe('framed', () => {
-    it('limita el ancho del contenido y lo centra', async () => {
+    it('limita el ancho del contenido y lo centra por defecto', async () => {
       await render(
-        <Screen framed>
+        <Screen>
           <Text>hola</Text>
         </Screen>,
       );
@@ -83,10 +83,48 @@ describe('Screen', () => {
       );
     });
 
+    it('framed={false} quita el ancho máximo para la pantalla que genuinamente necesite todo el ancho', async () => {
+      await render(
+        <Screen framed={false}>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      expect(screen.queryByTestId('screen-content')).toBeNull();
+    });
+
+    it('centra el contenido horizontalmente, no solo lo acota', async () => {
+      // La fila que envuelve el contenido (y los paneles de textura) es
+      // flexDirection:'row' — su eje principal es horizontal.
+      // `alignSelf:'center'` en el contenido solo centra el eje transversal
+      // (vertical); sin `justifyContent:'center'` en la fila, el contenido
+      // acotado por maxWidth queda pegado a la izquierda y el sobrante cae
+      // entero a la derecha. Este test falla con solo el `maxWidth` puesto,
+      // que es justo lo que dejó pasar el bug en preview.
+      await render(
+        <Screen>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      const fila = screen.getByTestId('screen-framed-row');
+      expect(StyleSheet.flatten(fila.props.style).justifyContent).toBe('center');
+    });
+
+    it('sin textured no muestra textura lateral aunque la pantalla sea ancha', async () => {
+      mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
+      await render(
+        <Screen>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      expect(screen.queryByTestId('side-texture')).toBeNull();
+    });
+  });
+
+  describe('textured', () => {
     it('no muestra textura lateral en pantallas angostas', async () => {
       mockedUseWindowDimensions.mockReturnValue({ width: 375, height: 812, scale: 1, fontScale: 1 });
       await render(
-        <Screen framed>
+        <Screen textured>
           <Text>hola</Text>
         </Screen>,
       );
@@ -96,17 +134,31 @@ describe('Screen', () => {
     it('muestra textura lateral en pantallas anchas', async () => {
       mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
       await render(
-        <Screen framed>
+        <Screen textured>
           <Text>hola</Text>
         </Screen>,
       );
       expect(screen.getAllByTestId('side-texture', { hidden: true })).toHaveLength(2);
     });
 
+    it('los dos paneles laterales tienen el mismo ancho (nada de asimetría izquierda/derecha)', async () => {
+      mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
+      await render(
+        <Screen textured>
+          <Text>hola</Text>
+        </Screen>,
+      );
+      const [izquierdo, derecho] = screen.getAllByTestId('side-texture', { hidden: true });
+      const anchoIzquierdo = StyleSheet.flatten(izquierdo?.props.style).width;
+      const anchoDerecho = StyleSheet.flatten(derecho?.props.style).width;
+      expect(anchoIzquierdo).toBe(anchoDerecho);
+      expect(anchoIzquierdo).toEqual(expect.any(Number));
+    });
+
     it('la textura es decorativa para lectores de pantalla', async () => {
       mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
       await render(
-        <Screen framed>
+        <Screen textured>
           <Text>hola</Text>
         </Screen>,
       );
@@ -114,15 +166,14 @@ describe('Screen', () => {
       expect(primerPanel?.props.accessibilityElementsHidden).toBe(true);
     });
 
-    it('no cambia el comportamiento de pantallas existentes (framed por defecto en false)', async () => {
+    it('no tiene efecto si framed está desactivado', async () => {
       mockedUseWindowDimensions.mockReturnValue({ width: 1280, height: 900, scale: 1, fontScale: 1 });
       await render(
-        <Screen>
+        <Screen framed={false} textured>
           <Text>hola</Text>
         </Screen>,
       );
       expect(screen.queryByTestId('side-texture')).toBeNull();
-      expect(screen.queryByTestId('screen-content')).toBeNull();
     });
   });
 });

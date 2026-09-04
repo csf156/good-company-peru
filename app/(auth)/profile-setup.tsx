@@ -216,7 +216,7 @@ export default function ProfileSetupScreen() {
   }
 
   return (
-    <Screen scroll framed contentStyle={styles.content}>
+    <Screen scroll textured contentStyle={styles.content}>
       <StepHeader
         paso={paso}
         total={totalPasos}
