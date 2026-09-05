@@ -26,3 +26,19 @@ export function registrarPasoOnboarding(paso: number): void {
 export function registrarOnboardingCompletado(): void {
   void registrar(7, 'completado');
 }
+
+/**
+ * Los pasos 1-7 del embudo son el wizard de alta de perfil. La captura de KYC
+ * son los cuatro siguientes: 8 intro, 9 DNI, 10 selfie, 11 resultado. Se
+ * numeran corridos a propósito, para que el embudo se lea de un tirón desde el
+ * registro hasta la verificación.
+ */
+const PRIMER_PASO_KYC = 7;
+
+export function registrarPasoKyc(pasoKyc: 1 | 2 | 3 | 4): void {
+  void registrar(PRIMER_PASO_KYC + pasoKyc, 'paso_visto');
+}
+
+export function registrarKycCompletado(): void {
+  void registrar(PRIMER_PASO_KYC + 4, 'completado');
+}
