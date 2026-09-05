@@ -688,13 +688,24 @@ async function limpiar(client) {
   // Ojo: las compras de la Tarea 3 para LA CUENTA DEL USUARIO (bar/ledger/
   // ordenes_pago de su bar de rentador) tienen perfil_id = su id REAL, no uno
   // de `ids` — filtrar solo por perfil_id demo las dejaría huérfanas (rompió
-  // el primer ciclo sembrar→limpiar→sembrar: comprarBebidaDemo encontraba la
-  // orden vieja por idempotency_key y devolvía bar ya bloqueada de la corrida
-  // anterior). Toda compra de este script, sea de quien sea, lleva el prefijo
-  // 'demo-seed:' en idempotency_key — es la marca real para dinero, igual que
-  // flags->>'demo' lo es para perfiles.
+  // el primer ciclo sembrar→limpiar→sembrar). Por eso el filtro de dinero NO
+  // es solo por prefijo de idempotency_key: comprar-bebida acepta cualquier
+  // string no vacío del cliente sin validar formato (ver Edge Function), así
+  // que CUALQUIER usuario real KYC-verificado podría, a propósito o por
+  // curiosidad, mandar `idempotencyKey: "demo-seed:algo"` y crear una orden
+  // real que matchee el LIKE de abajo. Sin escopar por perfil_id, ESA orden
+  // (con su ledger real) caería en el borrado con el append-only desactivado
+  // — justo el hallazgo del security-review de cierre. Se escopa a los ids
+  // que este script realmente controla: los perfiles demo + la cuenta real
+  // del usuario (cuyo email ya resolvimos arriba en el flujo de siembra;
+  // acá se vuelve a resolver porque `--limpiar` puede correr solo).
+  const usuarioParaLimpieza = await resolveTargetUser(client, USUARIO_EMAIL);
+  const perfilesPermitidos = [...ids, usuarioParaLimpieza.id];
+
   const { rows: ordenes } = await client.query(
-    `select id from public.ordenes_pago where idempotency_key like 'demo-seed:%'`,
+    `select id from public.ordenes_pago
+      where idempotency_key like 'demo-seed:%' and perfil_id = any($1::uuid[])`,
+    [perfilesPermitidos],
   );
   const ordenIds = ordenes.map((r) => r.id);
 
