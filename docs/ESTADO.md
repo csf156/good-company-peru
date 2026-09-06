@@ -51,7 +51,7 @@ Fases fuera de los dos planes originales, nacidas de specs propios en `docs/supe
 |------|-------------|--------|
 | D.1 | Tokens Ayni + migración de 13 pantallas | ✅ |
 | D.2 | Login con Google | ✅ |
-| D.3 | Onboarding paso a paso (wizard de perfil + KYC en pantallas) | ⬜ |
+| D.3 | Onboarding paso a paso (wizard de perfil + KYC en pantallas) | ✅ |
 | D.4 | Carrusel "Cómo funciona" + ToS + costura de referidos | ⬜ |
 
 > **Nota:** D.1 se cerró el 2026-07-25 sin entrada en esta bitácora ni fila en esta tabla — se reconstruye aquí la fila, pero su entrada de bitácora nunca se escribió. Lo que hizo está documentado en `docs/superpowers/specs/2026-07-24-design-system-lovable-design.md` y en los commits entre `723ae3a` y `f0bf0ba`.
@@ -102,6 +102,20 @@ Fases fuera de los dos planes originales, nacidas de specs propios en `docs/supe
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase D.3 — Onboarding paso a paso (wizard + KYC en pantallas) — 2026-09-06
+
+- **Qué se construyó:** el alta dejó de ser un formulario de una pantalla con seis campos de texto libre. Ahora son dos secuencias paso a paso: el **wizard de perfil** (6 pasos para rentador, 7 para amigo — el de distritos es solo del amigo) y el **KYC en 4 pantallas** (intro, DNI con cámara trasera, selfie con cámara frontal, resultado). Se ejecutó en cuatro bloques: 1 esquema, 2 wizard, 2b arreglo del bucle y lienzo, 3 KYC. La verificación de identidad **no se tocó**: `startKycVerification` y las Edge Functions de KYC quedaron idénticas (`git diff` vacío sobre `lib/kyc.ts` y `supabase/functions/`), solo cambió la UI que las invoca.
+- **Archivos/pantallas clave:** `app/(auth)/profile-setup.tsx` (wizard), `app/(auth)/kyc.tsx` (reescrito como máquina de 4 pasos), `lib/onboarding-options.ts`, `lib/onboarding-analytics.ts`, `lib/validation.ts` (`isMayorDeEdad`, `parseListInput`), y los componentes nuevos `StepHeader`, `DateOfBirthPicker`, `SelectionGrid`, `Icon`, `SideTexture`.
+- **Tablas / Edge Functions / migraciones:** `20260826110000_fecha_nacimiento.sql` (`edad` pasa a `fecha_nacimiento`, `intereses` pasa a `tipo_salida`), `20260826120000_onboarding_eventos.sql` (tabla `onboarding_eventos`, append-only con RLS), `20260904190000_onboarding_eventos_kyc.sql` (CHECK de `paso` de 1–7 a 1–11). pgTAP nuevos: `23_fecha_nacimiento.sql`, `24_onboarding_eventos.sql`, `25_onboarding_eventos_kyc.sql`. Sin Edge Functions nuevas.
+- **Decisiones tomadas en la fase:** (1) **Una sola ruta con estado `paso`**, no una ruta por pantalla — vale para el wizard y para el KYC; evita arrastrar estado entre rutas y no toca `route-guard`. (2) **La verificación del KYC se dispara sola al entrar al paso 4**, sin botón: el usuario ya consintió capturando las dos fotos. **Sin animación de análisis falso** — en modo demo la verificación es instantánea y la pantalla lo dice tal cual. (3) **El embudo de analítica es corrido, 1–11**: 1–7 el wizard, 8–11 el KYC, para leerlo de un tirón desde el registro hasta la verificación; eso obligó a ensanchar el CHECK y convirtió el bloque 3, previsto como UI pura, en una fase que toca esquema. (4) **`profesion` salió del formulario y también de `REQUIRED_FIELDS`** — era el riesgo nombrado en el spec: sacarla de uno sin el otro deja a todo usuario en un bucle hacia el wizard. (5) **"Salidas románticas" queda fuera**, decisión del usuario ya registrada en el spec: corre la lectura del producto de compañía a citas pagadas, que es el encuadre por el que un procesador cierra una cuenta.
+- **Tests:** 291 a **374 jest** (45 suites) y 230 a **261 aserciones pgTAP**, todo verde; lint y `tsc --noEmit` limpios. **Verificación visual hecha por el usuario** en el preview web, que es el criterio que esta fase exigía: recorrió los cuatro pasos del KYC y los aprobó. Para poder alcanzarlos hubo que devolver su perfil a `kyc_estado` `pendiente` (el guardián salta el KYC si ya estás verificado); al completar el flujo, `kyc-start` en modo demo lo devolvió solo a `verificado`.
+- **Publicado:** push de 49 commits (`7dc4f42..54c01c4`), CI y Deploy a Pages en verde, sitio verificado en vivo en https://csf156.github.io/good-company-peru/ — el despliegue llevaba parado desde el 2026-08-25.
+- **Deuda / notas para fases futuras:**
+  - **El código de referencia de un plan es una hipótesis, no verdad verificada.** El plan del bloque 3 traía la implementación escrita y tenía **dos bugs reales**, encontrados por los tests al ejecutarlo: un `useEffect` que dependía del estado que él mismo escribía (su cleanup cancelaba la verificación en vuelo y la pantalla se quedaba en "Verificando…" para siempre), y un orden de `resultado` y `refrescado` que contradecía al propio test del plan. Se corrigieron siguiendo los tests, no el snippet.
+  - **Trabajo hecho fuera de fase en esta sesión, deliberadamente**, anotado acá porque afecta al estado real: catálogo de bebidas (migración `20260904120000`), CORS de las Edge Functions, datos de demo (`scripts/seed-demo.mjs`: 8 perfiles con foto, bar, invitaciones, citas y chats en todos sus estados, con `npm run demo:seed` y `demo:limpiar`), la foto del perfil en el descubrimiento (excepción de alcance de la fase 4.1, a pedido del usuario) y la revocación de `TRUNCATE` (migración `20260906120000`). Los detalles están en sus commits y en `docs/backlog.md`.
+  - **Las Edge Functions de las fases 3.x y 4.x nunca habían estado desplegadas** hasta esta sesión, pese a que esas fases se cerraron con sus tests en verde. `pago-webhook` sigue sin desplegar. Ya anotado en backlog: una fase se cierra cuando el código y los tests están verdes, no cuando lo que depende de infraestructura externa se confirmó en la realidad.
+  - Sigue pendiente en backlog la **pantalla de estado KYC** (`pendiente` en revisión, `rechazado` con motivo y reintento), sin dueño en ningún plan: en modo demo esos estados no se alcanzan, pero con Truora real sí.
 
 ### Fase D.2 — Login con Google — 2026-08-25
 
