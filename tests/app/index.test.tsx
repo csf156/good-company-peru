@@ -1,9 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import DiscoverScreen from '@/app/index';
 import { getPerfilesDescubrir } from '@/lib/descubrimiento';
+import { getPhotoSignedUrl } from '@/lib/storage';
 
 jest.mock('@/lib/descubrimiento', () => ({
   getPerfilesDescubrir: jest.fn(),
+}));
+jest.mock('@/lib/storage', () => ({
+  getPhotoSignedUrl: jest.fn(),
 }));
 
 jest.mock('expo-router', () => ({
@@ -11,6 +15,7 @@ jest.mock('expo-router', () => ({
 }));
 
 const mockedGetPerfilesDescubrir = getPerfilesDescubrir as jest.Mock;
+const mockedGetSignedUrl = getPhotoSignedUrl as jest.Mock;
 
 const AMIGO_1 = {
   id: 'p1',
@@ -40,6 +45,7 @@ const AMIGO_2 = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedGetSignedUrl.mockResolvedValue({ url: null, error: 'sin foto' });
 });
 
 describe('DiscoverScreen', () => {
@@ -106,5 +112,57 @@ describe('DiscoverScreen', () => {
     await render(<DiscoverScreen />);
 
     expect(await screen.findByText('Solicitar encuentro')).toBeTruthy();
+  });
+
+  describe('foto del perfil', () => {
+    it('pide la URL firmada con la ruta guardada en foto_url', async () => {
+      mockedGetPerfilesDescubrir.mockResolvedValue({
+        rolPropio: 'rentador',
+        perfiles: [{ ...AMIGO_1, foto_url: 'p1/foto.jpg' }],
+      });
+      await render(<DiscoverScreen />);
+
+      await screen.findByText('Beto');
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith('p1/foto.jpg');
+    });
+
+    it('renderiza la foto cuando la URL firmada resuelve', async () => {
+      mockedGetSignedUrl.mockResolvedValue({ url: 'https://example.com/beto.jpg', error: null });
+      mockedGetPerfilesDescubrir.mockResolvedValue({
+        rolPropio: 'rentador',
+        perfiles: [{ ...AMIGO_1, foto_url: 'p1/foto.jpg' }],
+      });
+      await render(<DiscoverScreen />);
+
+      const foto = await screen.findByTestId('perfil-foto');
+      expect(foto.props.source).toEqual({ uri: 'https://example.com/beto.jpg' });
+      expect(screen.queryByTestId('perfil-foto-placeholder')).toBeNull();
+    });
+
+    it('cae al placeholder cuando foto_url es null, sin pedir URL firmada', async () => {
+      mockedGetPerfilesDescubrir.mockResolvedValue({
+        rolPropio: 'rentador',
+        perfiles: [{ ...AMIGO_1, foto_url: null }],
+      });
+      await render(<DiscoverScreen />);
+
+      await screen.findByText('Beto');
+      expect(mockedGetSignedUrl).not.toHaveBeenCalled();
+      expect(screen.getByTestId('perfil-foto-placeholder')).toBeTruthy();
+      expect(screen.queryByTestId('perfil-foto')).toBeNull();
+    });
+
+    it('cae al placeholder cuando la firma de la URL falla', async () => {
+      mockedGetSignedUrl.mockResolvedValue({ url: null, error: 'objeto no encontrado' });
+      mockedGetPerfilesDescubrir.mockResolvedValue({
+        rolPropio: 'rentador',
+        perfiles: [{ ...AMIGO_1, foto_url: 'p1/foto.jpg' }],
+      });
+      await render(<DiscoverScreen />);
+
+      await screen.findByText('Beto');
+      expect(await screen.findByTestId('perfil-foto-placeholder')).toBeTruthy();
+      expect(screen.queryByTestId('perfil-foto')).toBeNull();
+    });
   });
 });

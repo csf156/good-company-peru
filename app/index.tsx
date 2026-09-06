@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { getPerfilesDescubrir, type Descubrimiento } from '@/lib/descubrimiento';
+import { getPhotoSignedUrl } from '@/lib/storage';
 import { colors, fontFamily, tabularNums } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
+import { Icon } from '@/components/Icon';
 
 const CTA_LABEL: Record<'amigo' | 'rentador', string> = {
   rentador: 'Invitar una bebida',
@@ -13,6 +15,15 @@ export default function DiscoverScreen() {
   const [data, setData] = useState<Descubrimiento | null>(null);
   const [cargando, setCargando] = useState(true);
   const [idx, setIdx] = useState(0);
+  // Guarda a qué perfil pertenece la última URL firmada resuelta. `fotoUrl`
+  // (abajo) se deriva comparando contra el perfil actual, en vez de resetear
+  // el estado a mano al cambiar de perfil (eso dispararía un set síncrono en
+  // el cuerpo del efecto, cascada de renders que evita react-hooks/set-state-in-effect).
+  // Como beneficio: mientras la nueva firma está en vuelo, la comparación ya
+  // no matchea y el placeholder aparece solo, sin un reset explícito.
+  const [fotoResuelta, setFotoResuelta] = useState<{ perfilId: string; url: string | null } | null>(
+    null,
+  );
 
   useEffect(() => {
     getPerfilesDescubrir().then((result) => {
@@ -24,6 +35,23 @@ export default function DiscoverScreen() {
   const perfiles = data?.perfiles ?? [];
   const total = perfiles.length;
   const perfil = total > 0 ? perfiles[idx] : null;
+  const fotoUrl = perfil && fotoResuelta?.perfilId === perfil.id ? fotoResuelta.url : null;
+
+  // Una foto por perfil, no una sola global: se vuelve a pedir la URL
+  // firmada cada vez que cambia el perfil mostrado (siguiente/anterior). El
+  // bucket es privado (fase 1.1) — no hay URL pública que armar a mano.
+  useEffect(() => {
+    if (!perfil?.foto_url) return;
+
+    let cancelado = false;
+    getPhotoSignedUrl(perfil.foto_url).then((signed) => {
+      if (!cancelado) setFotoResuelta({ perfilId: perfil.id, url: signed.url });
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [perfil?.id, perfil?.foto_url]);
 
   function siguiente() {
     setIdx((i) => (i + 1) % total);
@@ -49,6 +77,14 @@ export default function DiscoverScreen() {
           </Text>
 
           <View style={styles.card}>
+            {fotoUrl ? (
+              <Image testID="perfil-foto" source={{ uri: fotoUrl }} style={styles.foto} />
+            ) : (
+              <View testID="perfil-foto-placeholder" style={styles.fotoPlaceholder}>
+                <Icon name="account-outline" size="lg" tone="muted" />
+                <Text style={styles.fotoPlaceholderTexto}>Sin foto</Text>
+              </View>
+            )}
             <Text style={styles.alias}>{perfil.alias}</Text>
             {perfil.edad != null && <Text style={styles.meta}>{perfil.edad} años</Text>}
             {perfil.profesion && <Text style={styles.meta}>{perfil.profesion}</Text>}
@@ -128,6 +164,30 @@ const styles = StyleSheet.create({
     padding: 20,
     marginTop: 12,
     gap: 4,
+  },
+  foto: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  fotoPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignSelf: 'center',
+    marginBottom: 8,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  fotoPlaceholderTexto: {
+    fontSize: 10,
+    color: colors.mutedForeground,
   },
   alias: {
     fontFamily: fontFamily.display,
