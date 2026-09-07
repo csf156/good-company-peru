@@ -1,5 +1,5 @@
 begin;
-select plan(7);
+select plan(8);
 
 -- Dos perfiles para probar el aislamiento entre usuarios.
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -26,12 +26,26 @@ select is(
   0,
   'authenticated no tiene UPDATE ni DELETE sobre tos_aceptaciones'
 );
+-- SELECT sigue siendo de tabla entera; INSERT dejo de serlo en la migracion
+-- 20260906150000, que lo redujo a las dos columnas que el cliente tiene
+-- derecho a fijar. `aceptado_at` quedo fuera a proposito: la fecha la pone el
+-- servidor con su default, y por eso esta fila sirve de evidencia en vez de
+-- ser un dato auto-reportado. Ver 28_tos_endurecimiento.sql, que reproduce el
+-- ataque en lugar de mirar el catalogo.
 select is(
   (select count(*)::int from information_schema.role_table_grants
     where table_schema = 'public' and table_name = 'tos_aceptaciones'
-      and grantee = 'authenticated' and privilege_type in ('SELECT', 'INSERT')),
-  2,
-  'authenticated conserva SELECT e INSERT'
+      and grantee = 'authenticated' and privilege_type = 'SELECT'),
+  1,
+  'authenticated conserva SELECT sobre la tabla'
+);
+select is(
+  (select string_agg(column_name, ',' order by column_name)
+     from information_schema.column_privileges
+    where table_name = 'tos_aceptaciones'
+      and grantee = 'authenticated' and privilege_type = 'INSERT'),
+  'perfil_id,version',
+  'authenticated solo puede insertar perfil_id y version'
 );
 
 -- RLS encendida y con una policy por operacion permitida.
