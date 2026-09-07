@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { marcarCarruselVisto } from '@/lib/carrusel';
+import { useCarruselVisto } from '@/lib/carrusel-context';
 import { colors, spacing, fontSize, textStyles, touchTarget } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -32,6 +33,7 @@ const SLIDES = [
 
 export default function CarruselScreen() {
   const router = useRouter();
+  const marcarVisto = useCarruselVisto();
   const [i, setI] = useState(0);
   const esUltima = i === SLIDES.length - 1;
   // `SLIDES[i]` con `i` dinámico da `T | undefined` bajo noUncheckedIndexedAccess
@@ -42,6 +44,11 @@ export default function CarruselScreen() {
 
   async function salir() {
     await marcarCarruselVisto();
+    // Avisar al layout ANTES de navegar. Escribir el almacenamiento no basta:
+    // `_layout` lo lee una sola vez al montar, así que sin este aviso su
+    // `carruselPendiente` seguiría en `true` y el efecto de redirección
+    // devolvería al usuario aquí en cuanto cambie el segmento. Bucle infinito.
+    marcarVisto();
     router.replace('/(auth)/sign-in');
   }
 

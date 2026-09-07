@@ -90,5 +90,13 @@ export async function aceptarTos(): Promise<{ error: string | null }> {
     .from('tos_aceptaciones')
     .insert({ perfil_id: user.id, version: TOS_VERSION });
 
+  // Una violación del índice único (perfil_id, version) significa que esta
+  // persona YA aceptó esta versión, que es justo la condición de éxito. Pasa
+  // cuando `getTosAceptado()` falla de forma transitoria: el guardián devuelve
+  // a la pantalla a alguien que ya había aceptado, y sin este caso quedaría
+  // atrapado — cada reintento chocaría con la misma fila. Detectado en la
+  // revisión de seguridad de D.4.
+  if (error?.code === '23505') return { error: null };
+
   return { error: error ? error.message : null };
 }

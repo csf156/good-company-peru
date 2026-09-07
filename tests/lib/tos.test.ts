@@ -77,3 +77,24 @@ describe('aceptarTos', () => {
     expect(insert).not.toHaveBeenCalled();
   });
 });
+
+// Bloqueo detectado en la revision de seguridad de D.4: si getTosAceptado()
+// falla de forma transitoria, el guardian devuelve a la pantalla a alguien que
+// YA acepto. Al pulsar aceptar choca con el indice unico (23505) y queda
+// atrapado: cada reintento da el mismo error. Que la fila exista es
+// exactamente la condicion de exito, asi que se trata como tal.
+describe('aceptarTos e idempotencia', () => {
+  it('trata la violacion de unicidad como exito: la aceptacion ya existe', async () => {
+    const insert = jest.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
+    mockedFrom.mockReturnValue({ insert });
+
+    await expect(aceptarTos()).resolves.toEqual({ error: null });
+  });
+
+  it('sigue devolviendo los demas errores', async () => {
+    const insert = jest.fn().mockResolvedValue({ error: { code: '42501', message: 'permission denied' } });
+    mockedFrom.mockReturnValue({ insert });
+
+    await expect(aceptarTos()).resolves.toEqual({ error: 'permission denied' });
+  });
+});

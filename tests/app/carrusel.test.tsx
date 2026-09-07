@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import CarruselScreen from '@/app/(auth)/carrusel';
 import { marcarCarruselVisto } from '@/lib/carrusel';
+import { CarruselVistoContext } from '@/lib/carrusel-context';
 
 jest.mock('@/lib/carrusel', () => ({ marcarCarruselVisto: jest.fn() }));
 
@@ -49,4 +50,43 @@ it('saltar lo marca igual que terminarlo', async () => {
 
   await waitFor(() => expect(mockedMarcar).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in'));
+});
+
+// El bug que estos dos tests cierran: la pantalla escribia la marca en el
+// almacenamiento pero no se lo decia a `_layout`, que solo lee `carruselVisto()`
+// una vez al montar. `carruselPendiente` seguia en `true`, y en cuanto
+// `router.replace` cambiaba el segmento el efecto de redireccion devolvia al
+// usuario al carrusel. Bucle infinito: nadie podia llegar al sign-in.
+// Reproducido en el navegador antes de arreglarlo.
+it('avisa al layout de que el carrusel ya se vio, no solo al almacenamiento', async () => {
+  const avisar = jest.fn();
+  await render(
+    <CarruselVistoContext.Provider value={avisar}>
+      <CarruselScreen />
+    </CarruselVistoContext.Provider>,
+  );
+
+  await fireEvent.press(screen.getByText('Saltar'));
+
+  await waitFor(() => expect(mockedMarcar).toHaveBeenCalledTimes(1));
+  expect(avisar).toHaveBeenCalledTimes(1);
+});
+
+it('avisa al layout ANTES de navegar, o el guardian rebota con el estado viejo', async () => {
+  const orden: string[] = [];
+  const avisar = jest.fn(() => void orden.push('avisar'));
+  mockReplace.mockImplementation(() => void orden.push('replace'));
+
+  await render(
+    <CarruselVistoContext.Provider value={avisar}>
+      <CarruselScreen />
+    </CarruselVistoContext.Provider>,
+  );
+
+  await fireEvent.press(screen.getByText('Siguiente'));
+  await fireEvent.press(screen.getByText('Siguiente'));
+  await fireEvent.press(screen.getByText('Siguiente'));
+  await fireEvent.press(screen.getByText('Entrar'));
+
+  await waitFor(() => expect(orden).toEqual(['avisar', 'replace']));
 });

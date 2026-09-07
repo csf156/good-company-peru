@@ -13,6 +13,7 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
 import { getTosAceptado } from '@/lib/tos';
 import { carruselVisto } from '@/lib/carrusel';
+import { CarruselVistoContext } from '@/lib/carrusel-context';
 import { ProfileRefreshContext } from '@/lib/profile-context';
 import {
   computeRedirect,
@@ -136,6 +137,13 @@ export default function RootLayout() {
     );
   }, [aplicarPerfil]);
 
+  // El carrusel avisa por acá cuando ya se vio. Sin esto, `carruselPendiente`
+  // se quedaba en `true` (solo se lee al montar) y el efecto de abajo devolvía
+  // al usuario al carrusel apenas cambiaba el segmento: bucle infinito, nadie
+  // llegaba al sign-in. Mismo remedio que `refreshProfile`, más barato porque
+  // aquí solo hay que bajar un booleano.
+  const marcarCarruselVistoEnLayout = useCallback(() => setCarruselPendiente(false), []);
+
   const currentSegment = segments[segments.length - 1];
   const authSegment: AuthSegment = AUTH_SEGMENTS.includes(currentSegment as AuthSegment)
     ? (currentSegment as AuthSegment)
@@ -185,9 +193,11 @@ export default function RootLayout() {
 
   return (
     <ProfileRefreshContext.Provider value={refreshProfile}>
+      <CarruselVistoContext.Provider value={marcarCarruselVistoEnLayout}>
       <SafeAreaProvider>
         <Stack screenOptions={{ headerShown: false }} />
       </SafeAreaProvider>
+      </CarruselVistoContext.Provider>
     </ProfileRefreshContext.Provider>
   );
 }
