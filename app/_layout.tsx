@@ -12,6 +12,7 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } f
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
 import { getTosAceptado } from '@/lib/tos';
+import { carruselVisto } from '@/lib/carrusel';
 import { ProfileRefreshContext } from '@/lib/profile-context';
 import {
   computeRedirect,
@@ -46,6 +47,21 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { session, loading: sessionLoading } = useAuthSession();
+
+  // `null` = todavía no sé si mostrarlo. Es distinto de `false`: decidir con
+  // el valor sin resolver mandaría al sign-in a quien debía ver el carrusel
+  // (misma clase de carrera que ya mordió dos veces en este proyecto).
+  const [carruselPendiente, setCarruselPendiente] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    carruselVisto().then((visto) => {
+      if (mounted) setCarruselPendiente(!visto);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>('none');
   const [kycEstado, setKycEstado] = useState<KycEstado>('pendiente');
@@ -129,6 +145,18 @@ export default function RootLayout() {
     // `fontError` cuenta como "resuelto": si una fuente no carga, la app sigue
     // con el tipo del sistema en vez de quedarse en blanco para siempre.
     if (sessionLoading || profileLoading || (!fontsLoaded && !fontError)) return;
+    // Desconocido todavía: no decidir nada. Ver el comentario del estado.
+    if (carruselPendiente === null) return;
+
+    // La decisión de entrar al carrusel se toma ACÁ, no dentro de
+    // computeRedirect: leer el almacenamiento del dispositivo es asíncrono, y
+    // el guardián es una función pura y sincrónica sobre estado de sesión —
+    // meterle esta lectura lo volvería impuro y difícil de testear.
+    if (carruselPendiente && !session) {
+      if (authSegment !== 'carrusel') router.replace('/(auth)/carrusel');
+      return;
+    }
+
     const redirect = computeRedirect({
       hasSession: Boolean(session),
       profileStatus,
@@ -150,6 +178,7 @@ export default function RootLayout() {
     router,
     fontsLoaded,
     fontError,
+    carruselPendiente,
   ]);
 
   if (!fontsLoaded && !fontError) return null;
