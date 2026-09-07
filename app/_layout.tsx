@@ -11,6 +11,7 @@ import { JetBrainsMono_400Regular, JetBrainsMono_500Medium } from '@expo-google-
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getOwnProfile, isProfileComplete } from '@/lib/profile';
+import { getTosAceptado } from '@/lib/tos';
 import { ProfileRefreshContext } from '@/lib/profile-context';
 import {
   computeRedirect,
@@ -20,9 +21,11 @@ import {
 } from '@/lib/route-guard';
 
 const AUTH_SEGMENTS: AuthSegment[] = [
+  'carrusel',
   'sign-in',
   'verify-otp',
   'select-role',
+  'tos',
   'profile-setup',
   'kyc',
 ];
@@ -46,6 +49,7 @@ export default function RootLayout() {
 
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>('none');
   const [kycEstado, setKycEstado] = useState<KycEstado>('pendiente');
+  const [tosAceptado, setTosAceptado] = useState(false);
   const [profileLoading, setProfileLoading] = useState(Boolean(session));
   // Reset profile state synchronously during render when the session identity
   // changes, instead of setState-in-effect (see React docs: "Resetting state
@@ -55,28 +59,35 @@ export default function RootLayout() {
     setTrackedSession(session);
     setProfileStatus('none');
     setKycEstado('pendiente');
+    setTosAceptado(false);
     setProfileLoading(Boolean(session));
   }
 
-  // Aplica una fila de profiles al estado del guardián. Extraída para no
-  // duplicar el cálculo entre la carga inicial y `refreshProfile` — pero
-  // sin hacer la petición ella misma, para que el efecto de abajo pueda
-  // seguir con su `.then()` inline (el patrón que ya pasaba el lint) en vez
-  // de una llamada síncrona a una función que hace setState internamente.
-  const aplicarPerfil = useCallback((profile: Awaited<ReturnType<typeof getOwnProfile>>) => {
-    setProfileStatus(
-      profile === null ? 'none' : isProfileComplete(profile) ? 'complete' : 'incomplete',
-    );
-    setKycEstado(profile?.kyc_estado ?? 'pendiente');
-    setProfileLoading(false);
-  }, []);
+  // Aplica una fila de profiles Y el estado de ToS al guardián a la vez —
+  // ambos viajan juntos porque el guardián los necesita juntos (Fase D.4).
+  // Extraída para no duplicar el cálculo entre la carga inicial y
+  // `refreshProfile` — pero sin hacer la petición ella misma, para que el
+  // efecto de abajo pueda seguir con su `.then()` inline (el patrón que ya
+  // pasaba el lint) en vez de una llamada síncrona a una función que hace
+  // setState internamente.
+  const aplicarPerfil = useCallback(
+    (profile: Awaited<ReturnType<typeof getOwnProfile>>, aceptado: boolean) => {
+      setProfileStatus(
+        profile === null ? 'none' : isProfileComplete(profile) ? 'complete' : 'incomplete',
+      );
+      setKycEstado(profile?.kyc_estado ?? 'pendiente');
+      setTosAceptado(aceptado);
+      setProfileLoading(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!session) return;
     let mounted = true;
-    getOwnProfile().then((profile) => {
+    Promise.all([getOwnProfile(), getTosAceptado()]).then(([profile, aceptado]) => {
       if (!mounted) return;
-      aplicarPerfil(profile);
+      aplicarPerfil(profile, aceptado);
     });
     return () => {
       mounted = false;
@@ -98,8 +109,15 @@ export default function RootLayout() {
   // resuelva), no compite con un cambio de sesión concurrente como sí le
   // pasa al efecto de arriba. Un setState tras desmontar es inocuo en
   // React 18 — no "arreglar" esto agregando una guarda que no hace falta.
+  // DEBE releer el ToS también, no solo el perfil: es lo que la pantalla de
+  // aceptación espera antes de navegar. Si solo releyera el perfil, el
+  // guardián seguiría viendo `tosAceptado: false` tras aceptar y devolvería
+  // al usuario a la misma pantalla — el mismo bug de bucle que este proyecto
+  // ya sufrió dos veces (bloque 2b de D.3, refresco tras KYC).
   const refreshProfile = useCallback(() => {
-    return getOwnProfile().then(aplicarPerfil);
+    return Promise.all([getOwnProfile(), getTosAceptado()]).then(([profile, aceptado]) =>
+      aplicarPerfil(profile, aceptado),
+    );
   }, [aplicarPerfil]);
 
   const currentSegment = segments[segments.length - 1];
@@ -114,6 +132,7 @@ export default function RootLayout() {
     const redirect = computeRedirect({
       hasSession: Boolean(session),
       profileStatus,
+      tosAceptado,
       kycEstado,
       authSegment,
     });
@@ -125,6 +144,7 @@ export default function RootLayout() {
     profileLoading,
     session,
     profileStatus,
+    tosAceptado,
     kycEstado,
     authSegment,
     router,

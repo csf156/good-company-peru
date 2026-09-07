@@ -6,6 +6,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: false,
         profileStatus: 'none',
+        tosAceptado: false,
         kycEstado: 'pendiente',
         authSegment: null,
       }),
@@ -17,6 +18,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: false,
         profileStatus: 'none',
+        tosAceptado: false,
         kycEstado: 'pendiente',
         authSegment: 'sign-in',
       }),
@@ -28,6 +30,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: false,
         profileStatus: 'none',
+        tosAceptado: false,
         kycEstado: 'pendiente',
         authSegment: 'verify-otp',
       }),
@@ -39,6 +42,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'none',
+        tosAceptado: false,
         kycEstado: 'pendiente',
         authSegment: null,
       }),
@@ -50,6 +54,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'none',
+        tosAceptado: false,
         kycEstado: 'pendiente',
         authSegment: 'select-role',
       }),
@@ -61,6 +66,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'incomplete',
+        tosAceptado: true,
         kycEstado: 'pendiente',
         authSegment: null,
       }),
@@ -72,6 +78,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'incomplete',
+        tosAceptado: true,
         kycEstado: 'pendiente',
         authSegment: 'select-role',
       }),
@@ -83,6 +90,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'incomplete',
+        tosAceptado: true,
         kycEstado: 'pendiente',
         authSegment: 'profile-setup',
       }),
@@ -94,6 +102,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'complete',
+        tosAceptado: true,
         kycEstado: 'pendiente',
         authSegment: null,
       }),
@@ -105,6 +114,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'complete',
+        tosAceptado: true,
         kycEstado: 'rechazado',
         authSegment: null,
       }),
@@ -116,6 +126,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'complete',
+        tosAceptado: true,
         kycEstado: 'pendiente',
         authSegment: 'kyc',
       }),
@@ -127,6 +138,7 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'complete',
+        tosAceptado: true,
         kycEstado: 'verificado',
         authSegment: 'sign-in',
       }),
@@ -138,9 +150,94 @@ describe('computeRedirect', () => {
       computeRedirect({
         hasSession: true,
         profileStatus: 'complete',
+        tosAceptado: true,
         kycEstado: 'verificado',
         authSegment: null,
       }),
     ).toBeNull();
+  });
+
+  it('manda a tos a quien eligió rol pero no aceptó los términos', () => {
+    expect(
+      computeRedirect({
+        hasSession: true,
+        profileStatus: 'incomplete',
+        tosAceptado: false,
+        kycEstado: 'pendiente',
+        authSegment: null,
+      }),
+    ).toBe('/(auth)/tos');
+  });
+
+  it('manda a tos incluso con el perfil ya completo y el KYC verificado', () => {
+    expect(
+      computeRedirect({
+        hasSession: true,
+        profileStatus: 'complete',
+        tosAceptado: false,
+        kycEstado: 'verificado',
+        authSegment: null,
+      }),
+    ).toBe('/(auth)/tos');
+  });
+
+  it('no redirige a quien ya está en tos', () => {
+    expect(
+      computeRedirect({
+        hasSession: true,
+        profileStatus: 'incomplete',
+        tosAceptado: false,
+        kycEstado: 'pendiente',
+        authSegment: 'tos',
+      }),
+    ).toBeNull();
+  });
+
+  it('sin perfil manda a select-role aunque falte el ToS: primero hay que crear la fila', () => {
+    expect(
+      computeRedirect({
+        hasSession: true,
+        profileStatus: 'none',
+        tosAceptado: false,
+        kycEstado: 'pendiente',
+        authSegment: null,
+      }),
+    ).toBe('/(auth)/select-role');
+  });
+
+  it('con ToS aceptado sigue al paso que toque', () => {
+    expect(
+      computeRedirect({
+        hasSession: true,
+        profileStatus: 'incomplete',
+        tosAceptado: true,
+        kycEstado: 'pendiente',
+        authSegment: null,
+      }),
+    ).toBe('/(auth)/profile-setup');
+  });
+
+  it('tolera el carrusel sin sesión, sin expulsar al sign-in', () => {
+    expect(
+      computeRedirect({
+        hasSession: false,
+        profileStatus: 'none',
+        tosAceptado: false,
+        kycEstado: 'pendiente',
+        authSegment: 'carrusel',
+      }),
+    ).toBeNull();
+  });
+
+  it('saca del carrusel a quien ya tiene sesión', () => {
+    expect(
+      computeRedirect({
+        hasSession: true,
+        profileStatus: 'none',
+        tosAceptado: false,
+        kycEstado: 'pendiente',
+        authSegment: 'carrusel',
+      }),
+    ).toBe('/(auth)/select-role');
   });
 });

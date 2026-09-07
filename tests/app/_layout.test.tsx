@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 import RootLayout from '@/app/_layout';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { getTosAceptado } from '@/lib/tos';
 import { useFonts } from 'expo-font';
 
 jest.mock('@/hooks/useAuthSession', () => ({
@@ -9,6 +10,9 @@ jest.mock('@/hooks/useAuthSession', () => ({
 jest.mock('@/lib/profile', () => ({
   getOwnProfile: jest.fn(),
   isProfileComplete: jest.fn(),
+}));
+jest.mock('@/lib/tos', () => ({
+  getTosAceptado: jest.fn(),
 }));
 jest.mock('expo-font', () => ({ useFonts: jest.fn() }));
 
@@ -21,10 +25,12 @@ jest.mock('expo-router', () => ({
 
 const mockedUseAuthSession = useAuthSession as jest.Mock;
 const mockedUseFonts = useFonts as jest.Mock;
+const mockedGetTosAceptado = getTosAceptado as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockedUseFonts.mockReturnValue([true, null]);
+  mockedGetTosAceptado.mockResolvedValue(true);
 });
 
 describe('RootLayout auth guard', () => {
