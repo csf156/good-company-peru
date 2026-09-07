@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-07-01 (act. 2026-07-21)
 **Estado:** diseño aprobado. Prototipo UI construido en Lovable (repo `csf156/good-company-peru`) = **referencia de diseño**. Backend + lógica por construir.
-**Marca:** **Ayni** (reciprocidad andina).
+**Marca:** **Martini** (reciprocidad andina).
 **Proyecto:** independiente de Nestra.
 **Stack:** React Native + Expo (nativo) + Supabase. Lovable (web Vite/React) NO se usa como base de código — solo como spec visual a portar a RN/Expo.
 **Niveles (act. 2026-07-21):** bronce/plata/oro/diamante/élite — umbrales 0/300/1k/3k/8k.

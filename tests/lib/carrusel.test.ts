@@ -29,7 +29,7 @@ it('no rompe si el almacenamiento falla: devuelve false', async () => {
 it('marcar escribe la clave', async () => {
   mockedSet.mockResolvedValue(undefined);
   await marcarCarruselVisto();
-  expect(mockedSet).toHaveBeenCalledWith('ayni.carrusel.visto', '1');
+  expect(mockedSet).toHaveBeenCalledWith('martini.carrusel.visto', '1');
 });
 
 it('marcar no lanza si el almacenamiento falla', async () => {

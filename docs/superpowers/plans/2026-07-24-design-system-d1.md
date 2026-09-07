@@ -27,7 +27,7 @@ Estas reglas aplican a **todas** las tareas. Los requisitos de cada tarea las in
 
 ### Mapeo de renombres (usado por las Tareas 5–11)
 
-Las 6 pantallas que ya usan la paleta Ayni consumen `ayni.*` y `ayniTypography.*`. Tras la Tarea 1 y la Tarea 2 esos exports dejan de existir. El renombre es mecánico:
+Las 6 pantallas que ya usan la paleta Martini consumen `ayni.*` y `ayniTypography.*`. Tras la Tarea 1 y la Tarea 2 esos exports dejan de existir. El renombre es mecánico:
 
 | Antes | Después |
 |---|---|
@@ -224,7 +224,7 @@ function hslToHex(h: number, s: number, l: number): string {
   );
 }
 
-describe('paleta Ayni', () => {
+describe('paleta Martini', () => {
   it('deriva cada token del :root de Lovable', () => {
     expect(colors.background).toBe(hslToHex(24, 20, 6));
     expect(colors.foreground).toBe(hslToHex(30, 10, 96));
@@ -301,7 +301,7 @@ Reemplazar **todo** el contenido por:
 import type { TextStyle } from 'react-native';
 
 /**
- * Paleta Ayni — dark-only.
+ * Paleta Martini — dark-only.
  *
  * Cada valor es la conversión HSL→hex del `:root` de `src/styles.css` del
  * prototipo Lovable (`csf156/good-company-peru`), que es la fuente de verdad
@@ -1046,7 +1046,7 @@ Borrar por completo la paleta teal/coral, los bloques "Primario — Teal profund
 
 - **Tokens de color** — la tabla token / HSL de Lovable / hex.
 - **Niveles** — la escala élite con sus umbrales.
-- **Dos correcciones de accesibilidad** — `destructiveText` y `borderStrong`, con sus ratios medidos y el porqué. Dejar constancia de que Ayni se aparta de Lovable a propósito en esos dos puntos.
+- **Dos correcciones de accesibilidad** — `destructiveText` y `borderStrong`, con sus ratios medidos y el porqué. Dejar constancia de que Martini se aparta de Lovable a propósito en esos dos puntos.
 
 Conservar la "Regla de oro" del rojo (solo SOS/error/no-show), que sigue vigente.
 
@@ -1099,7 +1099,7 @@ Esperado: los tres en verde. Mostrar la salida como evidencia (`superpowers:veri
 
 - [ ] **Revisión visual en el preview**
 
-D.1 cambia el aspecto de las 6 pantallas que ya estaban en tokens Ayni (corrección de valores) además de las 7 migradas. Desplegar y revisar antes de dar la fase por cerrada:
+D.1 cambia el aspecto de las 6 pantallas que ya estaban en tokens Martini (corrección de valores) además de las 7 migradas. Desplegar y revisar antes de dar la fase por cerrada:
 
 ```bash
 git push origin master

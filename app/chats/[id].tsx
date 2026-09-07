@@ -153,7 +153,7 @@ export default function ChatDetailScreen() {
           <View style={styles.warning}>
             <Text style={styles.warningText}>
               ⚠ Un mensaje tuyo fue ocultado por compartir contacto o intentar un pago externo.
-              Todo pago va dentro de Ayni; insistir puede suspender tu cuenta.
+              Todo pago va dentro de Martini; insistir puede suspender tu cuenta.
             </Text>
           </View>
         )}

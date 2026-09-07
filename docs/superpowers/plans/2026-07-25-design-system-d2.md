@@ -33,7 +33,7 @@ Nada de esto lo puede hacer un agente (son credenciales y configuración de cuen
 ### En Google Cloud Console (https://console.cloud.google.com)
 
 1. Crea un proyecto (o usa uno existente), por ejemplo llamado `ayni`.
-2. Ve a **Google Auth Platform → Branding**. Completa nombre de la app (`Ayni`), correo de soporte, dominio. Tipo de usuario: **External**.
+2. Ve a **Google Auth Platform → Branding**. Completa nombre de la app (`Martini`), correo de soporte, dominio. Tipo de usuario: **External**.
 3. Ve a **Audience**. Mientras la app esté en modo *Testing*, agrega ahí (como "Test users") los correos de las personas que van a poder entrar con Google — máximo 100. Alternativa: publicar la app (con los scopes básicos de perfil/email no exige verificación de Google).
 4. Ve a **Clients → Create client** → tipo **Web application**.
 5. En **Authorized JavaScript origins**, agrega:

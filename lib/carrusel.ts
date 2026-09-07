@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const CLAVE = 'ayni.carrusel.visto';
+const CLAVE = 'martini.carrusel.visto';
 
 /**
  * El carrusel va ANTES del sign-in, así que no hay usuario a quien atarlo:

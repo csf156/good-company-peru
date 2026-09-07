@@ -40,7 +40,7 @@ export default function TosScreen() {
   return (
     <Screen scroll textured contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Antes de empezar</Text>
-      <Text style={styles.title}>Las reglas de Ayni</Text>
+      <Text style={styles.title}>Las reglas de Martini</Text>
 
       <View style={styles.lista}>
         {TOS_RESUMEN.map((regla) => (

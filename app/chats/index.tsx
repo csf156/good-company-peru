@@ -22,7 +22,7 @@ export default function ChatsScreen() {
       <Text style={styles.eyebrow}>Conversaciones</Text>
       <Text style={styles.title}>Tus chats</Text>
       <Text style={styles.subtitle}>
-        Cada chat se abre cuando una invitación se acepta. El pago siempre va dentro de Ayni.
+        Cada chat se abre cuando una invitación se acepta. El pago siempre va dentro de Martini.
       </Text>
 
       {!cargando && chats.length === 0 && (

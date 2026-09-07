@@ -362,7 +362,7 @@ export const TOS_RESUMEN = [
   {
     icono: 'account-heart-outline',
     texto:
-      'Ayni es compañía social. Nada de contenido sexual ni servicios de acompañamiento íntimo.',
+      'Martini es compañía social. Nada de contenido sexual ni servicios de acompañamiento íntimo.',
   },
   {
     icono: 'shield-check-outline',
@@ -377,7 +377,7 @@ export const TOS_RESUMEN = [
 
 export const TOS_TEXTO = `BORRADOR — pendiente de revisión legal.
 
-1. Qué es Ayni. Ayni conecta personas que quieren compañía para actividades
+1. Qué es Martini. Martini conecta personas que quieren compañía para actividades
 sociales: una conversación, un café, un evento. No es una app de citas ni de
 servicios sexuales, y no se permite ofrecerlos ni solicitarlos.
 
@@ -819,7 +819,7 @@ export default function TosScreen() {
   return (
     <Screen scroll textured contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Antes de empezar</Text>
-      <Text style={styles.title}>Las reglas de Ayni</Text>
+      <Text style={styles.title}>Las reglas de Martini</Text>
 
       <View style={styles.lista}>
         {TOS_RESUMEN.map((regla) => (
@@ -1073,7 +1073,7 @@ const SLIDES = [
   {
     icono: 'account-group-outline',
     titulo: 'Compañía, no citas',
-    texto: 'Ayni conecta gente que quiere compañía para un café, una conversación o un evento.',
+    texto: 'Martini conecta gente que quiere compañía para un café, una conversación o un evento.',
   },
   {
     icono: 'glass-cocktail',

@@ -53,7 +53,7 @@ Las cuatro se discutieron explícitamente con el usuario:
 
 | # | Idea | Por qué está |
 |---|---|---|
-| 1 | Qué es Ayni: compañía social, no citas | Fija la expectativa correcta desde el primer segundo |
+| 1 | Qué es Martini: compañía social, no citas | Fija la expectativa correcta desde el primer segundo |
 | 2 | Compras una bebida virtual, no le pagas a una persona | El concepto raro, explicado antes de que lo vea en la tienda |
 | 3 | El dinero queda retenido hasta que se encuentren | Responde "¿y si no aparece?" antes de que lo pregunte |
 | 4 | Se libera al confirmar el encuentro con QR | Cierra la cadena y anticipa el motor de cita (5.x) |

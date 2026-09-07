@@ -63,7 +63,7 @@ export default function DiscoverScreen() {
 
   return (
     <Screen background={colors.background} scroll contentStyle={styles.content}>
-      <Text style={styles.eyebrow}>Ayni</Text>
+      <Text style={styles.eyebrow}>Martini</Text>
       <Text style={styles.title}>Descubre</Text>
 
       {!cargando && total === 0 && (

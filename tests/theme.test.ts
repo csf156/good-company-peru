@@ -36,7 +36,7 @@ function hslToHex(h: number, s: number, l: number): string {
   );
 }
 
-describe('paleta Ayni', () => {
+describe('paleta Martini', () => {
   it('deriva cada token del :root de Lovable', () => {
     expect(colors.background).toBe(hslToHex(24, 20, 6));
     expect(colors.foreground).toBe(hslToHex(30, 10, 96));

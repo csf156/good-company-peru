@@ -1,7 +1,7 @@
 import type { TextStyle } from 'react-native';
 
 /**
- * Paleta Ayni — dark-only.
+ * Paleta Martini — dark-only.
  *
  * Cada valor es la conversión HSL→hex del `:root` de `src/styles.css` del
  * prototipo Lovable (`csf156/good-company-peru`), que es la fuente de verdad

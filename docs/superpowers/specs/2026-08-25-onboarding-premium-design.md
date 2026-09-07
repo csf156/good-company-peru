@@ -22,7 +22,7 @@
 
 ### 0.2 Decisiones tomadas con el usuario (2026-08-25)
 
-1. **Sensación premium en todo momento.** Los iconos deben ser de línea, minimalistas y estilizados. **Emoji quedan prohibidos** — cada emoji trae su propia paleta y rompe el dorado/oscuro de Ayni.
+1. **Sensación premium en todo momento.** Los iconos deben ser de línea, minimalistas y estilizados. **Emoji quedan prohibidos** — cada emoji trae su propia paleta y rompe el dorado/oscuro de Martini.
 2. **Fecha de nacimiento en vez de edad**, capturada con un selector de fecha, no escrita a mano.
 3. **Género: lista corta + campo abierto.** Mujer / Hombre / No binario / Prefiero no decirlo / Otro (texto). Cubre cualquier identidad sin enumerar una taxonomía.
 4. **Profesión sale del formulario.**

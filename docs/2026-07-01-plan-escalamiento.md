@@ -4,7 +4,7 @@
 
 **Objetivo:** capa de crecimiento y retención — descubrimiento con gating (2), niveles y liquidación (6), seguridad y moderación completa (7), suscripciones premium (8), **referidos (9)**.
 
-**Marca:** Ayni. **Referencia de diseño:** prototipo Lovable `csf156/good-company-peru` (web solo-UI) = spec visual a portar a RN/Expo. Cada fase de UI porta la pantalla equivalente; no se reutiliza su código.
+**Marca:** Martini. **Referencia de diseño:** prototipo Lovable `csf156/good-company-peru` (web solo-UI) = spec visual a portar a RN/Expo. Cada fase de UI porta la pantalla equivalente; no se reutiliza su código.
 
 **Escala de niveles (act. 2026-07-21):** bronce/plata/oro/diamante/**élite** — umbrales 0/300/1,000/3,000/8,000. (Reemplaza la escala vieja bronce→diamante 0/500/2k/5k/10k.)
 
@@ -297,4 +297,4 @@ Lovable entregó **solo-UI web mock**. Para el escalamiento:
 - Referidos: **ACTIVOS** → sub-proyecto 9 (9.0–9.3). UI portada de `routes/referrals.tsx`.
 - Escala de niveles élite (0/300/1k/3k/8k) y fees por nivel actualizados → 6.0, 6.2. ✅
 - UI portada de Lovable → 6.4 (levels/wallet), 8.2 (premium), 2.2 (global/swipe), 7.0 (pánico), 9.2 (referrals). ✅
-- Marca Ayni + stack RN/Expo reflejados en el encabezado. ✅
+- Marca Martini + stack RN/Expo reflejados en el encabezado. ✅

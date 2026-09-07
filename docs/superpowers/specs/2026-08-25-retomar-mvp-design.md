@@ -15,7 +15,7 @@
 | SP1 identidad (1.0–1.6) | ✅ auth, perfil, KYC, RLS, storage |
 | SP3 plata (3.0–3.4) | ✅ ledger, escrow, tienda, bar, conciliación |
 | SP4 social (4.0–4.6) | ✅ invitaciones, chat realtime, moderación anti-fuga, confirmar cita |
-| D.1 design system | ✅ tokens Ayni, 13 pantallas migradas, guardia anti-hex en CI |
+| D.1 design system | ✅ tokens Martini, 13 pantallas migradas, guardia anti-hex en CI |
 | D.2 login con Google | 🟨 código escrito, **sin mergear** (rama `worktree-d2-google-login`), sin verificar contra Google real |
 | SP5 motor de cita (5.0–5.5) | ⬜ nada |
 | Escalamiento (6, 7, 8, 2, 9) | ⬜ nada |
@@ -35,7 +35,7 @@ El plan MVP dice que después de 4.6 viene 5.0. **No se puede.** La auditoría d
 ### 0.3 Decisiones tomadas con el usuario (2026-08-25)
 
 1. **Objetivo del tramo: MVP recorrible en mock.** El usuario debe poder recorrer el flujo completo con su pulgar, con plata falsa y KYC falso. Encender los proveedores reales (Truora, Red Pontis) queda fuera — cuesta plata y trámite, y no bloquea el recorrido.
-2. **Cambio de estilo visual descartado.** Se evaluó un giro a "pixels & black and white" y el usuario lo dejó de lado. El design system de D.1 (dorado Ayni, dark-only) sigue vigente sin cambios.
+2. **Cambio de estilo visual descartado.** Se evaluó un giro a "pixels & black and white" y el usuario lo dejó de lado. El design system de D.1 (dorado Martini, dark-only) sigue vigente sin cambios.
 3. **D.2 se cierra de verdad, no de mentira.** Se mergea el código ya escrito Y el usuario hace el trámite de Google Cloud + Supabase para que la Tarea 4 (verificación manual) se pueda ejecutar. Cerrarla ✅ sin probarla repetiría el error de la fase 1.2, que cerró verde con un proveedor de SMS que nunca se habilitó.
 4. **El cableado se parte en dos fases** (4.7a carcasa, 4.7b invitaciones): son trabajos independientes —uno es navegación pura, el otro toca plata bloqueada— y la disciplina del proyecto es fase por fase.
 5. **`hora` se corrige en su propia fase (4.8)**, no dentro de 5.0. La fase 5.0 es el QR rotativo (HMAC, rotación, anti-replay); meterle un date-picker le cruza el alcance.

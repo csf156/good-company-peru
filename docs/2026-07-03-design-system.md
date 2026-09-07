@@ -1,6 +1,6 @@
-# Ayni — Sistema de diseño y mapa de vistas
+# Martini — Sistema de diseño y mapa de vistas
 
-**Fecha:** 2026-07-03 (reescrito 2026-07-25 tras la migración completa a tokens Ayni)
+**Fecha:** 2026-07-03 (reescrito 2026-07-25 tras la migración completa a tokens Martini)
 **Estado:** referencia viva. Actualizar cada vez que se agregue/cambie una vista o decisión visual.
 **Uso:** cualquier tarea de UI (frontend-design) debe consultar este doc antes de maquetar pantallas nuevas.
 
@@ -76,9 +76,9 @@ Usar como **chips/badges**, nunca como fondo de pantalla completo — son indica
 
 ### Dos correcciones de accesibilidad
 
-Ayni se aparta de Lovable a propósito en dos tokens, porque el valor original de Lovable no alcanza el contraste AA que exige este design system. Ambos están congelados por `tests/theme-contrast.test.ts` — si alguien "acerca" el token al valor de Lovable y eso rompe el contraste, el test falla.
+Martini se aparta de Lovable a propósito en dos tokens, porque el valor original de Lovable no alcanza el contraste AA que exige este design system. Ambos están congelados por `tests/theme-contrast.test.ts` — si alguien "acerca" el token al valor de Lovable y eso rompe el contraste, el test falla.
 
-| Token | Lovable (no usar) | Ayni (usar) | Motivo |
+| Token | Lovable (no usar) | Martini (usar) | Motivo |
 |---|---|---|---|
 | `destructiveText` | `destructive` = `hsl(0 70% 55%)` / `#DD3C3C` (contraste ≈4.35:1 sobre `background`, no alcanza 4.5:1) | `hsl(0 70% 60%)` / `#E05252` (≈5.00:1 sobre `background`, ≈4.57:1 sobre `surface`) | Texto de error debe cumplir 4.5:1 para texto normal. `destructive` crudo se reserva para relleno/borde/ícono, nunca texto. |
 | `borderStrong` | `border`/`input` = `hsl(24 10% 20%)` / `#38322E` (no diseñado para ser la única señal de un control) | `hsl(24 10% 38%)` / `#6B5F57` (≈3.09:1 sobre `background`) | Borde que ES la única señal visual de un control (ej. inputs sin fondo) debe cumplir el mínimo de 3:1 para elementos no-textuales. |

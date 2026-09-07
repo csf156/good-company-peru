@@ -12,7 +12,7 @@ const SLIDES = [
   {
     icono: 'account-group-outline',
     titulo: 'Compañía, no citas',
-    texto: 'Ayni conecta gente que quiere compañía para un café, una conversación o un evento.',
+    texto: 'Martini conecta gente que quiere compañía para un café, una conversación o un evento.',
   },
   {
     icono: 'glass-cocktail',

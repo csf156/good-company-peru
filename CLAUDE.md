@@ -1,4 +1,4 @@
-# Ayni — reglas del proyecto
+# Martini — reglas del proyecto
 
 App de **compañía social** ("rent a friend") en Perú. El pago se abstrae en **bebidas virtuales**; el encuentro se verifica presencialmente (QR + geofence + cronómetro) y solo entonces se libera el pago al amigo en renta.
 
@@ -93,7 +93,7 @@ Estas aplican en **toda** fase que toque plata o datos sensibles:
 ## Reglas de diseño (UI)
 
 - **Portar la pantalla de Lovable** equivalente a la fase (ver mapeo Lovable→fase en cada plan) — no inventar de cero si Lovable ya la tiene.
-- **Identidad Ayni cálida** (dorado/bronce, superficies oscuras, títulos serif italic, labels mono). Tomar los **valores de color reales de `src/styles.css` de Lovable**, no de la paleta teal/coral vieja del design-system (está marcada como superada).
+- **Identidad Martini cálida** (dorado/bronce, superficies oscuras, títulos serif italic, labels mono). Tomar los **valores de color reales de `src/styles.css` de Lovable**, no de la paleta teal/coral vieja del design-system (está marcada como superada).
 - **Rojo solo para SOS/error/no-show.** Nunca decorativo.
 - **Estados con icono + texto**, nunca solo color (accesibilidad/daltonismo). Contraste AA. Targets ≥44dp.
 - **Montos y cronómetro con tipografía tabular** (no "bailan" de ancho).

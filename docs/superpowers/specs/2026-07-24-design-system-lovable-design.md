@@ -195,7 +195,7 @@ Los tres se exponen como helpers de estilo desde `lib/theme.ts`, para que ningun
 | `app/(auth)/profile-setup.tsx` | Derivar | " |
 | `app/(auth)/kyc.tsx` | Derivar | " |
 
-Las 6 pantallas ya en tokens Ayni (`index`, `store`, `bar`, `wallet`, `chats/index`, `chats/[id]`) **no se rediseñan** — solo absorben los valores corregidos de §1.2 al cambiar el nombre del import. Cambio visual sutil y esperado.
+Las 6 pantallas ya en tokens Martini (`index`, `store`, `bar`, `wallet`, `chats/index`, `chats/[id]`) **no se rediseñan** — solo absorben los valores corregidos de §1.2 al cambiar el nombre del import. Cambio visual sutil y esperado.
 
 **Restricción dura: ninguna migración altera comportamiento.** Los tests existentes de cada pantalla deben pasar sin modificarse, salvo aserciones que dependan literalmente de un color o de una familia tipográfica. Si un test de comportamiento requiere cambio, es señal de que la migración se pasó de alcance.
 
@@ -310,7 +310,7 @@ Cada fase cierra con: `npm run lint` + `npm run typecheck` + `npm test` verdes, 
 - **Modo claro.** Consecuencia aceptada de la decisión dark-only.
 - **`friend-card`, `drink-icon`, `app-shell`** y la navegación entre pantallas que `app-shell` implicaría. Siguen en `docs/backlog.md`.
 - **Pantalla de estado KYC** (🆕 en el design system, sin dueño). Se anota en backlog; no la toma este spec.
-- **Rediseño estructural de las 6 pantallas ya en tokens Ayni.** Solo absorben los valores corregidos.
+- **Rediseño estructural de las 6 pantallas ya en tokens Martini.** Solo absorben los valores corregidos.
 - **Referidos** (fase 9.1). D.3 solo deja la costura.
 - **Autenticación y verificación por SMS.** Descartada en §6.2. Si el producto llega a necesitar celular verificado (KYC real, encuentros presenciales), será un proveedor de pago y una fase propia. Anotado en `docs/backlog.md`.
 - **Cualquier cambio de lógica de negocio** en fases cerradas. Este trabajo es visual, más dos features nuevas acotadas.

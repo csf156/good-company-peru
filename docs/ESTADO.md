@@ -1,4 +1,4 @@
-# Ayni — Estado del proyecto (archivo de consulta general)
+# Martini — Estado del proyecto (archivo de consulta general)
 
 **Qué es esto:** la bitácora única de progreso. Cada vez que el usuario declara **"fase concluida"**, la sesión añade aquí una entrada. Toda sesión nueva **lee este archivo al arrancar** para saber qué ya existe, sin releer todo el código.
 
@@ -17,7 +17,7 @@ Estado: ⬜ pendiente · 🟨 en curso · ✅ concluida
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
-| 1.0 | Scaffold Expo + Supabase + theme Ayni | ✅ |
+| 1.0 | Scaffold Expo + Supabase + theme Martini | ✅ |
 | 1.1 | Esquema + RLS + storage | ✅ |
 | 1.2 | Auth (OTP + email) | ✅ |
 | 1.3 | Alta de perfil | ✅ |
@@ -49,7 +49,7 @@ Fases fuera de los dos planes originales, nacidas de specs propios en `docs/supe
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
-| D.1 | Tokens Ayni + migración de 13 pantallas | ✅ |
+| D.1 | Tokens Martini + migración de 13 pantallas | ✅ |
 | D.2 | Login con Google | ✅ |
 | D.3 | Onboarding paso a paso (wizard de perfil + KYC en pantallas) | ✅ |
 | D.4 | Carrusel "Cómo funciona" + ToS + costura de referidos | ⬜ |
@@ -297,7 +297,7 @@ Fases fuera de los dos planes originales, nacidas de specs propios en `docs/supe
 
 ### Fase 1.0 — Scaffold del proyecto — 2026-07-03
 
-- **Qué se construyó:** proyecto Expo Router (TypeScript) + cliente Supabase, estructura `app/`/`components/`/`lib/`/`supabase/`/`tests/`, ESLint+Prettier+TS estricto, Jest, CI (lint+typecheck+test). El theme Ayni (tokens de color/tipografía portados de Lovable) y componentes base (`Button`) se añadieron en un commit posterior de sync de design system (`9762e97`), no en el commit original de scaffold.
+- **Qué se construyó:** proyecto Expo Router (TypeScript) + cliente Supabase, estructura `app/`/`components/`/`lib/`/`supabase/`/`tests/`, ESLint+Prettier+TS estricto, Jest, CI (lint+typecheck+test). El theme Martini (tokens de color/tipografía portados de Lovable) y componentes base (`Button`) se añadieron en un commit posterior de sync de design system (`9762e97`), no en el commit original de scaffold.
 - **Archivos/pantallas clave:** `lib/supabase.ts`, `app/_layout.tsx`, `app/index.tsx`, `.github/workflows/ci.yml`.
 - **Tablas / Edge Functions / migraciones:** ninguna (carpetas vacías `.gitkeep`).
 - **Decisiones tomadas en la fase:** ninguna no obvia.
