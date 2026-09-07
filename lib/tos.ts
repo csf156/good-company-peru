@@ -1,4 +1,8 @@
+import type { ComponentProps } from 'react';
+import type MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { supabase } from '@/lib/supabase';
+
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 /**
  * Versión vigente del texto. Vive en el código, no en la base: subirla acá
@@ -9,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 export const TOS_VERSION = 'v1';
 
 /** Las tres reglas que de verdad importan, para la pantalla. */
-export const TOS_RESUMEN = [
+export const TOS_RESUMEN: { icono: IconName; texto: string }[] = [
   {
     icono: 'account-heart-outline',
     texto:
