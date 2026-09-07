@@ -61,6 +61,7 @@ export type ProfileFormFields = {
   hobbies: string[];
   tipo_salida: string[];
   foto_url?: string;
+  referido_por?: string | null;
 };
 
 /**

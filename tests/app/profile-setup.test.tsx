@@ -249,9 +249,17 @@ describe('ProfileSetupScreen — rentador', () => {
   });
 });
 
-async function completarWizardCompleto() {
+/** `referido` es opcional (Tarea 6, D.4) — omitirlo deja el campo vacío,
+ * igual que hacían todos los tests de este helper antes de que existiera. */
+async function completarWizardCompleto({ referido }: { referido?: string } = {}) {
   await fireEvent.changeText(screen.getByPlaceholderText('Nombre completo'), 'Ana Torres');
   await fireEvent.changeText(screen.getByPlaceholderText('Alias'), 'ana');
+  if (referido !== undefined) {
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('¿Alguien te invitó? Su código (opcional)'),
+      referido,
+    );
+  }
   await fireEvent.press(screen.getByText('Continuar'));
   await screen.findByText('Paso 2 de 7');
 
@@ -312,6 +320,38 @@ describe('ProfileSetupScreen — persistencia final', () => {
     );
     expect(mockedUpsertPreferencias).toHaveBeenCalledWith({ distritos: ['Miraflores'] });
     expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('guarda el código de referido cuando el usuario lo escribe', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: null });
+    mockedUpsertPreferencias.mockResolvedValue({ error: null });
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto({ referido: 'ANA2026' });
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    await waitFor(() => {
+      expect(mockedUpdateOwnProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ referido_por: 'ANA2026' }),
+      );
+    });
+  });
+
+  it('deja el referido en null si el usuario no escribe nada: es opcional', async () => {
+    mockedUpdateOwnProfile.mockResolvedValue({ error: null });
+    mockedUpsertPreferencias.mockResolvedValue({ error: null });
+    await render(<ProfileSetupScreen />);
+    await screen.findByText('Paso 1 de 7');
+
+    await completarWizardCompleto();
+    await fireEvent.press(screen.getByText('Terminar'));
+
+    await waitFor(() => {
+      expect(mockedUpdateOwnProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ referido_por: null }),
+      );
+    });
   });
 
   it('no escribe nada en pasos intermedios', async () => {

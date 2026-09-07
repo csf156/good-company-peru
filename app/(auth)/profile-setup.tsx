@@ -38,6 +38,7 @@ const TITULOS: Record<number, string> = {
 type Datos = {
   nombre: string;
   alias: string;
+  referido: string;
   fechaNacimiento: string;
   genero: string;
   generoOtro: string;
@@ -51,6 +52,7 @@ type Datos = {
 const DATOS_INICIALES: Datos = {
   nombre: '',
   alias: '',
+  referido: '',
   fechaNacimiento: '',
   genero: '',
   generoOtro: '',
@@ -176,6 +178,7 @@ export default function ProfileSetupScreen() {
       genero: generoFinal,
       hobbies: hobbiesFinal,
       tipo_salida: datos.tipoSalida,
+      referido_por: datos.referido.trim() === '' ? null : datos.referido.trim(),
       ...(datos.fotoPath ? { foto_url: datos.fotoPath } : {}),
     });
 
@@ -239,6 +242,14 @@ export default function ProfileSetupScreen() {
             placeholderTextColor={colors.mutedForeground}
             value={datos.alias}
             onChangeText={(alias) => actualizar({ alias })}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="¿Alguien te invitó? Su código (opcional)"
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="characters"
+            value={datos.referido}
+            onChangeText={(referido) => actualizar({ referido })}
           />
         </>
       )}
