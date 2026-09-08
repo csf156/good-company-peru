@@ -65,9 +65,11 @@ estos términos. Quien no los acepte debe abstenerse de utilizar la Plataforma.
 Rentador: el Usuario que cursa una invitación a un encuentro de compañía
 social. Amigo en renta: el Usuario que acepta dicha invitación a cambio de una
 retribución. Encuentro: la reunión presencial acordada entre ambos. Bebida
-virtual: unidad de valor adquirida dentro de la Plataforma que representa el
-importe destinado a retribuir el Encuentro. Custodia: retención de dicho
-importe por un proveedor especializado hasta que el Encuentro sea verificado.
+virtual: unidad en la que la Plataforma expresa el importe correspondiente a un
+Encuentro determinado, adquirida en el acto de cursar la invitación respectiva.
+Custodia: retención de dicho importe por un proveedor especializado hasta que el
+Encuentro sea verificado. Liquidación: abono al Amigo en renta de los importes
+que le corresponden por Encuentros ya verificados.
 
 3. Objeto y naturaleza del servicio. La Plataforma es un servicio de
 intermediación tecnológica que permite a los Usuarios coordinar encuentros
@@ -137,21 +139,30 @@ ilícitas; la promoción de actividades ilícitas; la extracción automatizada d
 información de la Plataforma; y toda conducta dirigida a eludir los mecanismos
 de verificación, de moderación o de cobro.
 
-10. Régimen económico: bebidas virtuales. La retribución del Encuentro se
-instrumenta mediante bebidas virtuales que el Rentador adquiere dentro de la
-Plataforma. El Rentador no entrega dinero directamente al Amigo en renta. Las
-bebidas virtuales carecen de valor fuera de la Plataforma, no son transferibles
-entre Usuarios y no son canjeables por dinero fuera de los supuestos previstos
-en estos términos y en las reglas vigentes publicadas en la aplicación.
+10. Régimen económico: bebidas virtuales. La bebida virtual es la unidad con la
+que la Plataforma expresa el importe de un Encuentro determinado. No constituye
+un instrumento de valor almacenado ni un medio de pago de aceptación general, y
+no confiere a quien la adquiere crédito exigible al Operador distinto del
+derecho de devolución previsto en la cláusula 16. La bebida virtual se adquiere
+únicamente en el acto de cursar una invitación, respecto de un Usuario
+determinado, por un importe determinado y para un Encuentro determinado. No se
+adquieren bebidas virtuales para su conservación o acumulación; no son
+fungibles; no son transferibles, cedibles ni reasignables a otro Usuario ni a
+otro Encuentro; no son canjeables por dinero ni por crédito alguno dentro de la
+Plataforma; y carecen de valor y de utilidad fuera del Encuentro para el que
+fueron adquiridas.
 
-11. Custodia y liberación del importe. Desde la adquisición de la bebida
-virtual, el importe correspondiente queda retenido en custodia a través de un
-proveedor especializado. El importe se libera a favor del Amigo en renta
-únicamente después de que el Encuentro haya sido verificado de manera
-presencial por la Plataforma, mediante los mecanismos implementados para tal
-efecto, que comprenden la lectura de un código en el lugar del Encuentro, la
-comprobación de proximidad geográfica y el registro de su duración. Sin
-verificación no procede liberación alguna.
+11. Custodia y liberación del importe. El importe correspondiente a la bebida
+virtual es recibido y mantenido en custodia por el proveedor de custodia, en
+cuentas de su titularidad y bajo su responsabilidad. Dicho importe no ingresa al
+patrimonio del Operador. El Operador no recibe, no conserva ni dispone de fondos
+de los Usuarios: se limita a impartir al proveedor de custodia las instrucciones
+de retención, de liberación y de devolución que correspondan conforme a estos
+términos. El importe se libera a favor del Amigo en renta únicamente después de
+que el Encuentro haya sido verificado de manera presencial por la Plataforma,
+mediante los mecanismos implementados para tal efecto, que comprenden la lectura
+de un código en el lugar del Encuentro, la comprobación de proximidad geográfica
+y el registro de su duración. Sin verificación no procede liberación alguna.
 
 12. Comisiones y suscripción. La Plataforma percibe una comisión de compra a
 cargo del Rentador y una comisión de servicio que se descuenta del importe que
@@ -162,9 +173,27 @@ suscripción de pago, con un precio vigente de S/ 39.00 mensuales, que modifica
 el régimen de comisiones aplicable. Las comisiones, el precio de la suscripción
 y sus beneficios son los publicados en la aplicación al momento de cada
 operación. Toda modificación se comunicará de forma previa y no afectará
-operaciones ya iniciadas.
+operaciones ya iniciadas. Las comisiones constituyen la contraprestación del
+Operador por el servicio de intermediación y son el único importe que este
+percibe con ocasión de la operación.
 
-13. Prohibición de pagos fuera de la Plataforma. Toda retribución vinculada a
+13. Liquidación de los importes a favor del Amigo en renta. Los importes
+liberados conforme a la cláusula 11 constituyen una cuenta por cobrar del Amigo
+en renta, originada en servicios de compañía ya prestados y verificados. No
+constituyen un depósito, un saldo disponible, un monedero ni un crédito de uso
+general; no generan intereses ni rendimiento alguno; no pueden emplearse para
+efectuar pago alguno dentro de la Plataforma; y no son transferibles a otro
+Usuario. Su único destino es el abono en una cuenta abierta en el sistema
+financiero nacional cuya titularidad corresponda al propio Amigo en renta y
+coincida con la identidad verificada conforme a la cláusula 6. La Liquidación se
+ejecuta de manera automática y periódica, conforme al calendario vigente
+publicado en la aplicación, sin necesidad de solicitud del Amigo en renta, quien
+puede además solicitar el adelanto de una Liquidación ya programada en los
+términos allí previstos. El Amigo en renta no puede optar por mantener
+indefinidamente importes pendientes de Liquidación. La baja de la cuenta no
+extingue los importes pendientes, que se liquidan conforme a esta cláusula.
+
+14. Prohibición de pagos fuera de la Plataforma. Toda retribución vinculada a
 un Encuentro debe canalizarse íntegramente a través de la Plataforma. Queda
 prohibido acordar, solicitar, ofrecer o ejecutar pagos por medios ajenos a
 ella, así como intercambiar números telefónicos, cuentas bancarias, códigos de
@@ -173,7 +202,7 @@ finalidad. La infracción de esta cláusula faculta al Operador a suspender o da
 de baja las cuentas involucradas, sin perjuicio de las acciones que
 correspondan.
 
-14. Moderación de las comunicaciones. Las comunicaciones cursadas dentro de la
+15. Moderación de las comunicaciones. Las comunicaciones cursadas dentro de la
 Plataforma están sujetas a mecanismos automatizados de moderación que pueden
 detectar, ocultar o bloquear mensajes que contengan datos de contacto,
 información bancaria, intentos de pago externo o contenido prohibido por estos
@@ -181,14 +210,16 @@ términos. El Usuario acepta dicha moderación como condición de uso. Estos
 mecanismos constituyen una medida de prevención y no garantizan la detección de
 la totalidad de las conductas infractoras.
 
-15. Cancelación, inasistencia y controversias sobre el importe en custodia. Si
+16. Cancelación, inasistencia y controversias sobre el importe en custodia. Si
 el Encuentro no se realiza, se cancela o se interrumpe, el destino del importe
 en custodia se resolverá conforme a las reglas de cancelación, inasistencia y
 disputas vigentes publicadas en la aplicación, las cuales forman parte
 integrante de estos términos y detallan los supuestos, los plazos y los efectos
-aplicables.
+aplicables. Toda devolución al Rentador se efectúa al mismo medio de
+pago empleado en la adquisición, y en ningún caso mediante crédito, bebida
+virtual o importe acreditado dentro de la Plataforma.
 
-16. Seguridad durante el Encuentro. El Encuentro se desarrolla fuera del
+17. Seguridad durante el Encuentro. El Encuentro se desarrolla fuera del
 entorno digital y bajo responsabilidad exclusiva de los Usuarios que lo
 acuerdan. Se recomienda reunirse en lugares públicos y concurridos, mantener
 toda la coordinación dentro de la Plataforma e informar a una persona de
@@ -197,16 +228,16 @@ disposición constituyen medidas de prevención y no garantizan la seguridad, la
 integridad ni la conducta de ningún Usuario. El Operador no supervisa, no
 acompaña ni controla el desarrollo del Encuentro.
 
-17. Suspensión y baja de la cuenta. El Operador podrá suspender de forma
+18. Suspensión y baja de la cuenta. El Operador podrá suspender de forma
 preventiva o dar de baja de forma definitiva la cuenta del Usuario que infrinja
 estos términos, que sea objeto de reportes fundados, que suministre información
 falsa o que incurra en conductas que pongan en riesgo a otros Usuarios o a la
 Plataforma. La suspensión preventiva podrá mantenerse mientras dure la
 evaluación del caso. Los importes en custodia asociados a operaciones en curso
-se resolverán conforme a la cláusula 15. El Usuario podrá solicitar la revisión
+se resolverán conforme a la cláusula 16. El Usuario podrá solicitar la revisión
 de la medida por los canales de atención indicados en la aplicación.
 
-18. Limitación de responsabilidad. El Operador responde por el correcto
+19. Limitación de responsabilidad. El Operador responde por el correcto
 funcionamiento de los servicios de intermediación, de verificación y de
 canalización de pagos que presta de manera directa. En la máxima medida
 permitida por la ley, el Operador no responde por los actos, las omisiones, las
@@ -217,35 +248,35 @@ disposición de esta cláusula excluye la responsabilidad del Operador por dolo 
 culpa inexcusable, ni las garantías que la normativa de protección al
 consumidor reconoce con carácter imperativo.
 
-19. Propiedad intelectual. Los signos distintivos, el software, el diseño y los
+20. Propiedad intelectual. Los signos distintivos, el software, el diseño y los
 contenidos de la Plataforma pertenecen al Operador o a sus licenciantes. Se
 concede al Usuario una licencia limitada, revocable, no exclusiva e
 intransferible para utilizar la Plataforma conforme a estos términos.
 
-20. Datos personales. El tratamiento de los datos personales de los Usuarios,
+21. Datos personales. El tratamiento de los datos personales de los Usuarios,
 incluidos los datos de identidad, los datos biométricos y los datos de
 ubicación recabados para la verificación del Encuentro, se rige por la Política
 de Privacidad, disponible en la aplicación y en el sitio web del Operador, la
 cual forma parte integrante de estos términos.
 
-21. Modificación de los términos. El Operador podrá modificar estos términos
+22. Modificación de los términos. El Operador podrá modificar estos términos
 por razones legales, regulatorias, técnicas u operativas. Toda nueva versión
 será comunicada dentro de la aplicación y requerirá la aceptación expresa del
 Usuario antes de que este pueda continuar utilizando la Plataforma. La versión
 aceptada, así como la fecha y la hora de su aceptación, quedan registradas.
 
-22. Atención al usuario y reclamos. Las consultas, las quejas y los reclamos se
+23. Atención al usuario y reclamos. Las consultas, las quejas y los reclamos se
 canalizan por los medios de atención indicados en la aplicación. El Operador
 habilita un libro de reclamaciones virtual accesible desde dichos medios,
 conforme a la normativa de protección al consumidor.
 
-23. Ley aplicable y jurisdicción. Estos términos se rigen por las leyes de la
+24. Ley aplicable y jurisdicción. Estos términos se rigen por las leyes de la
 República del Perú. Las controversias derivadas de ellos se someten a los
 jueces y tribunales del distrito judicial de Lima, sin perjuicio del derecho
 del Usuario consumidor de acudir a las autoridades administrativas de
 protección al consumidor.
 
-24. Disposiciones finales. La nulidad de alguna de estas cláusulas no afecta la
+25. Disposiciones finales. La nulidad de alguna de estas cláusulas no afecta la
 validez de las demás. La tolerancia del Operador frente a un incumplimiento no
 supone renuncia a exigirlo con posterioridad. Estos términos, junto con la
 Política de Privacidad y las reglas vigentes publicadas en la aplicación,

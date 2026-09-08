@@ -56,6 +56,48 @@
 
 ---
 
+## Funcionalidades vetadas — no proponer, no construir
+
+**Qué es esto:** la lista de cosas que Martini NO puede hacer nunca sin cambiar de naturaleza regulatoria. No son decisiones de producto reversibles: cada una, por sí sola, convierte la bebida virtual en dinero electrónico o la cuenta por cobrar del amigo en un monedero, y con eso aparece la licencia ante la SBS.
+
+**De dónde sale:** análisis de la sesión de revisión legal (2026-09-07) sobre la Ley 29985 y su reglamento (DS 090-2013-EF), tras las tres decisiones estructurales del usuario: compra al invitar, saldo del amigo como cuenta por cobrar, y titularidad de la custodia en la pasarela. La defensa principal es que el reglamento excluye del concepto de dinero electrónico los soportes "diseñados para atender usos generales y no aquellos para usos específicos" — verificado contra el texto de la norma. Todo lo que amplíe el universo de usos de la bebida debilita esa defensa.
+
+**Lo que revive el valor almacenado del lado comprador**
+1. Recargar saldo o comprar crédito sin destinatario.
+2. Comprar bebidas para stock en cualquier forma: packs, promociones "lleva 3", bebidas de cortesía acumulables.
+3. Reasignar una bebida ya comprada a otro amigo o a otro encuentro tras un rechazo o cancelación.
+4. Devolver al crédito interno en lugar del medio de pago original.
+5. Bebidas con fecha de vencimiento. Si vencen es porque se almacenan — y además el vencimiento de valor prepagado es problema de protección al consumidor por separado.
+6. Códigos, vouchers o gift cards de bebidas canjeables por quien los tenga.
+7. Que un tercero pague la bebida por el rentador.
+
+**Lo que convierte la cuenta por cobrar en monedero**
+8. Regalar o transferir bebidas o importes entre usuarios.
+9. **Que el amigo use lo que ganó para invitar a alguien.** El más peligroso de la lista, porque es el que más se va a pedir y el que suena más inocente. Si un amigo quiere ser rentador, cobra a su banco y vuelve a entrar pagando con tarjeta como cualquiera.
+10. Propinas pagadas desde el importe pendiente de liquidación.
+11. Pagar la suscripción premium con el importe pendiente. Suena razonable y compensable, y es exactamente efecto cancelatorio dentro de la plataforma.
+12. Liquidar a cuenta bancaria de un tercero, o a cuenta cuya titularidad no coincida con el KYC.
+13. Retiro en efectivo por agente o corresponsal.
+14. Interés, rendimiento, "gana por dejar tu plata", o cashback acreditado como importe liquidable.
+15. Créditos promocionales o de referidos que caigan en el mismo bucket liquidable. Van en bucket separado no convertible, o son descuento sobre el precio. **Afecta al sub-proyecto 9.**
+16. Que el usuario pueda elegir acumular, o umbral mínimo que en la práctica lo obligue a acumular. **Afecta al diseño de la fase 6.3.**
+17. Retener el importe pendiente tras la baja de la cuenta. La baja no extingue la deuda: se liquida.
+
+**Naming y presentación — no es cosmético**
+18. Prohibido llamarlo "saldo", "billetera", "monedero" o "wallet" en la UI, en el ToS, en soporte y en marketing. Es "pagos pendientes de liquidación" o "por cobrar". El procesador y el regulador leen la interfaz, no el diagrama de arquitectura.
+19. Prohibido mostrar el importe pendiente como si fuera poder de compra dentro de la app.
+20. Prohibido expresar precios en bebidas con tipo de cambio propio. La bebida siempre muestra su importe en soles, 1:1.
+
+**Lo que perfora el control antilavado**
+21. Liberación manual por soporte sin verificación presencial, salvo con doble control humano, causal tipificada y registro auditable. Nunca un botón de un clic para un agente.
+22. Comprar y cancelar en ciclo sin límite. Es una ruta de cash-out.
+
+**Exigencia de ingeniería, no de disciplina.** Nada de esto se sostiene como regla de aplicación: dentro de dos fases alguien escribe un endpoint de crédito "solo para pruebas" o "solo para compensar a un usuario molesto" y ahí muere el argumento. Las reglas 1, 8, 9, 12 y 14 deben ser **invariantes de base de datos**: el `ledger` solo admite créditos a favor de un amigo con origen en una liberación de escrow referida a un encuentro verificado, y débitos solo con destino en una liquidación bancaria a titular verificado. Que un `INSERT` que viole eso falle en Postgres, no en TypeScript.
+
+**Y una que es peor que todas juntas:** si alguna vez se remunera el importe retenido (intereses, rendimiento), el problema deja de ser la Ley 29985 y pasa a ser captación de fondos del público sin autorización — materia de la Ley 26702 y del Código Penal. Estrictamente peor.
+
+---
+
 ## Resuelto
 
 - [x] **`TRUNCATE` concedido a `anon`/`authenticated` en todo `public`** (detectado al cerrar el Bloque 3 de D.3) — **cubierto por la migración `20260906120000_revoke_truncate.sql`:** `revoke truncate on all tables in schema public` (presente) + `alter default privileges for role postgres ... revoke truncate` (futuro). Verificado por introspección: los 28 grants sobre relaciones propias del proyecto pasaron a 0, y una tabla nueva creada por `postgres` ya no lo hereda. pgTAP `26_revoke_truncate_default.sql`, 6 aserciones. **Dos residuos que NO se pueden cerrar desde este proyecto, documentados a propósito:** (a) las vistas `tap_funky` y `pg_all_foreign_keys` (extensión pgtap, propiedad de `supabase_admin`) conservan el privilegio — `postgres` no es superusuario acá (`rolsuper=false`) y no puede revocar sobre objetos ajenos; el pgTAP las fija por nombre para que cualquier OTRA relación que recupere TRUNCATE haga fallar el test. (b) El default privilege del rol `supabase_admin` sigue con la `D` (`anon=arwdDxtm/supabase_admin`), así que una tabla creada POR ESE ROL sí heredaría TRUNCATE; `alter default privileges for role supabase_admin` devuelve `permission denied`. El camino real (migraciones de este repo y editor SQL de Supabase, ambos como `postgres`) sí queda cubierto — comprobado creando una tabla de prueba en una transacción revertida.
