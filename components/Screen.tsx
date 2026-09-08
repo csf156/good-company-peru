@@ -133,7 +133,21 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: MAX_CONTENT_WIDTH,
     width: '100%',
-    alignSelf: 'center',
+    // NO poner `alignSelf: 'center'` aquí. `framedRow` es una fila, así que su
+    // eje transversal es el VERTICAL: `alignSelf: 'center'` no centra en
+    // horizontal (de eso ya se encarga su `justifyContent`), lo que hace es
+    // impedir que este contenedor se estire a la altura del padre y
+    // dimensionarlo al alto de su contenido.
+    //
+    // Con contenido corto no se nota. Con contenido más alto que la ventana,
+    // el ScrollView de dentro hereda esa altura y por tanto NUNCA tiene nada
+    // que desplazar — el recorte acaba ocurriendo en el `body`, que en web
+    // tiene `overflow: hidden`. Resultado: se ve un trozo del texto y no hay
+    // forma de moverse. Lo destapó el articulado del ToS (24 cláusulas) en la
+    // fase D.4; llevaba latente desde el bloque 2b de D.3, cuando nada
+    // superaba el alto de la ventana.
+    //
+    // El default `alignItems: 'stretch'` del padre es justo lo que hace falta.
   },
   center: {
     justifyContent: 'center',
