@@ -469,7 +469,15 @@ rollback;
 npm run test:db
 ```
 
-Esperado: los tres `throws_ok` fallan — hoy los inserts pasan sin error. El `lives_ok` pasa por casualidad; no cuenta como señal.
+Esperado: los tres `throws_ok` fallan **individualmente** (`not ok 1`, `not ok 2`, `not ok 3`), no un abort del archivo entero. Un abort a la primera sentencia confirma que algo falta, pero no que cada assert mida lo que crees. El `lives_ok` pasa por casualidad; no cuenta como señal.
+
+> **Corrección al plan, 2026-09-09.** Los tres `throws_ok` de arriba pasan `null` como mensaje esperado, así que **solo comprueban el errcode** — y los tres comparten `AY451`. Con eso, el test no distingue por qué rama del trigger saltó cada ataque, y si una fase futura colapsa las tres comprobaciones en un solo `if`, sigue verde. **Sustituye el `null` por el mensaje esperado de cada rama** (o `throws_like` con un patrón que ancle la frase distintiva, ya que dos de los tres interpolan valores):
+>
+> - tipo ≠ payout → `credito a un amigo solo por payout (recibido: compra)`
+> - sin referencia → `un payout necesita referencia a la cita`
+> - cita no finalizada → `payout solo por cita finalizada (cita: …, estado: confirmada)`
+>
+> Esto **no** aplica a la Tarea 4: allí hay un solo `raise` y una sola rama, así que el mensaje compartido es correcto y forzar una distinción sería inventarla.
 
 - [ ] **Step 3: Escribir la migración**
 
