@@ -706,7 +706,9 @@ git commit -m "feat(db): invariante de debito al amigo solo por liquidacion"
 **Files:**
 - Create: `supabase/migrations/20260909150000_por_cobrar.sql`
 - Create: `supabase/tests/33_por_cobrar.sql`
-- Modify: `supabase/tests/07_money_schema.sql`, `10_bar_rls.sql`, `13_confirmar_orden_pago.sql`, `14_conciliacion_sp3.sql`, `15_invitaciones_rls.sql`, `19_crear_invitacion.sql`, `20_responder_invitacion.sql` — los que referencian `bar` o `balance`.
+- Modify: `supabase/tests/07_money_schema.sql`, `10_bar_rls.sql`, `12_ordenes_pago_rls.sql`, `13_confirmar_orden_pago.sql`, `14_conciliacion_sp3.sql`, `15_invitaciones_rls.sql`, `19_crear_invitacion.sql`, `20_responder_invitacion.sql` — los que referencian `bar` o `balance`.
+
+> **Corrección al plan, 2026-09-09 (hallazgo de ejecución).** La lista original tenía siete archivos y son **ocho**: `12_ordenes_pago_rls.sql` también rompe, por la columna `ordenes_pago.bebida_catalogo_id` que la Tarea 1 elimina. Lo encontró BUILDER al ejecutar la Tarea 1, no el plan. Es el quinto caso registrado de que el código de un plan es una hipótesis.
 
 **Interfaces:**
 - Produces: vista `public.por_cobrar (perfil_id, por_cobrar)`, `security_invoker = on`.
@@ -837,7 +839,7 @@ Esperado: **todos** los archivos en verde. Anota el total de aserciones — sale
 - [ ] **Step 8: Commit**
 
 ```bash
-git add supabase/migrations/20260909150000_por_cobrar.sql supabase/tests/33_por_cobrar.sql supabase/tests/07_money_schema.sql supabase/tests/10_bar_rls.sql supabase/tests/13_confirmar_orden_pago.sql supabase/tests/14_conciliacion_sp3.sql supabase/tests/15_invitaciones_rls.sql supabase/tests/19_crear_invitacion.sql supabase/tests/20_responder_invitacion.sql
+git add supabase/migrations/20260909150000_por_cobrar.sql supabase/tests/33_por_cobrar.sql supabase/tests/07_money_schema.sql supabase/tests/10_bar_rls.sql supabase/tests/12_ordenes_pago_rls.sql supabase/tests/13_confirmar_orden_pago.sql supabase/tests/14_conciliacion_sp3.sql supabase/tests/15_invitaciones_rls.sql supabase/tests/19_crear_invitacion.sql supabase/tests/20_responder_invitacion.sql
 git commit -m "feat(db): por_cobrar sustituye a balance"
 ```
 
