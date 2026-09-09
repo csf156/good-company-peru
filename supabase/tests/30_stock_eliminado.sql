@@ -5,7 +5,7 @@
 -- mirar el catálogo — un test que solo comprobara que `bar` no existe pasaría
 -- igual si quedara otra vía para insertar una orden huérfana.
 begin;
-select plan(4);
+select plan(7);
 
 -- La tabla de stock ya no existe.
 select is(
@@ -50,6 +50,44 @@ select is(
       and column_name = 'bebida_bar_id'),
   0,
   'invitaciones.bebida_bar_id ya no existe: no hay bebida reasignable'
+);
+
+-- Los estados del flujo hold → captura existen (ampliación aditiva).
+select is(
+  (select count(*)::int from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'estado_invitacion' and e.enumlabel = 'por_pagar'),
+  1,
+  'estado_invitacion tiene por_pagar'
+);
+
+select is(
+  (select count(*)::int from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'estado_orden'
+      and e.enumlabel in ('preautorizada', 'capturada', 'anulada')),
+  3,
+  'estado_orden tiene preautorizada, capturada y anulada'
+);
+
+-- ATAQUE (veto 22, ciclo comprar-cancelar): dos holds vivos sobre la misma
+-- invitación. Se permiten reintentos tras un fallo, jamás dos autorizaciones
+-- vivas — si no, el mismo encuentro retiene dos veces la tarjeta.
+insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, estado)
+values ('00000000-0000-0000-0000-0000000000e9'::uuid,
+        '00000000-0000-0000-0000-0000000000e1'::uuid,
+        '00000000-0000-0000-0000-0000000000e1'::uuid,
+        'invitacion', 'especifica', 'por_pagar');
+
+insert into public.ordenes_pago (perfil_id, invitacion_id, valor_v, buyer_fee, total, provider, estado)
+values ('00000000-0000-0000-0000-0000000000e1'::uuid,
+        '00000000-0000-0000-0000-0000000000e9'::uuid, 50, 7.5, 57.5, 'mock', 'preautorizada');
+
+select throws_ok(
+  $$insert into public.ordenes_pago (perfil_id, invitacion_id, valor_v, buyer_fee, total, provider, estado)
+    values ('00000000-0000-0000-0000-0000000000e1'::uuid,
+            '00000000-0000-0000-0000-0000000000e9'::uuid, 50, 7.5, 57.5, 'mock', 'preautorizada')$$,
+  '23505',
+  null,
+  'no puede haber dos ordenes vivas sobre la misma invitacion'
 );
 
 select * from finish();
