@@ -201,7 +201,7 @@ Cada bloque cierra con tests verdes y su propio commit. Ninguno deja la rama rot
 | Bloque | Alcance | Entregable |
 |---|---|---|
 | **E.1** | Esquema | Borrar `bar` y `estado_bar`; `invitaciones` pierde `bebida_bar_id` (la FK que apuntaba al stock) y gana `bebida_catalogo_id`; `ordenes_pago` gana `invitacion_id` (con índice único parcial) y pierde `bebida_catalogo_id`; ampliar los dos enums; las tres invariantes; vista `por_cobrar` en lugar de `balance`. pgTAP que **reproduce los ataques**. |
-| **E.2** | Provider y funciones | `PaymentProvider` gana `preautorizar` / `capturar` / `anular`; `confirmar_orden_pago`, `crear_invitacion` y `responder_invitacion` reescritas; Edge Functions `comprar-bebida` (renombrada) y `pago-webhook`. Idempotencia en las tres operaciones nuevas. |
+| **E.2** | Provider y funciones | `PaymentProvider` gana `preautorizar` / `capturar` / `anular`; `confirmar_orden_pago`, `crear_invitacion`, `responder_invitacion` **y `detectar_discrepancias_sp3`** reescritas; Edge Functions `comprar-bebida` (renombrada) y `pago-webhook`. Idempotencia en las tres operaciones nuevas. **Restaurar la cobertura pgTAP que E.1 vació** (ver §10). |
 | **E.3** | UI del rentador | Catálogo dentro del flujo de invitar; "Mis invitaciones"; muerte de Tienda y Bar; `lib/bar.ts` reemplazada. |
 | **E.4** | UI del amigo y vocabulario | "Por cobrar"; barrido de vocabulario en toda la app; verificación del copy del ToS. |
 
@@ -231,3 +231,42 @@ Cada bloque cierra con tests verdes y su propio commit. Ninguno deja la rama rot
 3. **Datos existentes.** Hay filas de demo en `bar` (`scripts/seed-demo.mjs`). La migración de E.1 las destruye. Es aceptable — son datos de demo — pero el script de seed hay que actualizarlo en el mismo bloque o queda roto.
 4. **`pago-webhook` sigue sin desplegar.** E.2 lo toca; el despliegue real es infraestructura y no bloquea el cierre del bloque, pero hay que anotarlo otra vez y no darlo por hecho.
 5. **El código de referencia de un plan es una hipótesis.** El plan de D.3 traía dos bugs reales y el de D.4 otros dos, todos descubiertos al ejecutar. Si un test y el snippet del plan se contradicen, **gana el test**.
+
+---
+
+## 10. Deuda que E.1 deja abierta y E.2 tiene que cerrar
+
+Registrada por BRAIN el 2026-09-09, al revisar el bloque E.1 ya cerrado. **No es deuda opcional: es cobertura de dinero apagada a propósito, y sin esta lista se pierde en silencio.**
+
+### 10.1 Cuatro funciones vivas referencian una tabla que ya no existe
+
+`DROP TABLE bar` no invalida el cuerpo de una función `plpgsql`: el fallo aparece al invocarla, no al borrarla. Introspección sobre `pg_proc` el 2026-09-09:
+
+| Función | Reescrita en E.2 |
+|---|---|
+| `confirmar_orden_pago` | Sí, ya estaba en el alcance |
+| `crear_invitacion` | Sí, ya estaba en el alcance |
+| `responder_invitacion` | Sí, ya estaba en el alcance |
+| **`detectar_discrepancias_sp3`** | **No — hueco del spec original, añadido aquí** |
+
+`detectar_discrepancias_sp3` es la conciliación de la fase 3.4: comparaba el ledger contra el stock del bar. Sin `bar`, su pregunta ya no significa nada. **E.2 tiene que redefinir qué concilia** —lo natural es ledger contra órdenes capturadas— y no limitarse a hacerla compilar.
+
+### 10.2 Cobertura pgTAP vaciada, con números exactos
+
+E.1 dejó cuatro archivos en un assert cada uno, porque prueban funciones que E.2 reescribe y no tenía sentido adaptarlos dos veces. **E.2 no cierra hasta recuperar al menos estos números**, sobre el flujo nuevo:
+
+| Archivo | Antes de E.1 | Tras E.1 | Mínimo exigido a E.2 |
+|---|---|---|---|
+| `13_confirmar_orden_pago.sql` | 15 | 1 | ≥ 15 |
+| `14_conciliacion_sp3.sql` | 8 | 1 | ≥ 8 |
+| `19_crear_invitacion.sql` | 19 | 1 | ≥ 19 |
+| `20_responder_invitacion.sql` | 30 | 1 | ≥ 30 |
+| **Total** | **72** | **4** | **≥ 72** |
+
+`07_money_schema.sql` bajó de 24 a 17 y **eso sí está cerrado**: los 7 asserts que perdió probaban la tabla `bar`, que ya no existe. No hay que reponerlos.
+
+`08_ledger_append_only.sql` mantiene sus 7 asserts: solo cambió su fixture. Era el riesgo señalado y no se materializó.
+
+### 10.3 Tres suites jest en `.skip`
+
+`tests/lib/bar.test.ts`, `tests/app/bar.test.tsx`, `tests/app/store.test.tsx` y `tests/app/wallet.test.tsx` quedaron apagadas (16 tests). Las repone **E.3** (rentador) y **E.4** (amigo). Un verde con cobertura apagada no es un verde: mientras esas suites sigan en `.skip`, cualquier reporte de la serie E tiene que decir cuántas son.
