@@ -565,6 +565,214 @@ git commit -m "feat(db): invariante de credito al amigo solo por escrow liberado
 
 ---
 
+## Task 3b: Cerrar los tres huecos de la invariante de crédito
+
+> **Añadida el 2026-09-09, tras revisar el commit `a3374e6`.** BUILDER implementó la Tarea 3 exactamente como estaba escrita. **El defecto es del plan, no de la ejecución.** La Tarea 3 comprueba que la cita esté `finalizada` y nada más, y con eso deja tres formas de acuñar dinero.
+
+**Los tres huecos, y por qué cada uno importa:**
+
+1. **El amigo no tiene que ser parte de la cita.** `citas` no guarda perfiles: cuelga de `invitaciones` (`emisor_id` / `receptor_id`). Hoy un `payout` a **cualquier** perfil `amigo` referenciando **cualquier** cita finalizada del sistema pasa la invariante. Basta con que un solo encuentro ajeno haya terminado.
+2. **No hay tope de monto.** Un `payout` de S/ 999,999 por una cita de S/ 50 pasa.
+3. **La misma cita puede respaldar N payouts.** `idempotency_key` es unique global, así que basta una clave nueva cada vez: un encuentro acuña dinero sin límite.
+
+Juntos son exactamente el endpoint de crédito "solo para compensar a un usuario molesto" que el backlog nombra como la forma en que muere el argumento — solo que pasando *a través* de la invariante en vez de rodeándola.
+
+**Files:**
+- Create: `supabase/migrations/20260909170000_credito_amigo_ata_la_cita.sql`
+- Modify: `supabase/tests/31_invariante_credito_amigo.sql` (`plan(4)` → `plan(7)`)
+
+**Interfaces:**
+- Consumes: `public.ledger_credito_amigo()` de la Tarea 3 — se **reemplaza** con `create or replace`, el trigger no se recrea.
+- Produces: índice único parcial `ledger_payout_por_cita_uq`.
+
+- [ ] **Step 1: Escribir los tres ataques que faltan**
+
+En `supabase/tests/31_invariante_credito_amigo.sql`, sube `plan(4)` a `plan(7)` y añade **antes** de `select * from finish();`. El setup existente ya dejó la cita `…a4` finalizada y al amigo `…a1` con su payout legítimo:
+
+```sql
+-- ATAQUE 4: acreditar a un amigo AJENO a la cita. La cita ...a4 es entre el
+-- rentador ...a2 y el amigo ...a1; ...b9 no pinta nada ahí. Es la forma que
+-- toma un endpoint de compensación: referencia un encuentro real cualquiera.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('00000000-0000-0000-0000-0000000000b9'::uuid,
+        '00000000-0000-0000-0000-000000000000'::uuid,
+        'authenticated', 'authenticated', 'amigo-ajeno@martini.test', '', now(), now(), now());
+insert into public.profiles (id, rol)
+values ('00000000-0000-0000-0000-0000000000b9'::uuid, 'amigo');
+
+select throws_ok(
+  $$insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
+    values ('00000000-0000-0000-0000-0000000000b9'::uuid, 'payout', 100,
+            '00000000-0000-0000-0000-0000000000a4'::uuid, 'ataque-cita-ajena')$$,
+  'AY451',
+  'el amigo no es parte de la cita 00000000-0000-0000-0000-0000000000a4',
+  'no se puede acreditar a un amigo ajeno a la cita'
+);
+
+-- ATAQUE 5: la misma cita respaldando un segundo payout. La clave de
+-- idempotencia es distinta, así que el unique del ledger no lo detiene.
+select throws_ok(
+  $$insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
+    values ('00000000-0000-0000-0000-0000000000a1'::uuid, 'payout', 100,
+            '00000000-0000-0000-0000-0000000000a4'::uuid, 'ataque-doble-payout')$$,
+  '23505',
+  null,
+  'una cita no puede respaldar dos payouts al mismo amigo'
+);
+
+-- ATAQUE 6: payout por encima de lo que se capturó para ese encuentro.
+-- Se usa una segunda cita finalizada, porque la ...a4 ya gastó su payout.
+insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, estado)
+values ('00000000-0000-0000-0000-0000000000a5'::uuid,
+        '00000000-0000-0000-0000-0000000000a2'::uuid,
+        '00000000-0000-0000-0000-0000000000a1'::uuid,
+        'invitacion', 'especifica', 'aceptada');
+insert into public.citas (id, invitacion_id, estado)
+values ('00000000-0000-0000-0000-0000000000a6'::uuid,
+        '00000000-0000-0000-0000-0000000000a5'::uuid, 'finalizada');
+insert into public.ordenes_pago (perfil_id, invitacion_id, valor_v, buyer_fee, total, provider, estado)
+values ('00000000-0000-0000-0000-0000000000a2'::uuid,
+        '00000000-0000-0000-0000-0000000000a5'::uuid, 50, 7.5, 57.5, 'mock', 'capturada');
+
+select throws_ok(
+  $$insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
+    values ('00000000-0000-0000-0000-0000000000a1'::uuid, 'payout', 999999,
+            '00000000-0000-0000-0000-0000000000a6'::uuid, 'ataque-monto')$$,
+  'AY451',
+  'payout 999999.00 excede lo capturado para la cita (50.00)',
+  'no se puede acreditar mas de lo capturado para ese encuentro'
+);
+```
+
+> **Hipótesis del plan.** El `lives_ok` de la Tarea 3 (assert 4) crea el payout legítimo de la cita `…a4` **sin** que exista una `orden_pago` capturada para su invitación. Con el tope de monto puesto, ese assert **va a empezar a fallar**. Es correcto que falle: refleja que el plan original permitía un payout sin captura detrás. **Añade la `orden_pago` capturada al setup de la cita `…a4`** para que el camino legítimo siga siendo legítimo. Si al ejecutar ves otra interacción, gana el test.
+
+- [ ] **Step 2: Correr y verificar que falla, granular**
+
+```bash
+npm run test:db
+```
+
+Esperado: `not ok` en los asserts 5, 6 y 7 **individualmente**. Si el archivo aborta, arregla el setup antes de tocar la función.
+
+- [ ] **Step 3: Escribir la migración**
+
+```sql
+-- Fase E.1, Tarea 3b — El crédito al amigo se ata a SU cita, por SU importe,
+-- una sola vez.
+--
+-- La Tarea 3 solo exigía que la cita estuviera finalizada, y con eso dejaba
+-- tres formas de acuñar dinero: acreditar a un amigo ajeno al encuentro,
+-- acreditar más de lo capturado, y acreditar N veces por el mismo encuentro.
+-- Las tres son la misma figura que el backlog nombra como la muerte del
+-- argumento: un crédito que no proviene de un encuentro verificado concreto.
+
+create or replace function public.ledger_credito_amigo()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_rol rol_usuario;
+  v_estado_cita estado_cita;
+  v_emisor uuid;
+  v_receptor uuid;
+  v_capturado numeric(12, 2);
+begin
+  select rol into v_rol from public.profiles where id = new.perfil_id;
+
+  if v_rol is distinct from 'amigo' then
+    return new;
+  end if;
+
+  if new.monto > 0 then
+    if new.tipo <> 'payout' then
+      raise exception 'credito a un amigo solo por payout (recibido: %)', new.tipo
+        using errcode = 'AY451';
+    end if;
+
+    if new.referencia_id is null then
+      raise exception 'un payout necesita referencia a la cita'
+        using errcode = 'AY451';
+    end if;
+
+    select c.estado, i.emisor_id, i.receptor_id
+      into v_estado_cita, v_emisor, v_receptor
+      from public.citas c
+      join public.invitaciones i on i.id = c.invitacion_id
+     where c.id = new.referencia_id;
+
+    if v_estado_cita is distinct from 'finalizada' then
+      raise exception 'payout solo por cita finalizada (cita: %, estado: %)',
+        new.referencia_id, coalesce(v_estado_cita::text, 'inexistente')
+        using errcode = 'AY451';
+    end if;
+
+    -- Hueco 1: el crédito tiene que ser de SU encuentro.
+    if new.perfil_id not in (v_emisor, v_receptor) then
+      raise exception 'el amigo no es parte de la cita %', new.referencia_id
+        using errcode = 'AY451';
+    end if;
+
+    -- Hueco 2: nunca más de lo que se capturó para ese encuentro. El reparto
+    -- fino (seller fee, premium al 100%) es de la fase 5.4; esto es el techo.
+    select o.valor_v into v_capturado
+      from public.ordenes_pago o
+      join public.citas c on c.invitacion_id = o.invitacion_id
+     where c.id = new.referencia_id and o.estado = 'capturada';
+
+    if v_capturado is null then
+      raise exception 'no hay captura para la cita %', new.referencia_id
+        using errcode = 'AY451';
+    end if;
+
+    if new.monto > v_capturado then
+      raise exception 'payout % excede lo capturado para la cita (%)',
+        new.monto, v_capturado
+        using errcode = 'AY451';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- Hueco 3: un encuentro respalda UN payout por amigo. Va como índice y no como
+-- comprobación dentro del trigger: una consulta dentro del trigger sufre
+-- carreras entre transacciones concurrentes, el índice único no.
+create unique index ledger_payout_por_cita_uq
+  on public.ledger (referencia_id, perfil_id)
+  where tipo = 'payout';
+```
+
+- [ ] **Step 4: Pedirle al USUARIO que revise el SQL y autorice aplicarlo**
+
+Aditivo: `create or replace` de la función (el trigger no se recrea) más un índice nuevo. Sin `DROP`.
+
+- [ ] **Step 5: Aplicar y verificar por introspección**
+
+```sql
+select prosrc from pg_proc where proname = 'ledger_credito_amigo';
+select indexdef from pg_indexes where indexname = 'ledger_payout_por_cita_uq';
+```
+
+- [ ] **Step 6: Correr y verificar que pasa**
+
+```bash
+npm run test:db
+```
+
+Esperado: `31_invariante_credito_amigo.sql` — 7 assertions ok, incluido el `lives_ok` del camino legítimo con su captura añadida.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add supabase/migrations/20260909170000_credito_amigo_ata_la_cita.sql supabase/tests/31_invariante_credito_amigo.sql
+git commit -m "fix(db): atar el credito del amigo a su cita, su importe y una sola vez"
+```
+
+---
+
 ## Task 4: Invariante del débito al amigo
 
 Cubre los vetos 10 (propinas desde el pendiente), 11 (pagar la suscripción con el pendiente) y 12 (liquidar a cuenta de un tercero). Es la mitad que impide **gastar** el importe dentro de la app.
