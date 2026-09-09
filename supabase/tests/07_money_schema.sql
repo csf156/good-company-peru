@@ -1,11 +1,15 @@
 -- pgTAP: estructura del modelo de dinero (Fase 3.0).
--- Tablas ledger / bebidas_catalogo / bar, sus columnas clave, enums y RLS.
-select plan(24);
+-- Tablas ledger / bebidas_catalogo, sus columnas clave, enums y RLS.
+--
+-- La tabla `bar` y el enum `estado_bar` -- y sus aserciones de aquí -- los
+-- eliminó la Fase E.1 (20260909120000_matar_stock.sql): la bebida dejó de ser
+-- stock del rentador y pasó a ser un atributo de la invitación. Ver
+-- 30_stock_eliminado.sql para las aserciones que reemplazan a estas.
+select plan(17);
 
 -- Tablas base del sub-proyecto 3 existen
 select has_table('public', 'ledger', 'existe tabla ledger');
 select has_table('public', 'bebidas_catalogo', 'existe tabla bebidas_catalogo');
-select has_table('public', 'bar', 'existe tabla bar');
 
 -- ledger: columnas de contabilidad append-only
 select has_column('public', 'ledger', 'perfil_id', 'ledger tiene perfil_id');
@@ -22,12 +26,6 @@ select has_column('public', 'bebidas_catalogo', 'tipo_invitacion', 'bebidas_cata
 select has_column('public', 'bebidas_catalogo', 'valor_v', 'bebidas_catalogo tiene valor_v');
 select has_column('public', 'bebidas_catalogo', 'activo', 'bebidas_catalogo tiene activo');
 
--- bar: stock del rentador
-select has_column('public', 'bar', 'perfil_id', 'bar tiene perfil_id');
-select has_column('public', 'bar', 'bebida_id', 'bar tiene bebida_id');
-select has_column('public', 'bar', 'estado', 'bar tiene estado');
-select has_column('public', 'bar', 'escrow_ref', 'bar tiene escrow_ref');
-
 -- Enums completos desde el día 1 (costuras de expansión — aditivas, no cambiar significado)
 select is(
   (select array_agg(e.enumlabel::text order by e.enumsortorder)
@@ -43,20 +41,11 @@ select is(
   array['divertida', 'romantica', 'misteriosa', 'amigos', 'autor'],
   'tipo_invitacion tiene los 5 tipos de bebida/invitación'
 );
-select is(
-  (select array_agg(e.enumlabel::text order by e.enumsortorder)
-     from pg_enum e join pg_type t on t.oid = e.enumtypid
-    where t.typname = 'estado_bar'),
-  array['disponible', 'bloqueada', 'consumida'],
-  'estado_bar tiene los 3 estados de stock'
-);
 
--- RLS habilitado en las 3 tablas de dinero
+-- RLS habilitado en las tablas de dinero
 select is(relrowsecurity, true, 'RLS habilitado en ledger')
   from pg_class where oid = 'public.ledger'::regclass;
 select is(relrowsecurity, true, 'RLS habilitado en bebidas_catalogo')
   from pg_class where oid = 'public.bebidas_catalogo'::regclass;
-select is(relrowsecurity, true, 'RLS habilitado en bar')
-  from pg_class where oid = 'public.bar'::regclass;
 
 select * from finish();

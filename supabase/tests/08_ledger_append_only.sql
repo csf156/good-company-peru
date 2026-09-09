@@ -18,9 +18,16 @@ values
    '22222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
    'bob@test.dev', '', now(), now(), now(), '', '', '', '');
 
+-- Alice es 'rentador' aquí a propósito, aunque el test no es sobre roles: las
+-- invariantes de crédito/débito de la Fase E.1 (Tareas 3/3b/4) restringen
+-- fuerte cualquier movimiento sobre un perfil 'amigo' (payout exige cita
+-- finalizada + captura; nada más entra). Este archivo prueba mecánica
+-- genérica del ledger (append-only, idempotencia, RLS) — no la semántica de
+-- pagos — y no tiene sentido montar un escenario de cita/captura completo
+-- solo para poder insertar una fila de relleno.
 insert into public.profiles (id, rol, alias)
 values
-  ('11111111-1111-1111-1111-111111111111', 'amigo', 'AliceAlias'),
+  ('11111111-1111-1111-1111-111111111111', 'rentador', 'AliceAlias'),
   ('22222222-2222-2222-2222-222222222222', 'rentador', 'BobAlias');
 
 -- Fila de ledger sembrada como postgres (simula al service_role que sí escribe).

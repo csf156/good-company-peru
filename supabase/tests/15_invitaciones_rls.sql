@@ -35,20 +35,17 @@ values
 insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v)
 values ('99999999-9999-9999-9999-999999999999', 'Pisco Sour', 'divertida', 30.00);
 
-insert into public.bar (id, perfil_id, bebida_id, estado)
-values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        '11111111-1111-1111-1111-111111111111',
-        '99999999-9999-9999-9999-999999999999', 'bloqueada');
-
--- Ana (rentador) invita a Beto (amigo) con una bebida de su bar.
+-- Ana (rentador) invita a Beto (amigo) con una bebida del catálogo — E.1 quitó
+-- el bar: la bebida ya no se bloquea de un stock, es un atributo directo de
+-- la invitación (bebida_catalogo_id).
 insert into public.invitaciones
-  (id, emisor_id, receptor_id, tipo, alcance, bebida_bar_id,
+  (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id,
    tiempo_estimado_min, zona_aproximada, estado)
 values
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
    '11111111-1111-1111-1111-111111111111',
    '22222222-2222-2222-2222-222222222222',
-   'invitacion', 'especifica', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999',
    60, 'Miraflores', 'pendiente');
 
 -- --- impersonar a Ana (emisor) ---
