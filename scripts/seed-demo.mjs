@@ -5,12 +5,18 @@
 // La limpieza borra SOLO eso. El catálogo de bebidas es dato de producto y
 // vive en su propia migración (Tarea 1) — este script no lo toca.
 //
-// Reglas de oro (no negociables, ver plan §Global Constraints):
-//   - `bar`/`ledger`/`ordenes_pago` nunca se insertan a mano: se llega a ellos
-//     comprando (comprarBebidaDemo → confirmar_orden_pago), igual que el flujo
-//     real, para que detectar_discrepancias_sp3() dé cero filas POR CONSTRUCCIÓN.
-//   - Los estados de `invitaciones`/`citas` nunca se insertan a mano: se llega
-//     con crear_invitacion / responder_invitacion / confirmar_cita.
+// SUSPENDIDO desde Fase E.1 (2026-09-09): la siembra de bar (Tarea 3 de este
+// script) y de invitaciones/citas/chat (Tarea 4) están cortadas a propósito.
+// El rediseño de dinero (docs/superpowers/plans/2026-09-09-fase-e1-esquema-
+// sbs.md) mató la tabla `bar` y con ella tres funciones que este script
+// llamaba: crear_invitacion / responder_invitacion (insertan/leen `bar`
+// directo) y detectar_discrepancias_sp3() (su invariante #4 cuenta filas de
+// `bar`). Las tres existen todavía pero invocarlas hoy falla con "relation
+// bar does not exist" — se reescriben en E.2 sobre preautorización/captura.
+// Hasta entonces este script solo siembra lo que no depende de ellas:
+// perfiles con foto (Tarea 2) y el cambio de rol a demanda (Tarea 6).
+//
+// Reglas de oro que siguen vigentes:
 //   - El script se niega a tocar cualquier perfil sin flags->>'demo'='true',
 //     salvo el cambio de rol explícito de la Tarea 6 sobre el perfil del
 //     usuario real (identificado por email, nunca por su sola ausencia de
@@ -18,13 +24,13 @@
 //     marca y debe quedar intacto).
 //
 // Uso:
-//   npm run demo:seed                      — siembra completa (Tareas 2-4) y
-//                                             deja la cuenta del usuario como
+//   npm run demo:seed                      — siembra perfiles+fotos (Tarea 2,
+//                                             Tareas 3/4 suspendidas) y deja
+//                                             la cuenta del usuario como
 //                                             'rentador' (decisión del usuario).
 //   npm run demo:seed -- --rol=amigo       — solo cambia el rol de su cuenta.
 //   npm run demo:limpiar                   — borra todo lo sembrado.
 
-import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import {
   solidColorPng,
@@ -183,29 +189,6 @@ const DEMO_PROFILES = [
   },
 ];
 
-const byAlias = Object.fromEntries(DEMO_PROFILES.map((p) => [p.alias, p]));
-
-// Compras de la Tarea 3 (bar). Nombradas acá, no como arrays sueltos dentro de
-// seedBar(), porque limpiar() necesita el TOTAL esperado de órdenes para su
-// guarda de conteo (Tarea 5, Step 2) — que salga de estos mismos datos, no de
-// un número suelto que se desincronice si mañana cambia cuántas se compran.
-const COMPRAS_USUARIO = ['A', 'D1', 'D2', 'D3', 'D4', 'spare'];
-const RENTADORES_DEMO = DEMO_PROFILES.filter((p) => p.rol === 'rentador').map((p) => p.alias);
-const BEBIDAS_POR_RENTADOR_DEMO = 2;
-const MAX_ORDENES_DEMO = COMPRAS_USUARIO.length + RENTADORES_DEMO.length * BEBIDAS_POR_RENTADOR_DEMO;
-
-// ============================================================================
-// Dinero: mismo desglose que supabase/functions/_shared/pagos.ts
-// (calcularDesgloseCompra) — rentador free = +15% buyer fee. Duplicado a
-// propósito (Deno vs Node, sin import cruzado); mantener en sync.
-// ============================================================================
-
-function calcularDesglose(valorV) {
-  const vCent = Math.round(Number(valorV) * 100);
-  const feeCent = Math.round(vCent * 0.15);
-  return { valorV: vCent / 100, buyerFee: feeCent / 100, total: (vCent + feeCent) / 100 };
-}
-
 // ============================================================================
 // Utilidades de DB
 // ============================================================================
@@ -235,11 +218,6 @@ async function resolveTargetUser(client, email) {
     throw new Error(`El perfil de ${email} está marcado como demo — algo está mal, abortando.`);
   }
   return rows[0];
-}
-
-async function discrepancias(client) {
-  const { rows } = await client.query('select * from public.detectar_discrepancias_sp3()');
-  return rows;
 }
 
 // ============================================================================
@@ -322,158 +300,12 @@ async function seedFotos() {
   console.log(`✓ Tarea 2 — 8 fotos subidas a 'fotos'. Muestra verificada: ${muestra.alias} (${bytes} bytes).`);
 }
 
-// ============================================================================
-// Tarea 3 — Bar y bebidas compradas (SOLO vía confirmar_orden_pago)
-// ============================================================================
-
-async function getCatalogo(client) {
-  const { rows } = await client.query(
-    `select id, nombre, valor_v from public.bebidas_catalogo where activo order by valor_v`,
-  );
-  if (rows.length === 0) throw new Error('bebidas_catalogo está vacío — corre la Tarea 1 primero.');
-  return rows;
-}
-
-/**
- * Compra UNA bebida para `perfilId`, igual que comprar-bebida + confirmar_orden_pago
- * en el flujo real. Idempotente por (perfil_id, idempotency_key): una key estable
- * reutilizada en un segundo `npm run demo:seed` no duplica.
- * Devuelve el id de la fila de `bar` resultante.
- */
-async function comprarBebidaDemo(client, { perfilId, bebida, idempotencyKey }) {
-  const desglose = calcularDesglose(bebida.valor_v);
-  const ordenId = randomUUID();
-  const escrowRef = `mock-escrow-demo-${idempotencyKey}`;
-
-  const { rows: existentes } = await client.query(
-    `select id, estado from public.ordenes_pago where perfil_id = $1 and idempotency_key = $2`,
-    [perfilId, idempotencyKey],
-  );
-
-  let orden;
-  if (existentes.length > 0) {
-    orden = existentes[0];
-  } else {
-    const { rows } = await client.query(
-      `insert into public.ordenes_pago
-         (id, perfil_id, bebida_catalogo_id, valor_v, buyer_fee, total, estado, provider, idempotency_key)
-       values ($1, $2, $3, $4, $5, $6, 'pendiente', 'mock', $7)
-       returning id, estado`,
-      [ordenId, perfilId, bebida.id, desglose.valorV, desglose.buyerFee, desglose.total, idempotencyKey],
-    );
-    orden = rows[0];
-  }
-
-  if (orden.estado === 'pendiente') {
-    await client.query('select public.confirmar_orden_pago($1, $2, $3)', [orden.id, 'confirmada', escrowRef]);
-  }
-
-  const { rows: barRows } = await client.query(
-    `select id, estado from public.bar where perfil_id = $1 and escrow_ref like $2 order by created_at desc limit 1`,
-    [perfilId, `%${idempotencyKey}%`],
-  );
-  // El escrow_ref lleva la idempotencyKey embebida arriba; si por alguna razón
-  // no matchea (reintento con otro sufijo), cae al último bebida_id igual.
-  if (barRows.length > 0) return barRows[0];
-  const { rows: fallback } = await client.query(
-    `select id, estado from public.bar where perfil_id = $1 and bebida_id = $2 order by created_at desc limit 1`,
-    [perfilId, bebida.id],
-  );
-  return fallback[0];
-}
-
-async function seedBar(client, targetUserId) {
-  const catalogo = await getCatalogo(client);
-  const pick = (i) => catalogo[i % catalogo.length];
-
-  const barUsuario = {};
-  for (let i = 0; i < COMPRAS_USUARIO.length; i++) {
-    barUsuario[COMPRAS_USUARIO[i]] = await comprarBebidaDemo(client, {
-      perfilId: targetUserId,
-      bebida: pick(i),
-      idempotencyKey: `demo-seed:usuario:${COMPRAS_USUARIO[i]}`,
-    });
-  }
-
-  const barDemoRentador = {};
-  for (const alias of RENTADORES_DEMO) {
-    const perfilId = byAlias[alias].id;
-    barDemoRentador[alias] = [];
-    for (let i = 0; i < BEBIDAS_POR_RENTADOR_DEMO; i++) {
-      barDemoRentador[alias].push(
-        await comprarBebidaDemo(client, {
-          perfilId,
-          bebida: pick(i),
-          idempotencyKey: `demo-seed:${alias}:${i}`,
-        }),
-      );
-    }
-  }
-
-  const disc = await discrepancias(client);
-  if (disc.length > 0) {
-    console.error('✗ Tarea 3 — detectar_discrepancias_sp3() NO da cero filas:', disc);
-    throw new Error('Conciliación rota tras sembrar el bar. Deteniendo (no se ignora).');
-  }
-  console.log('✓ Tarea 3 — bar sembrado vía confirmar_orden_pago. Conciliación: 0 discrepancias.');
-  return { barUsuario, barDemoRentador };
-}
-
-// ============================================================================
-// Tarea 4 — Invitaciones, citas y chats (SOLO vía las funciones reales)
-// ============================================================================
-
-async function crearInvitacion(client, { emisorId, receptorId, tipo, bebidaBarId, key }) {
-  const { rows } = await client.query(
-    `select * from public.crear_invitacion($1, $2, $3, $4, $5, $6, $7)`,
-    [emisorId, receptorId, tipo, bebidaBarId, 30, 'Por confirmar', key],
-  );
-  return rows[0];
-}
-
-async function responderInvitacion(client, { receptorId, invitacionId, accion, bebidaBarId }) {
-  const { rows } = await client.query(
-    `select public.responder_invitacion($1, $2, $3, $4) as resultado`,
-    [receptorId, invitacionId, accion, bebidaBarId],
-  );
-  return rows[0].resultado;
-}
-
-async function citaDe(client, invitacionId) {
-  const { rows } = await client.query(`select * from public.citas where invitacion_id = $1`, [invitacionId]);
-  return rows[0];
-}
-
-async function confirmarCita(client, { amigoId, citaId, zona, hora, mensaje }) {
-  const { rows } = await client.query(
-    `select public.confirmar_cita($1, $2, $3, $4, $5) as resultado`,
-    [amigoId, citaId, zona, hora, mensaje],
-  );
-  return rows[0].resultado;
-}
-
-async function tieneMensajes(client, citaId) {
-  const { rows } = await client.query(`select count(*)::int as n from public.chat_mensajes where cita_id = $1`, [
-    citaId,
-  ]);
-  return rows[0].n > 0;
-}
-
-async function insertarMensaje(client, { citaId, emisorId, texto, createdAt }) {
-  const { rows } = await client.query(
-    `insert into public.chat_mensajes (cita_id, emisor_id, texto, created_at)
-     values ($1, $2, $3, coalesce($4, now()))
-     returning oculto`,
-    [citaId, emisorId, texto, createdAt ?? null],
-  );
-  return rows[0].oculto;
-}
-
-// crear_invitacion/responder_invitacion(aceptar) exigen KYC 'verificado' tanto
-// del emisor como del receptor que acepta — sin eso ninguna invitación/cita de
-// SU cuenta es sembrable (bloqueante, no contemplado por el plan original).
-// Decisión del usuario (2026-09-04): marcarlo verificado. Es dato REAL suyo,
-// no de demo — no lleva flags->>'demo' y la limpieza jamás lo toca.
+// crear_invitacion/responder_invitacion(aceptar) exigían KYC 'verificado'
+// tanto del emisor como del receptor que acepta. Suspendido junto con las
+// Tareas 3/4 de arriba (ver nota de cabecera), pero se deja corriendo: es
+// dato REAL del usuario (no lleva flags->>'demo', la limpieza jamás lo toca)
+// y no depende de `bar` ni de las funciones rotas — no hace daño mantenerlo
+// verificado de cara a cuando E.2 reviva la siembra de invitaciones.
 async function asegurarUsuarioVerificado(client, targetUserId) {
   const { rows } = await client.query(`select kyc_estado from public.profiles where id = $1`, [targetUserId]);
   if (rows[0].kyc_estado === 'verificado') {
@@ -488,170 +320,6 @@ async function asegurarUsuarioVerificado(client, targetUserId) {
     "✓ KYC — tu cuenta pasó a 'verificado' (decisión explícita del usuario, 2026-09-04): " +
       'sin esto ninguna invitación/cita de tu propia cuenta era sembrable.',
   );
-}
-
-async function seedInvitacionesCitasChat(client, { targetUserId, barUsuario, barDemoRentador }) {
-  const V = byAlias.Vale.id;
-  const S = byAlias.Seba.id;
-  const C = byAlias.Cami.id;
-  const A = byAlias.Andy.id;
-
-  // --- Recibidas por el usuario (solicitud amigo → él como rentador) --------
-  await crearInvitacion(client, {
-    emisorId: V,
-    receptorId: targetUserId,
-    tipo: 'solicitud',
-    bebidaBarId: null,
-    key: 'demo-seed:recibida-pendiente',
-  }); // queda pendiente, sin tocar
-
-  const invB = await crearInvitacion(client, {
-    emisorId: S,
-    receptorId: targetUserId,
-    tipo: 'solicitud',
-    bebidaBarId: null,
-    key: 'demo-seed:recibida-aceptada',
-  });
-  await responderInvitacion(client, {
-    receptorId: targetUserId,
-    invitacionId: invB.id,
-    accion: 'aceptar',
-    bebidaBarId: barUsuario.A.id,
-  });
-  const citaPendiente = await citaDe(client, invB.id); // nace 'pendiente', se deja así
-
-  const invC = await crearInvitacion(client, {
-    emisorId: C,
-    receptorId: targetUserId,
-    tipo: 'solicitud',
-    bebidaBarId: null,
-    key: 'demo-seed:recibida-rechazada',
-  });
-  await responderInvitacion(client, {
-    receptorId: targetUserId,
-    invitacionId: invC.id,
-    accion: 'rechazar',
-    bebidaBarId: null,
-  });
-
-  // --- Enviadas por el usuario (invitacion él como rentador → amigo) --------
-  await crearInvitacion(client, {
-    emisorId: targetUserId,
-    receptorId: C,
-    tipo: 'invitacion',
-    bebidaBarId: barUsuario.D1.id,
-    key: 'demo-seed:enviada-pendiente',
-  }); // queda pendiente
-
-  const invE = await crearInvitacion(client, {
-    emisorId: targetUserId,
-    receptorId: A,
-    tipo: 'invitacion',
-    bebidaBarId: barUsuario.D2.id,
-    key: 'demo-seed:enviada-aceptada-confirmada',
-  });
-  await responderInvitacion(client, { receptorId: A, invitacionId: invE.id, accion: 'aceptar', bebidaBarId: null });
-  const citaAConfirmar = await citaDe(client, invE.id);
-  // Offset -05:00 EXPLÍCITO: el saneamiento de zona horaria (fase 4.8) aún no
-  // existe. Sin el offset, la hora quedaría corrida 5h y parecería un bug de
-  // la siembra en vez de la deuda ya conocida.
-  await confirmarCita(client, {
-    amigoId: A,
-    citaId: citaAConfirmar.id,
-    zona: 'Parque Kennedy, Miraflores',
-    hora: '2026-09-10 19:00:00-05:00',
-    mensaje: 'Nos vemos ahí, cualquier cosa te aviso.',
-  });
-
-  const invF = await crearInvitacion(client, {
-    emisorId: targetUserId,
-    receptorId: V,
-    tipo: 'invitacion',
-    bebidaBarId: barUsuario.D3.id,
-    key: 'demo-seed:enviada-rechazada',
-  });
-  await responderInvitacion(client, { receptorId: V, invitacionId: invF.id, accion: 'rechazar', bebidaBarId: null });
-
-  const invG = await crearInvitacion(client, {
-    emisorId: targetUserId,
-    receptorId: S,
-    tipo: 'invitacion',
-    bebidaBarId: barUsuario.D4.id,
-    key: 'demo-seed:enviada-aceptada-sin-chat',
-  });
-  await responderInvitacion(client, { receptorId: S, invitacionId: invG.id, accion: 'aceptar', bebidaBarId: null });
-  const citaSinChat = await citaDe(client, invG.id); // pendiente, sin mensajes
-
-  // --- Flavor: un rentador de demo también deja una bebida bloqueada --------
-  await crearInvitacion(client, {
-    emisorId: byAlias.Rodri.id,
-    receptorId: V,
-    tipo: 'invitacion',
-    bebidaBarId: barDemoRentador.Rodri[0].id,
-    key: 'demo-seed:flavor-rodri-vale',
-  }); // queda pendiente adrede
-
-  // --- Chats -----------------------------------------------------------------
-  // 1) Iniciada (2-3 mensajes) — cita aún pendiente (invB/citaPendiente).
-  //    Idempotente: si ya hay mensajes en esta cita (segunda corrida), se
-  //    salta — un `npm run demo:seed` repetido no duplica el chat.
-  if (!(await tieneMensajes(client, citaPendiente.id))) {
-    await insertarMensaje(client, {
-      citaId: citaPendiente.id,
-      emisorId: S,
-      texto: 'Hola! Vi tu perfil, me encantaría que salgamos algún día 😊',
-      createdAt: '2026-09-04 18:00:00-05:00',
-    });
-    await insertarMensaje(client, {
-      citaId: citaPendiente.id,
-      emisorId: targetUserId,
-      texto: 'Hola Seba! Claro, cuéntame qué tienes en mente.',
-      createdAt: '2026-09-04 18:05:00-05:00',
-    });
-  }
-
-  // 2) Con historia (8-10 mensajes, ida y vuelta) — cita confirmada
-  //    (invE/citaAConfirmar). Incluye UN mensaje que dispara la moderación
-  //    a propósito, para que el usuario vea cómo se comporta esa pantalla.
-  let mensajeOculto = null;
-  if (!(await tieneMensajes(client, citaAConfirmar.id))) {
-    const historia = [
-      [targetUserId, 'Hola Andy! Qué bueno que aceptaste, ¿cómo va tu semana?'],
-      [A, 'Todo bien por acá! Con ganas de la salida del sábado.'],
-      [targetUserId, 'Genial. ¿Te parece Parque Kennedy a las 7pm?'],
-      [A, 'Perfecto, ahí estaré.'],
-      [targetUserId, '¿Prefieres que caminemos por Larcomar o nos quedamos por el parque?'],
-      [A, 'Por el parque está bien, así conversamos con calma.'],
-      [targetUserId, 'Dale. Cualquier cambio te aviso por acá.'],
-      [A, '¿Tienes Yape? Así te paso el resto directo'], // dispara moderación (sin tilde: el trigger matchea substring literal "yape")
-      [targetUserId, 'Mejor seguimos por el chat de la app, así queda todo registrado 🙂'],
-      [A, 'Tienes razón, mejor así.'],
-    ];
-    let t = new Date('2026-09-06T20:00:00-05:00').getTime();
-    for (const [emisorId, texto] of historia) {
-      const createdAt = new Date(t).toISOString();
-      const oculto = await insertarMensaje(client, { citaId: citaAConfirmar.id, emisorId, texto, createdAt });
-      if (oculto) mensajeOculto = texto;
-      t += 6 * 60 * 1000; // +6 min entre mensajes
-    }
-  } else {
-    const { rows } = await client.query(
-      `select texto from public.chat_mensajes where cita_id = $1 and oculto limit 1`,
-      [citaAConfirmar.id],
-    );
-    mensajeOculto = rows[0]?.texto ?? null;
-  }
-
-  // 3) Sin mensajes — chat abierto que nadie estrenó (invG/citaSinChat).
-
-  const disc = await discrepancias(client);
-  if (disc.length > 0) {
-    console.error('✗ Tarea 4 — detectar_discrepancias_sp3() NO da cero filas:', disc);
-    throw new Error('Conciliación rota tras sembrar invitaciones/citas. Deteniendo.');
-  }
-
-  console.log('✓ Tarea 4 — invitaciones/citas/chats sembrados vía las funciones reales. Conciliación: 0.');
-  return { mensajeOculto, citaConHistoria: citaAConfirmar.id, citaIniciada: citaPendiente.id, citaVacia: citaSinChat.id };
 }
 
 // ============================================================================
@@ -685,101 +353,19 @@ async function limpiar(client) {
     );
   }
 
-  // Ojo: las compras de la Tarea 3 para LA CUENTA DEL USUARIO (bar/ledger/
-  // ordenes_pago de su bar de rentador) tienen perfil_id = su id REAL, no uno
-  // de `ids` — filtrar solo por perfil_id demo las dejaría huérfanas (rompió
-  // el primer ciclo sembrar→limpiar→sembrar). Por eso el filtro de dinero NO
-  // es solo por prefijo de idempotency_key: comprar-bebida acepta cualquier
-  // string no vacío del cliente sin validar formato (ver Edge Function), así
-  // que CUALQUIER usuario real KYC-verificado podría, a propósito o por
-  // curiosidad, mandar `idempotencyKey: "demo-seed:algo"` y crear una orden
-  // real que matchee el LIKE de abajo. Sin escopar por perfil_id, ESA orden
-  // (con su ledger real) caería en el borrado con el append-only desactivado
-  // — justo el hallazgo del security-review de cierre. Se escopa a los ids
-  // que este script realmente controla: los perfiles demo + la cuenta real
-  // del usuario (cuyo email ya resolvimos arriba en el flujo de siembra;
-  // acá se vuelve a resolver porque `--limpiar` puede correr solo).
-  const usuarioParaLimpieza = await resolveTargetUser(client, USUARIO_EMAIL);
-  const perfilesPermitidos = [...ids, usuarioParaLimpieza.id];
-
-  const { rows: ordenes } = await client.query(
-    `select id from public.ordenes_pago
-      where idempotency_key like 'demo-seed:%' and perfil_id = any($1::uuid[])`,
-    [perfilesPermitidos],
-  );
-  const ordenIds = ordenes.map((r) => r.id);
-
-  // Defensa explícita del lado del DINERO (Tarea 5, Step 2) — espejo de la de
-  // perfiles de arriba, pero acá importa más: es la que protege el camino
-  // donde el append-only queda desactivado más abajo. Corre ANTES de tocar el
-  // ledger, no después. MAX_ORDENES_DEMO sale de los datos de siembra
-  // (COMPRAS_USUARIO / RENTADORES_DEMO), no de un número suelto.
-  if (ordenIds.length > MAX_ORDENES_DEMO) {
-    throw new Error(
-      `Hay ${ordenIds.length} órdenes con idempotency_key 'demo-seed:%', pero este script solo ` +
-        `siembra hasta ${MAX_ORDENES_DEMO}. Abortando sin tocar el ledger — el delete alcanzaría ` +
-        'más filas de las sembradas.',
-    );
-  }
-
-  if (ids.length === 0 && ordenIds.length === 0) {
+  if (ids.length === 0) {
     console.log('✓ Tarea 5 — nada que limpiar.');
     return;
   }
 
-  // ledger y ordenes_pago NO tienen on delete cascade sobre profiles (a
-  // diferencia de bar) — hay que vaciarlos primero o el borrado de abajo
-  // choca con la FK. Deuda de invariante #4 anticipada en backlog desde la
-  // fase 3.4: se resuelve acá, explícito.
-  //
-  // ledger además tiene un trigger que bloquea CUALQUIER delete/update, sin
-  // excepción de rol (public.ledger_append_only(), 20260723120000) — es la
-  // invariante contable real, no un permiso. `session_replication_role =
-  // replica` desactiva TODOS los triggers de la transacción — no solo el
-  // append-only, también los de integridad referencial (FK) — así que
-  // cualquier sentencia que corra ahí adentro NO valida FKs. En este alcance
-  // (un DELETE, sobre ids ya acotados por la guarda de arriba) no cambia el
-  // resultado, pero conviene decirlo bien: no es un bypass "solo del
-  // append-only". Con SET LOCAL revierte solo al terminar la transacción — el
-  // `ordenes_pago` va DENTRO de la misma transacción que el ledger (si esa
-  // sentencia fallara fuera, quedarían órdenes confirmadas sin su ledger,
-  // irreparable por ser append-only). No es un bypass general: fuera de esta
-  // transacción el append-only sigue absoluto, y el chequeo de conciliación
-  // de abajo (detectar_discrepancias_sp3) confirma que no quedó nada
-  // descuadrado.
-  if (ordenIds.length > 0) {
-    await client.query('begin');
-    await client.query('set local session_replication_role = replica');
-    await client.query(`delete from public.ledger where referencia_id = any($1::uuid[])`, [ordenIds]);
-    await client.query(`delete from public.ordenes_pago where id = any($1::uuid[])`, [ordenIds]);
-    await client.query('commit');
-  }
+  // Con la siembra de bar/ledger/ordenes_pago/invitaciones suspendida (ver
+  // nota de cabecera, Fase E.1), no hay dinero ni citas de demo que limpiar
+  // aparte — borrar por auth.users basta: profiles.id → auth.users.id es on
+  // delete cascade y arrastra preferencias_salida (y cualquier invitación
+  // vieja donde el perfil demo participe, si quedó alguna de antes de E.1).
+  await client.query(`delete from auth.users where id = any($1::uuid[])`, [ids]);
 
-  // Borrar por auth.users (no por profiles): profiles.id → auth.users.id SÍ
-  // es on delete cascade, y eso arrastra bar / preferencias_salida /
-  // invitaciones (→ citas → chat_mensajes) en cadena — INCLUIDAS las
-  // invitaciones donde el usuario real es emisor/receptor (cascada por el
-  // lado demo de la fila). Tiene que ir DESPUÉS de soltar ledger/ordenes_pago
-  // (arriba) y ANTES de borrar el bar propio del usuario (abajo): sus filas
-  // de bar siguen referenciadas por esas invitaciones hasta este punto.
-  if (ids.length > 0) {
-    await client.query(`delete from auth.users where id = any($1::uuid[])`, [ids]);
-  }
-
-  // Bar propio del usuario (perfil_id = su id real): sus filas de demo llevan
-  // el mismo prefijo 'mock-escrow-demo-' en escrow_ref. El de los perfiles
-  // demo ya se fue por cascada arriba; esto es un no-op seguro para esas.
-  await client.query(`delete from public.bar where escrow_ref like 'mock-escrow-demo-%'`);
-
-  const disc = await discrepancias(client);
-  if (disc.length > 0) {
-    console.error('✗ Tarea 5 — la limpieza dejó la conciliación descuadrada:', disc);
-    throw new Error('Limpieza incompleta — peor que no limpiar. Deteniendo.');
-  }
-  console.log(
-    `✓ Tarea 5 — ${ids.length} perfiles de demo, ${ordenIds.length} órdenes de dinero (propias y ajenas) ` +
-      `y su rastro borrados. Conciliación: 0.`,
-  );
+  console.log(`✓ Tarea 5 — ${ids.length} perfiles de demo y su rastro (cascada) borrados.`);
 }
 
 // ============================================================================
@@ -802,10 +388,10 @@ async function main() {
 
     const usuario = await resolveTargetUser(client, USUARIO_EMAIL);
 
-    // Deja la cuenta como 'rentador' PRIMERO (Tarea 6, decisión del usuario):
-    // toda la Tarea 4 asume esa dirección (invitacion = él → amigo de demo,
-    // solicitud = amigo de demo → él) para que confirmar_cita determine "el
-    // amigo" correctamente.
+    // Deja la cuenta como 'rentador' (Tarea 6, decisión del usuario) — se
+    // mantiene aunque la Tarea 4 que dependía de esta dirección esté
+    // suspendida (ver nota de cabecera): es la dirección de cuenta que el
+    // usuario pidió para su propia cuenta, no un artefacto de la siembra.
     if (usuario.rol !== 'rentador') {
       await setRol(client, usuario.id, 'rentador');
     } else {
@@ -815,33 +401,20 @@ async function main() {
     await asegurarUsuarioVerificado(client, usuario.id);
     await seedAuthUsersYProfiles(client);
     await seedFotos();
-    const { barUsuario, barDemoRentador } = await seedBar(client, usuario.id);
-    const resumen = await seedInvitacionesCitasChat(client, { targetUserId: usuario.id, barUsuario, barDemoRentador });
+
+    console.log(
+      "\n⚠ Tarea 3 (bar) y Tarea 4 (invitaciones/citas/chat) SUSPENDIDAS: dependen de " +
+        "crear_invitacion / responder_invitacion / detectar_discrepancias_sp3(), rotas por " +
+        "la Fase E.1 hasta que E.2 las reescriba sobre preautorización/captura.",
+    );
 
     // ---- Reporte final ----
     const conteos = await client.query(`
-      select
-        (select count(*) from public.profiles where flags->>'demo'='true') as perfiles_demo,
-        (select count(*) from public.bar) as bar,
-        (select count(*) from public.ledger) as ledger,
-        (select count(*) from public.ordenes_pago) as ordenes_pago,
-        (select count(*) from public.invitaciones) as invitaciones,
-        (select count(*) from public.citas) as citas,
-        (select count(*) from public.chat_mensajes) as chat_mensajes
+      select (select count(*) from public.profiles where flags->>'demo'='true') as perfiles_demo
     `);
-    const porEstadoInv = await client.query(
-      `select estado, count(*) from public.invitaciones group by estado order by estado`,
-    );
-    const porEstadoCita = await client.query(`select estado, count(*) from public.citas group by estado order by estado`);
 
     console.log('\n=== Reporte de siembra ===');
     console.table(conteos.rows[0]);
-    console.log('Invitaciones por estado:', porEstadoInv.rows);
-    console.log('Citas por estado:', porEstadoCita.rows);
-    console.log(`Chat con historia (con el mensaje que dispara moderación): cita ${resumen.citaConHistoria}`);
-    console.log(`  → mensaje ocultado: ${JSON.stringify(resumen.mensajeOculto)}`);
-    console.log(`Chat iniciada (2 mensajes): cita ${resumen.citaIniciada}`);
-    console.log(`Chat vacío (sin estrenar): cita ${resumen.citaVacia}`);
   } finally {
     await client.end();
   }

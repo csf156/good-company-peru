@@ -25,13 +25,20 @@ beforeEach(() => {
   mockedGetCatalogo.mockResolvedValue(catalogo);
 });
 
+// Suspendido por la Fase E.1 (2026-09-09): `comprarBebida` (lib/tienda.ts)
+// llama a `confirmar_orden_pago`, cuyo cuerpo inserta en la tabla `bar` que
+// E.1 eliminó (docs/superpowers/plans/2026-09-09-fase-e1-esquema-sbs.md) —
+// este mock ya no refleja nada real. Pantalla y test mueren y se reescriben
+// en el Bloque E.3 ("muerte de Tienda y Bar", spec §7). No se borra: es la
+// lista de lo que hay que reponer. (firstComprarButton queda sin uso hasta
+// entonces, deliberadamente — no se borra por la misma razón.)
 function firstComprarButton() {
   const [button] = screen.getAllByText('Comprar');
   if (!button) throw new Error('No se encontró ningún botón Comprar.');
   return button;
 }
 
-describe('StoreScreen', () => {
+describe.skip('StoreScreen', () => {
   it('lists the active catalog with name and value', async () => {
     await render(<StoreScreen />);
 

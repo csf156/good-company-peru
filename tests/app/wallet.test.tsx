@@ -13,7 +13,15 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('WalletScreen', () => {
+// Suspendido por la Fase E.1 (2026-09-09): `getBalance` (lib/bar.ts) consulta
+// la vista `balance`, que E.1 reemplazó por `por_cobrar` (docs/superpowers/
+// plans/2026-09-09-fase-e1-esquema-sbs.md) — este mock ya no refleja nada
+// real, y "Balance disponible" es justo el vocabulario vetado (vetos 18/19)
+// que el rediseño elimina. La pantalla no se reconstruye igual: spec §7 la
+// marca "se elimina" (no "se reemplaza" como bar/store) — su reemplazo
+// conceptual es la UI de "Por cobrar" del Bloque E.4. No se borra el test
+// acá: es la lista de lo que hay que reponer.
+describe.skip('WalletScreen', () => {
   it('shows the calculated balance from the ledger', async () => {
     mockedGetBalance.mockResolvedValue(420.5);
     await render(<WalletScreen />);

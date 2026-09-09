@@ -12,7 +12,12 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('BarScreen', () => {
+// Suspendido por la Fase E.1 (2026-09-09): `lib/bar.ts` consulta la tabla
+// `bar`, que E.1 eliminó (docs/superpowers/plans/2026-09-09-fase-e1-esquema-
+// sbs.md) — este mock ya no refleja nada real. Pantalla y test mueren y se
+// reescriben en el Bloque E.3 ("muerte de Tienda y Bar; lib/bar.ts
+// reemplazada", spec §7). No se borra: es la lista de lo que hay que reponer.
+describe.skip('BarScreen', () => {
   it('lists the stock with name and estado', async () => {
     mockedGetMiBar.mockResolvedValue([
       { id: 'b1', estado: 'disponible', bebida: { nombre: 'Cerveza', tipoInvitacion: 'divertida', valorV: 40 } },
