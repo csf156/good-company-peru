@@ -52,7 +52,7 @@ Fases fuera de los dos planes originales, nacidas de specs propios en `docs/supe
 | D.1 | Tokens Martini + migración de 13 pantallas | ✅ |
 | D.2 | Login con Google | ✅ |
 | D.3 | Onboarding paso a paso (wizard de perfil + KYC en pantallas) | ✅ |
-| D.4 | Carrusel "Cómo funciona" + ToS + costura de referidos | ⬜ |
+| D.4 | Carrusel "Cómo funciona" + ToS + costura de referidos | ✅ |
 
 > **Nota:** D.1 se cerró el 2026-07-25 sin entrada en esta bitácora ni fila en esta tabla — se reconstruye aquí la fila, pero su entrada de bitácora nunca se escribió. Lo que hizo está documentado en `docs/superpowers/specs/2026-07-24-design-system-lovable-design.md` y en los commits entre `723ae3a` y `f0bf0ba`.
 
@@ -102,6 +102,21 @@ Fases fuera de los dos planes originales, nacidas de specs propios en `docs/supe
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase D.4 — Carrusel "Cómo funciona", ToS y costura de referidos — 2026-09-09
+
+- **Qué se construyó:** las tres piezas que cierran el onboarding. (1) **Carrusel** de 4 slides antes del sign-in, una vez por dispositivo, que explica la cadena bebida→escrow→QR. (2) **Aceptación de ToS** en pantalla propia gateada por el guardián, con articulado formal completo y evidencia append-only en base. (3) **Costura de referidos**: campo opcional en el alta + columna en `profiles`, que captura y guarda sin usar. Además, en la misma fase: renombrado **Ayni → Martini** en todo el producto, y el articulado se reescribió para sostener el modelo que evita la licencia SBS.
+- **Archivos/pantallas clave:** `app/(auth)/carrusel.tsx`, `app/(auth)/tos.tsx`, `lib/carrusel.ts`, `lib/carrusel-context.tsx`, `lib/tos.ts` (articulado completo), `lib/route-guard.ts` (+`tos`, +`carrusel` en `AuthSegment`), `app/_layout.tsx`, `app/(auth)/profile-setup.tsx` (campo de referido), `components/Screen.tsx` (arreglo de scroll).
+- **Tablas / Edge Functions / migraciones:** `20260906130000_tos_y_referido.sql` (tabla `tos_aceptaciones` append-only + `profiles.referido_por`), `20260906140000_tos_endurecimiento.sql`, `20260906150000_tos_fecha_por_columna.sql`, `20260906160000_referido_por_grant.sql`. pgTAP nuevos: `27_tos_aceptaciones.sql`, `28_tos_endurecimiento.sql`, `29_referido_por_grant.sql`. Sin Edge Functions nuevas.
+- **Decisiones tomadas en la fase:** (1) El ToS va en **pantalla propia gateada**, no como checkbox del sign-in — bloquea de verdad y le da a la fase 7.5 un único punto que revisar. (2) La pantalla se corrió **un escalón, a después de `select-role`**: antes de eso no existe fila en `profiles` donde persistir la aceptación (corrección hecha durante el diseño, por introspección). (3) El carrusel se recuerda **en el dispositivo**, no en la base — no hay usuario todavía; el guardián solo lo *permite*, la decisión de entrar se toma en el arranque para no volver impura a `computeRedirect`. (4) `TOS_VERSION` se queda en **v1** pese a las dos reescrituras del articulado: hay cero aceptaciones en la base, así que reescribir hoy es gratis y no hace falta migración. **Esa ventana se cierra con el primer usuario real.** (5) El articulado se ajustó a las tres decisiones estructurales del usuario sobre la Ley 29985 (compra al invitar, cuenta por cobrar, titularidad de la custodia en la pasarela) — cláusulas 10, 11, 12, 13 nueva y 16.
+- **Tests:** 374 → **411 jest** (49 suites) y 261 → **277 aserciones pgTAP**, todo verde; lint y `tsc --noEmit` limpios. Verificado por la sesión BRAIN el 2026-09-09 corriendo las suites, no por reporte heredado. Verificación visual de la pantalla de ToS hecha y aprobada por el usuario.
+- **Deuda / notas para fases futuras:**
+  - **El ToS sigue siendo un BORRADOR** pendiente de abogado colegiado. Faltan **razón social, RUC y domicilio** del operador.
+  - **Bloqueantes de lanzamiento** anotados en backlog: el ToS afirma que existe **libro de reclamaciones virtual** y no existe (obligatorio en Perú); describe QR, geocerca y cronómetro, que **no están construidos** (sub-proyecto 5, todo ⬜).
+  - **Las decisiones 1 y 2 sobre SBS reabren las fases 3.2 y 3.3, ya cerradas** (la tabla `bar` con estado `disponible` es valor almacenado y hay que quitarlo). Es ajuste, no rediseño del sub-proyecto 3: el ledger append-only sobrevive intacto. **El spec de ese rediseño está en redacción.**
+  - **22 funcionalidades vetadas** en `docs/backlog.md`, con la exigencia de que las críticas sean **invariantes de base de datos, no reglas de aplicación**.
+  - Pregunta por escrito pendiente a **Red Pontis**: cuando el rentador paga, ¿reciben por cuenta del amigo, de Martini, o propia? Si es "de Martini", la decisión 3 no se sostiene.
+  - **Sin pushear a propósito:** master queda por delante de `origin/master`; lo desplegado en Pages **no incluye D.4**.
 
 ### Fase D.3 — Onboarding paso a paso (wizard + KYC en pantallas) — 2026-09-06
 
