@@ -922,9 +922,18 @@ git commit -m "feat(db): invariante de debito al amigo solo por liquidacion"
 **Files:**
 - Create: `supabase/migrations/20260909150000_por_cobrar.sql`
 - Create: `supabase/tests/33_por_cobrar.sql`
-- Modify: `supabase/tests/07_money_schema.sql`, `10_bar_rls.sql`, `12_ordenes_pago_rls.sql`, `13_confirmar_orden_pago.sql`, `14_conciliacion_sp3.sql`, `15_invitaciones_rls.sql`, `19_crear_invitacion.sql`, `20_responder_invitacion.sql` — los que referencian `bar` o `balance`.
+- Modify: `supabase/tests/07_money_schema.sql`, `08_ledger_append_only.sql`, `10_bar_rls.sql`, `12_ordenes_pago_rls.sql`, `13_confirmar_orden_pago.sql`, `14_conciliacion_sp3.sql`, `15_invitaciones_rls.sql`, `19_crear_invitacion.sql`, `20_responder_invitacion.sql`
+- Delete: `supabase/tests/09_balance_view.sql` (superado por `33_por_cobrar.sql`)
 
-> **Corrección al plan, 2026-09-09 (hallazgo de ejecución).** La lista original tenía siete archivos y son **ocho**: `12_ordenes_pago_rls.sql` también rompe, por la columna `ordenes_pago.bebida_catalogo_id` que la Tarea 1 elimina. Lo encontró BUILDER al ejecutar la Tarea 1, no el plan. Es el quinto caso registrado de que el código de un plan es una hipótesis.
+> **Corrección al plan, 2026-09-09 (hallazgo de ejecución).** La lista original tenía siete archivos y son **diez**.
+>
+> - `12_ordenes_pago_rls.sql` rompe por la columna `ordenes_pago.bebida_catalogo_id` que la Tarea 1 elimina. Lo encontró BUILDER al ejecutar la Tarea 1.
+> - `08_ledger_append_only.sql` y `09_balance_view.sql` rompen por una causa **distinta a las demás**: no es `bar`, es la invariante de la Tarea 3/3b rechazando sus fixtures. Los dos insertan `payout` a un amigo sin cita, y el trigger ahora lo prohíbe (`un payout necesita referencia a la cita`). Encontrados por BRAIN al correr la suite tras la Tarea 3b.
+>
+> **Estos dos NO se tratan igual que los otros ocho:**
+>
+> - **`09_balance_view.sql` queda superado por `33_por_cobrar.sql`.** La vista que probaba deja de existir. Bórralo y di en el commit que `33` lo reemplaza.
+> - **`08_ledger_append_only.sql` NO está superado, y no puede perder cobertura.** El append-only del ledger es una propiedad núcleo — es la que sostiene que el balance nunca es un número mutable. Lo que caducó es su **fixture**, no su assert: usaba filas de `payout` sobre un amigo porque era la forma más corta de tener filas en el ledger. **Cambia el fixture, no los asserts.** Lo más simple es sembrar el ledger sobre un perfil `rentador` (`compra`/`fee`/`escrow_lock`), al que las invariantes de la Tarea 3/3b y 4 no aplican. Si al terminar `08` tiene menos asserts que antes, algo se hizo mal.
 
 **Interfaces:**
 - Produces: vista `public.por_cobrar (perfil_id, por_cobrar)`, `security_invoker = on`.
