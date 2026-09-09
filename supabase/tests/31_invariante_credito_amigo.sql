@@ -9,7 +9,7 @@
 -- lleva una cita a 'finalizada' por la vía del motor de cita) no existe. Eso es
 -- lo correcto: la única puerta futura queda tapiada antes de que nadie la abra.
 begin;
-select plan(4);
+select plan(7);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                         email_confirmed_at, created_at, updated_at)
@@ -70,15 +70,77 @@ select throws_ok(
   'no se puede acreditar a un amigo por una cita que no esta finalizada'
 );
 
--- CAMINO LEGÍTIMO: la cita finalizada. Es lo que hará la fase 5.4.
+-- CAMINO LEGÍTIMO: la cita finalizada, CON una orden capturada detrás (Tarea
+-- 3b: sin esto el "camino legítimo" era en realidad un cuarto hueco — un
+-- payout sin ninguna captura que lo respalde).
 update public.citas set estado = 'finalizada'
  where id = '00000000-0000-0000-0000-0000000000a4'::uuid;
+
+insert into public.ordenes_pago (perfil_id, invitacion_id, valor_v, buyer_fee, total, provider, estado)
+values ('00000000-0000-0000-0000-0000000000a2'::uuid,
+        '00000000-0000-0000-0000-0000000000a3'::uuid, 100, 15, 115, 'mock', 'capturada');
 
 select lives_ok(
   $$insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
     values ('00000000-0000-0000-0000-0000000000a1'::uuid, 'payout', 100,
             '00000000-0000-0000-0000-0000000000a4'::uuid, 'payout-legitimo')$$,
   'un payout por una cita finalizada si pasa'
+);
+
+-- ATAQUE 4 (Tarea 3b, hueco 1): acreditar a un amigo AJENO a la cita. La cita
+-- ...a4 es entre el rentador ...a2 y el amigo ...a1; ...b9 no pinta nada ahí.
+-- Es la forma que toma un endpoint de compensación: referencia un encuentro
+-- real cualquiera.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('00000000-0000-0000-0000-0000000000b9'::uuid,
+        '00000000-0000-0000-0000-000000000000'::uuid,
+        'authenticated', 'authenticated', 'amigo-ajeno@martini.test', '', now(), now(), now());
+insert into public.profiles (id, rol)
+values ('00000000-0000-0000-0000-0000000000b9'::uuid, 'amigo');
+
+select throws_ok(
+  $$insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
+    values ('00000000-0000-0000-0000-0000000000b9'::uuid, 'payout', 100,
+            '00000000-0000-0000-0000-0000000000a4'::uuid, 'ataque-cita-ajena')$$,
+  'AY451',
+  'el amigo no es parte de la cita 00000000-0000-0000-0000-0000000000a4',
+  'no se puede acreditar a un amigo ajeno a la cita'
+);
+
+-- ATAQUE 5 (hueco 3): la misma cita respaldando un segundo payout. La clave de
+-- idempotencia es distinta, así que el unique del ledger no lo detiene.
+select throws_ok(
+  $$insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
+    values ('00000000-0000-0000-0000-0000000000a1'::uuid, 'payout', 100,
+            '00000000-0000-0000-0000-0000000000a4'::uuid, 'ataque-doble-payout')$$,
+  '23505',
+  null,
+  'una cita no puede respaldar dos payouts al mismo amigo'
+);
+
+-- ATAQUE 6 (hueco 2): payout por encima de lo que se capturó para ese
+-- encuentro. Se usa una segunda cita finalizada, porque la ...a4 ya gastó su
+-- payout.
+insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, estado)
+values ('00000000-0000-0000-0000-0000000000a5'::uuid,
+        '00000000-0000-0000-0000-0000000000a2'::uuid,
+        '00000000-0000-0000-0000-0000000000a1'::uuid,
+        'invitacion', 'especifica', 'aceptada');
+insert into public.citas (id, invitacion_id, estado)
+values ('00000000-0000-0000-0000-0000000000a6'::uuid,
+        '00000000-0000-0000-0000-0000000000a5'::uuid, 'finalizada');
+insert into public.ordenes_pago (perfil_id, invitacion_id, valor_v, buyer_fee, total, provider, estado)
+values ('00000000-0000-0000-0000-0000000000a2'::uuid,
+        '00000000-0000-0000-0000-0000000000a5'::uuid, 50, 7.5, 57.5, 'mock', 'capturada');
+
+select throws_ok(
+  $$insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
+    values ('00000000-0000-0000-0000-0000000000a1'::uuid, 'payout', 999999,
+            '00000000-0000-0000-0000-0000000000a6'::uuid, 'ataque-monto')$$,
+  'AY451',
+  'payout 999999.00 excede lo capturado para la cita (50.00)',
+  'no se puede acreditar mas de lo capturado para ese encuentro'
 );
 
 select * from finish();
