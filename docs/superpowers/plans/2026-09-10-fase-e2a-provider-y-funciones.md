@@ -450,7 +450,12 @@ Sin esta tarea, E.2b tendría que inventarla sin plan o hacer `update` sueltos d
 |---|---|---|---|
 | `p_ok` y tipo `invitacion` | `preautorizada` | `pendiente` | Recién ahora el amigo la ve |
 | `p_ok` y tipo `solicitud` | `capturada` | `aceptada` | Captura en el acto y abre la cita: las dos partes ya acordaron |
-| `not p_ok` | `fallida` | `expirada` | Sin ledger. El hold nunca existió |
+| `not p_ok` y tipo `invitacion` | `fallida` | `expirada` | Sin ledger. Nunca llegó a ser visible para nadie |
+| `not p_ok` y tipo `solicitud` | `fallida` | **`pendiente`** | Sin ledger. Vuelve a esperar respuesta del rentador |
+
+> **Corrección del 2026-09-10, defecto mío detectado al revisar el SQL de la Tarea 3b.** La versión anterior de esta tabla mandaba la invitación a `expirada` en los dos caminos. Para una `solicitud` eso es incorrecto: el amigo manda la solicitud, el rentador la acepta y elige bebida, **falla la tarjeta del rentador** — y la petición del amigo moriría por un problema ajeno, obligándolo a mandarla otra vez sin entender por qué. Vuelve a `pendiente`: el rentador nunca llegó a aceptar y puede reintentar con otra tarjeta. El índice único parcial de E.1 ya permite ese segundo intento, porque solo bloquea órdenes `preautorizada`/`capturada` vivas y la fallida no cuenta.
+>
+> **Convención de locks para toda la serie E, fijada aquí:** `invitaciones` primero, `ordenes_pago` después. Es el orden que ya usaba `responder_invitacion`; tomarlos al revés en una función nueva abre un deadlock entre transacciones concurrentes.
 
 El caso `solicitud` captura de inmediato porque el acuerdo ya está cerrado: el amigo pidió y el rentador aceptó. No hay a quién esperar.
 
