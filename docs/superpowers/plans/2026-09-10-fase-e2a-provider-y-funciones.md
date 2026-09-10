@@ -43,13 +43,78 @@ En las tareas 2 a 5 **no escribo las 72 aserciones**. Escribo el **contrato**: c
 | `supabase/functions/_shared/pagos.ts` | Gana `preautorizar` / `capturar` / `anular` sobre `PaymentProvider`. Isomórfico (Jest + Deno), sin imports de runtime. |
 | `tests/functions/pagos.test.ts` | Tests jest de esas tres operaciones. |
 | `supabase/migrations/20260910120000_capturar_orden.sql` | `confirmar_orden_pago` → reescrita como captura, sin `bar`. |
-| `supabase/migrations/20260910130000_crear_invitacion_por_pagar.sql` | `crear_invitacion` reescrita: crea la invitación en `por_pagar` y su orden. |
+| `supabase/migrations/20260910130000_crear_invitacion_preautorizando.sql` | `crear_invitacion` reescrita: crea la invitación en `preautorizando` y su orden. |
 | `supabase/migrations/20260910140000_responder_invitacion_captura.sql` | `responder_invitacion` reescrita: aceptar captura, rechazar anula. |
 | `supabase/migrations/20260910150000_conciliacion_sin_bar.sql` | `detectar_discrepancias_sp3` **redefinida**. |
 | `supabase/tests/13_confirmar_orden_pago.sql` | ≥ 15 aserciones. |
 | `supabase/tests/14_conciliacion_sp3.sql` | ≥ 8 aserciones. |
 | `supabase/tests/19_crear_invitacion.sql` | ≥ 19 aserciones. |
 | `supabase/tests/20_responder_invitacion.sql` | ≥ 30 aserciones. |
+
+---
+
+## Task 0: Renombrar `por_pagar` → `preautorizando`
+
+E.1 creó la etiqueta como `por_pagar`. El usuario la leyó como "pendiente de pago **hasta que se concrete el encuentro**", que es justo lo que no significa: dura segundos, entre pulsar "invitar" y la respuesta de la preautorización. Si el dueño del producto la malinterpreta, está mal elegida.
+
+**Va primero y va sola.** Ahora cuesta una línea: **cero filas** en la base y **cero apariciones** en UI. Después de las tareas 2-5 estaría dentro de tres funciones nuevas, y después de E.3/E.4 en pantallas y copy.
+
+**Files:**
+- Create: `supabase/migrations/20260910110000_renombrar_preautorizando.sql`
+- Modify: `supabase/tests/30_stock_eliminado.sql` (líneas 58-60, 78), `supabase/tests/13_confirmar_orden_pago.sql` (línea 36)
+
+**Interfaces:**
+- Produces: `estado_invitacion` con la etiqueta `preautorizando` en lugar de `por_pagar`. **Todas las tareas siguientes usan el nombre nuevo.**
+
+- [ ] **Step 1: Cambiar los tests primero y verlos fallar**
+
+Sustituye `por_pagar` por `preautorizando` en los dos archivos. Correr:
+
+```bash
+npm run test:db
+```
+
+Esperado: `30_stock_eliminado.sql` y `13_confirmar_orden_pago.sql` en rojo — la etiqueta nueva no existe. Ese rojo es la prueba de que el renombrado hace falta; sin él, el paso siguiente no está validado.
+
+- [ ] **Step 2: Escribir la migración**
+
+```sql
+-- Fase E.2a, Tarea 0 — `por_pagar` pasa a llamarse `preautorizando`.
+--
+-- El nombre viejo se lee como "pendiente de pago hasta que se concrete el
+-- encuentro". No es eso: el estado dura segundos, entre crear la invitación y
+-- la respuesta de la preautorización. Cuando el amigo acepta, el dinero YA se
+-- cobró y está en custodia; lo que falta hasta el encuentro verificado es
+-- liberarlo (fase 5.4), no pagarlo.
+--
+-- Se renombra ahora porque hoy es gratis: cero filas con ese estado y cero
+-- apariciones en UI.
+
+alter type estado_invitacion rename value 'por_pagar' to 'preautorizando';
+```
+
+- [ ] **Step 3: ALTO — el USUARIO revisa y autoriza**
+
+Sin `DROP`, sin pérdida de datos. Aun así, es esquema: gate normal.
+
+- [ ] **Step 4: Aplicar y verificar por introspección**
+
+```sql
+select enumlabel from pg_enum e join pg_type t on t.oid = e.enumtypid
+ where t.typname = 'estado_invitacion' order by e.enumsortorder;
+```
+
+Esperado: aparece `preautorizando`, **no** aparece `por_pagar`.
+
+- [ ] **Step 5: Verde y commit**
+
+```bash
+npm run test:db
+git add supabase/migrations/20260910110000_renombrar_preautorizando.sql supabase/tests/30_stock_eliminado.sql supabase/tests/13_confirmar_orden_pago.sql
+git commit -m "refactor(db): por_pagar pasa a llamarse preautorizando"
+```
+
+> El plan de E.1 (`docs/superpowers/plans/2026-09-09-fase-e1-esquema-sbs.md`) y su entrada en `ESTADO.md` siguen diciendo `por_pagar`. **No los edites**: son el registro de lo que se ejecutó entonces. El renombrado se documenta en el cierre de E.2a.
 
 ---
 
@@ -193,25 +258,25 @@ git commit -m "feat(db): capturar_orden reemplaza a confirmar_orden_pago, sin st
 ## Task 3: `crear_invitacion` crea la invitación y su orden
 
 **Files:**
-- Create: `supabase/migrations/20260910130000_crear_invitacion_por_pagar.sql`
+- Create: `supabase/migrations/20260910130000_crear_invitacion_preautorizando.sql`
 - Modify: `supabase/tests/19_crear_invitacion.sql` → **≥ 19 aserciones**
 
 **Interfaces:**
 - Produces: `public.crear_invitacion(p_emisor_id uuid, p_receptor_id uuid, p_tipo tipo_propuesta, p_bebida_catalogo_id uuid, p_tiempo_estimado_min integer, p_zona_aproximada text, p_idempotency_key text) returns public.invitaciones`.
 - **Cambio de firma:** `p_bebida_bar_id` pasa a `p_bebida_catalogo_id`. La firma vieja se elimina con `drop function`.
-- La invitación nace en **`por_pagar`** y **crea su `orden_pago` en `pendiente`** dentro de la misma transacción. La transición a `pendiente` (visible para el amigo) la hace la preautorización, en E.2b.
+- La invitación nace en **`preautorizando`** y **crea su `orden_pago` en `pendiente`** dentro de la misma transacción. La transición a `pendiente` (visible para el amigo) la hace la preautorización, en E.2b.
 
 - [ ] **Step 1: Escribir el contrato de test**
 
 `19_crear_invitacion.sql`, **≥ 19 aserciones**. Los casos viejos que **siguen valiendo** y hay que conservar: gate de KYC del emisor, nadie se invita a sí mismo, coherencia por tipo, idempotencia por `idempotency_key` (fast-path y carrera con `unique_violation`), `EXECUTE` denegado a `authenticated` y `anon`. Los casos **nuevos**:
 
-- Una `invitacion` nace en estado **`por_pagar`**, no en `pendiente`.
+- Una `invitacion` nace en estado **`preautorizando`**, no en `pendiente`.
 - Crea **una** `orden_pago` ligada a esa invitación, en `pendiente`.
 - Los montos de esa orden salen de `bebidas_catalogo.valor_v` **calculados en la base**, no de parámetros.
 - Una `solicitud` **no** crea orden (el dinero lo pone el rentador al aceptar, spec §4.1) y lleva `bebida_catalogo_id` nulo.
 - Un `p_bebida_catalogo_id` de una bebida **inactiva** falla.
 - Un reintento con la misma `idempotency_key` devuelve la invitación ya creada y **no** crea una segunda orden.
-- La invitación en `por_pagar` **no es visible para el receptor** bajo su RLS — reproduce la lectura como el receptor.
+- La invitación en `preautorizando` **no es visible para el receptor** bajo su RLS — reproduce la lectura como el receptor.
 
 Ese último es el que sostiene "el amigo no ve una invitación que aún no está pagada". Si la RLS actual no lo cumple, **es un hallazgo, no un test que ajustar**: páralo y avísame.
 
@@ -237,8 +302,8 @@ Esperado: una sola firma, con `p_bebida_catalogo_id`.
 - [ ] **Step 6: Verde y commit**
 
 ```bash
-git add supabase/migrations/20260910130000_crear_invitacion_por_pagar.sql supabase/tests/19_crear_invitacion.sql docs/backlog.md
-git commit -m "feat(db): la invitacion nace por_pagar con su orden de pago"
+git add supabase/migrations/20260910130000_crear_invitacion_preautorizando.sql supabase/tests/19_crear_invitacion.sql docs/backlog.md
+git commit -m "feat(db): la invitacion nace preautorizando con su orden de pago"
 ```
 
 ---

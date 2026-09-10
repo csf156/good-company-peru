@@ -113,7 +113,7 @@ Nueva:
 
 ```
 elegir persona + bebida
-  └→ invitaciones(estado='por_pagar')          ← invisible para el amigo
+  └→ invitaciones(estado='preautorizando')          ← invisible para el amigo
      + ordenes_pago(estado='pendiente', invitacion_id)
         └→ preautorización OK → invitaciones='pendiente'   ordenes='preautorizada'
            ├→ amigo acepta    → CAPTURA        → ordenes='capturada'  → escrow Red Pontis
@@ -122,7 +122,11 @@ elegir persona + bebida
 
 **Enums que se amplían de forma aditiva:**
 
-- `estado_invitacion` gana `por_pagar`.
+- `estado_invitacion` gana `preautorizando`.
+
+> **Renombrado el 2026-09-10, antes de E.2a.** E.1 creó esta etiqueta como `por_pagar`. El usuario la leyó como "pendiente de pago hasta que se concrete el encuentro" — que es exactamente lo que **no** significa: dura segundos, entre pulsar "invitar" y la respuesta de la preautorización. Si el dueño del producto la malinterpreta, la etiqueta está mal elegida, y nadie va a leerla con más contexto que él. Se renombra a `preautorizando`, que dice qué está pasando. Cero filas en la base y cero apariciones en UI al hacerlo: dentro de dos fases habría estado en pantallas y en el copy.
+>
+> **La confusión de fondo vale la pena dejarla escrita**, porque va a reaparecer: el estado de la **invitación** y la ubicación del **dinero** son dos ejes distintos. Cuando el amigo acepta, el dinero **ya se cobró** y está en custodia de Red Pontis; lo que falta hasta el encuentro verificado no es pagar, es **liberar** lo ya retenido (fase 5.4). Que el dinero exista y esté fuera del alcance del rentador es justamente lo que hace confiable una invitación aceptada.
 - `estado_orden` gana `preautorizada`, `capturada`, `anulada`.
 
 **Regla que no se puede perder: la preautorización no escribe nada en el ledger.** No hay movimiento de dinero que registrar, y esa ausencia es parte de la defensa — un hold no es un pago.
@@ -144,7 +148,7 @@ Hoy el rentador acepta una solicitud y asigna una bebida de su bar. Sin bar, **a
 ```
 amigo solicita → invitaciones(tipo='solicitud', estado='pendiente')   ← sin dinero
   └→ rentador acepta y elige bebida
-     → estado='por_pagar' + orden preautorizada + captura inmediata
+     → estado='preautorizando' + orden preautorizada + captura inmediata
        (ya hay acuerdo de las dos partes: no hay nada que esperar)
      → estado='aceptada' → se abre el chat
 ```
