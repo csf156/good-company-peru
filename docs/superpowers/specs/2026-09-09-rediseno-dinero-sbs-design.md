@@ -148,12 +148,19 @@ Hoy el rentador acepta una solicitud y asigna una bebida de su bar. Sin bar, **a
 ```
 amigo solicita → invitaciones(tipo='solicitud', estado='pendiente')   ← sin dinero
   └→ rentador acepta y elige bebida
-     → estado='preautorizando' + orden preautorizada + captura inmediata
-       (ya hay acuerdo de las dos partes: no hay nada que esperar)
-     → estado='aceptada' → se abre el chat
+     → responder_invitacion: crea la orden en 'pendiente'
+       y deja la invitación en 'preautorizando'
+     → el Edge Function preautoriza
+     → confirmar_preautorizacion: captura y deja 'aceptada' + abre la cita
 ```
 
-Un fallo de tarjeta aquí deja la solicitud en `pendiente`, **no** aceptada, y no abre chat.
+Un fallo de tarjeta aquí deja la solicitud **sin aceptar** y no abre chat.
+
+> **Corregido el 2026-09-10, antes de construirlo.** La primera versión de este párrafo decía "orden preautorizada + captura inmediata" dentro de `responder_invitacion`. **Eso no se puede construir:** capturar exige un hold ya existente, y **una función SQL no puede llamar al proveedor de pagos**. El camino de la `solicitud` pasa a ser **simétrico al de la `invitacion`** — una sola máquina de estados, sin caso especial.
+>
+> El acuerdo de las dos partes sigue estando: por eso `confirmar_preautorizacion` captura de inmediato en este camino en vez de esperar una respuesta, mientras que en el camino `invitacion` solo publica la invitación y espera al amigo.
+>
+> Beneficio lateral: la llamada al proveedor queda **entre** dos funciones SQL en vez de dentro de una, así que no hay una transacción abierta esperando a un `fetch`.
 
 ---
 

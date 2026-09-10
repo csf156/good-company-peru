@@ -51,6 +51,8 @@ En las tareas 2 a 5 **no escribo las 72 aserciones**. Escribo el **contrato**: c
 | `tests/functions/pagos.test.ts` | Tests jest de esas tres operaciones. |
 | `supabase/migrations/20260910120000_capturar_orden.sql` | `confirmar_orden_pago` → reescrita como captura, sin `bar`. |
 | `supabase/migrations/20260910130000_crear_invitacion_preautorizando.sql` | `crear_invitacion` reescrita: crea la invitación en `preautorizando` y su orden. |
+| `supabase/migrations/20260910135000_confirmar_preautorizacion.sql` | `confirmar_preautorizacion` + `abrir_cita` (interna, compartida). |
+| `supabase/tests/34_confirmar_preautorizacion.sql` | ≥ 12 aserciones. |
 | `supabase/migrations/20260910140000_responder_invitacion_captura.sql` | `responder_invitacion` reescrita: aceptar captura, rechazar anula. |
 | `supabase/migrations/20260910150000_conciliacion_sin_bar.sql` | `detectar_discrepancias_sp3` **redefinida**. |
 | `supabase/tests/13_confirmar_orden_pago.sql` | ≥ 15 aserciones. |
@@ -426,6 +428,66 @@ git commit -m "feat(db): la invitacion nace preautorizando con su orden de pago"
 
 ---
 
+## Task 3b: `confirmar_preautorizacion` — la pieza que faltaba
+
+> **Añadida el 2026-09-10, antes de arrancar la Tarea 4.** Defecto del plan encontrado en una revisión previa, no en ejecución.
+
+**El agujero.** La Tarea 3 deja la invitación en `preautorizando` y su orden en `pendiente`. **Nada en todo E.2a las mueve de ahí.** Yo había escrito que "la transición a `pendiente` la hace la preautorización, en E.2b" — pero E.2b son Edge Functions, y esto son **dos escrituras acopladas que tienen que ser atómicas**: si se hacen desde TypeScript por separado, un fallo entre medias deja una orden preautorizada con su invitación invisible para siempre, o al revés. Es una función SQL, y por tanto es de esta fase.
+
+Sin esta tarea, E.2b tendría que inventarla sin plan o hacer `update` sueltos desde el Edge Function — que es exactamente lo que prohíben las reglas de dinero del proyecto.
+
+**Files:**
+- Create: `supabase/migrations/20260910135000_confirmar_preautorizacion.sql`
+- Create: `supabase/tests/34_confirmar_preautorizacion.sql` → **≥ 12 aserciones**
+
+**Interfaces:**
+- Produces: `public.confirmar_preautorizacion(p_orden_id uuid, p_ok boolean, p_provider_ref text default null) returns text`, con `'aplicada'` / `'ya_resuelta'` como la familia de funciones de esta fase.
+- Consumes: `public.capturar_orden` de la Tarea 2.
+
+**Qué hace, según el tipo de la invitación:**
+
+| Caso | Orden queda | Invitación queda | Además |
+|---|---|---|---|
+| `p_ok` y tipo `invitacion` | `preautorizada` | `pendiente` | Recién ahora el amigo la ve |
+| `p_ok` y tipo `solicitud` | `capturada` | `aceptada` | Captura en el acto y abre la cita: las dos partes ya acordaron |
+| `not p_ok` | `fallida` | `expirada` | Sin ledger. El hold nunca existió |
+
+El caso `solicitud` captura de inmediato porque el acuerdo ya está cerrado: el amigo pidió y el rentador aceptó. No hay a quién esperar.
+
+- [ ] **Step 1: Escribir el test — ≥ 12 aserciones**
+
+1. `p_ok` sobre una `invitacion`: orden a `preautorizada`, invitación a `pendiente`.
+2. Y **no escribe ledger** — el hold no es un movimiento (spec §4).
+3. Tras esa transición, **el receptor sí ve la invitación** (reproduce la lectura como el receptor; complementa la Tarea 2b por el otro lado).
+4. `p_ok` sobre una `solicitud`: orden a `capturada`, invitación a `aceptada`.
+5. Y **sí escribe las tres filas de ledger** de la captura.
+6. Y crea la fila de `citas`.
+7. `not p_ok`: orden a `fallida`, invitación a `expirada`.
+8. Y **no escribe ledger**.
+9. Segunda llamada con el mismo resultado devuelve `'ya_resuelta'` y no duplica nada.
+10. Llamar sobre una orden que no está en `pendiente` es transición ilegal → excepción (mismo criterio que `capturar_orden`).
+11. `authenticated` no puede ejecutarla — reprodúcelo, no leas `pg_proc`.
+12. `anon` tampoco.
+
+- [ ] **Step 2: Rojo granular** → `npm run test:db`
+
+- [ ] **Step 3: Escribir la migración**
+
+Row lock sobre la orden, igual que `capturar_orden`. Para el caso `solicitud`, **llama a `capturar_orden`** en vez de duplicar el bloque de ledger — corre dentro de la misma transacción, así que la atomicidad se mantiene.
+
+> **La lógica de "aceptar" está en dos sitios y hay que decidirlo aquí, no descubrirlo en la Tarea 4.** Abrir la cita al aceptar la necesitan esta función (camino `solicitud`) y `responder_invitacion` (camino `invitacion`). **Extrae ese paso a una función interna** —por ejemplo `public.abrir_cita(p_invitacion_id uuid)`— y llámala desde las dos. Duplicar el `insert into public.citas` es garantía de que dentro de dos fases una de las dos copias se quede atrás.
+
+- [ ] **Step 4: ALTO — el USUARIO revisa y autoriza**
+
+- [ ] **Step 5: Introspección + Step 6: Verde y commit**
+
+```bash
+git add supabase/migrations/20260910135000_confirmar_preautorizacion.sql supabase/tests/34_confirmar_preautorizacion.sql
+git commit -F <archivo>   # nunca -m inline con backticks
+```
+
+---
+
 ## Task 4: `responder_invitacion` — aceptar captura, rechazar anula
 
 **Files:**
@@ -433,27 +495,57 @@ git commit -m "feat(db): la invitacion nace preautorizando con su orden de pago"
 - Modify: `supabase/tests/20_responder_invitacion.sql` → **≥ 30 aserciones**
 
 **Interfaces:**
-- Produces: `public.responder_invitacion(p_invitacion_id uuid, p_receptor_id uuid, p_respuesta text, p_bebida_catalogo_id uuid default null) returns public.invitaciones`.
+- **La firma real de hoy es `responder_invitacion(p_receptor_id uuid, p_invitacion_id uuid, p_accion text, p_bebida_bar_id uuid) returns text`** — verifícala tú con `\df` o `pg_get_function_identity_arguments` antes de escribir nada; la que este plan traía antes tenía el orden, los nombres y el tipo de retorno mal.
+- Produces: `responder_invitacion(p_receptor_id uuid, p_invitacion_id uuid, p_accion text, p_bebida_catalogo_id uuid) returns text`. **Solo cambia el cuarto parámetro.** Conserva el orden y el `returns text`: menos superficie que tocar en E.2b.
+- **Cambia un nombre de parámetro → `drop function` + `create`, no `create or replace`.** Postgres rechaza el renombrado (`cannot change name of input parameter`); ya te mordió en la Tarea 3.
+
+> ### Corrección de diseño, 2026-09-10 — leer antes del Step 1
+>
+> La versión anterior de esta tarea decía que aceptar una `solicitud` "crea la orden y la captura en el mismo acto". **Eso no se puede construir:** `capturar_orden` exige que la orden esté `preautorizada`, y **una función SQL no puede llamar al proveedor de pagos**. No hay forma de preautorizar desde aquí.
+>
+> **El camino de la `solicitud` se vuelve simétrico al de la `invitacion`:**
+>
+> ```
+> solicitud pendiente
+>   └→ rentador acepta y elige bebida
+>      → responder_invitacion: crea la orden en `pendiente`
+>        y deja la invitación en `preautorizando`
+>      → (el Edge Function preautoriza — E.2b)
+>      → confirmar_preautorizacion (Tarea 3b): captura y deja `aceptada` + abre la cita
+> ```
+>
+> Una sola máquina de estados, sin caso especial. **`responder_invitacion` ya no captura nada en el camino `solicitud`** — solo prepara. Quien captura es la Tarea 3b.
+>
+> Beneficio lateral: desaparece el problema de atomicidad que este plan avisaba para E.2b en este camino. El `fetch` al proveedor queda **entre** dos funciones SQL, no dentro de una.
 
 - [ ] **Step 1: Escribir el contrato de test**
 
-**≥ 30 aserciones.** Conserva del archivo viejo: solo el receptor responde, `AY404` / `AY403`, idempotencia, apertura de la cita y el chat al aceptar, `EXECUTE` denegado a `authenticated` y `anon`. Lo nuevo:
+**≥ 30 aserciones.** Conserva del archivo viejo: solo el receptor responde, `AY404` / `AY403`, idempotencia, apertura de la cita al aceptar, `EXECUTE` denegado a `authenticated` y `anon`, y el gate de KYC con el scope que trajo la migración `kyc_scope`. Lo nuevo:
 
-- Aceptar una `invitacion` en `pendiente` invoca la captura de su orden y la deja `capturada`; la invitación queda `aceptada`.
+- Aceptar una `invitacion` en `pendiente` captura su orden (queda `capturada`) y deja la invitación `aceptada`. Aquí **sí** captura: el hold ya existe, lo puso la Tarea 3b.
+- Y escribe las tres filas de ledger de la captura, con `referencia_id` en la invitación.
 - Rechazar una `invitacion` deja su orden **`anulada`** y **sin ninguna fila de ledger**.
-- Aceptar una `solicitud` **exige** `p_bebida_catalogo_id`, crea la orden y la captura en el mismo acto (spec §4.1).
-- Si la captura falla, la solicitud **queda en `pendiente`**, no `aceptada`, y **no** se abre chat. Atomicidad: todo o nada.
+- Rechazar una invitación cuya orden ya está `capturada` **falla** — no se rechaza algo ya cobrado.
+- Aceptar una `solicitud` **exige** `p_bebida_catalogo_id`, crea su orden en `pendiente` y deja la invitación en **`preautorizando`**. **No captura, no escribe ledger, no abre cita todavía.**
+- Aceptar una `solicitud` **no** deja la invitación en `aceptada` — el que la cierra es `confirmar_preautorizacion`.
+- Aceptar una `solicitud` con una bebida **inactiva** del catálogo falla.
 - Rechazar **no** acepta `p_bebida_catalogo_id`.
 - Una invitación ya respondida no se re-responde ni re-captura.
 - El receptor de una `solicitud` tiene que estar KYC-verificado (compromete dinero).
+- Un tercero que no es el receptor no puede responder — reprodúcelo.
 
 - [ ] **Step 2: Rojo granular** → `npm run test:db`
 
 - [ ] **Step 3: Escribir la migración**
 
-Parte de **`20260724160000_responder_invitacion_kyc_scope.sql`**, que es la ultima migracion que define `responder_invitacion` — NO de la original `20260724150000`. Sustituye los bloques de `bar` (liberar / asignar) por llamadas a `capturar_orden`. Conserva el row lock y el patrón de idempotencia.
+Parte de **`20260724160000_responder_invitacion_kyc_scope.sql`**, que es la última migración que define `responder_invitacion` — NO de la original `20260724150000`. Conserva el row lock, el patrón de idempotencia y el gate de KYC con su scope. Lo que cambia:
 
-> **Ojo con la atomicidad.** `capturar_orden` es una función SQL, así que corre **dentro** de la transacción de `responder_invitacion`: si lanza, aborta todo. Eso es lo que quieres. En E.2b, cuando la captura real sea una llamada HTTP al proveedor, **esa propiedad se rompe** — un `fetch` no participa de la transacción. Anótalo en `docs/backlog.md` ahora: el orden correcto en E.2b es capturar en el proveedor **primero** y escribir la base después, con la idempotencia de `capturar_orden` como red ante un fallo entre medias. No lo resuelvas aquí.
+- El bloque que **liberaba** la bebida del bar al rechazar → `capturar_orden(orden, 'anulada')`.
+- El bloque que **asignaba** una bebida del bar al aceptar una `solicitud` → crear la `orden_pago` en `pendiente` y mover la invitación a `preautorizando`. **Sin capturar.**
+- Aceptar una `invitacion` → `capturar_orden(orden, 'capturada')` y `aceptada`.
+- La apertura de la cita usa **`abrir_cita`**, la función interna que extrajiste en la Tarea 3b. No dupliques el `insert into public.citas`.
+
+> **Sobre la atomicidad, actualizado.** En el camino `invitacion`, `capturar_orden` corre dentro de esta transacción: si lanza, aborta todo. En el camino `solicitud` ya no hay captura aquí, así que el `fetch` al proveedor de E.2b queda **entre** dos funciones SQL en vez de dentro de una — que es justo lo que evita el problema. **Anota igual en `docs/backlog.md`** que en E.2b el orden correcto es llamar al proveedor **primero** y escribir la base después, con la idempotencia como red ante un fallo entre medias.
 
 - [ ] **Step 4: ALTO — el USUARIO revisa y autoriza**
 
