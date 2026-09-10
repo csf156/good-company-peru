@@ -7,7 +7,7 @@
 -- idempotencia SCOPED por emisor (una key repetida desde otro emisor NO
 -- devuelve la fila ajena — era un hallazgo real de fuga cross-user), EXECUTE
 -- solo para service_role.
-select plan(26);
+select plan(29);
 
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
@@ -137,6 +137,36 @@ select is(
     join public.invitaciones inv on inv.id = op.invitacion_id
    where inv.idempotency_key = 'key-1' and inv.emisor_id = '22222222-2222-2222-2222-222222222222')::int,
   0, 'una solicitud NO crea orden_pago');
+
+-- ============================================================================
+-- Tarea 3c: una `solicitud` nace en `pendiente`, no en `preautorizando` — no
+-- tiene nada que preautorizar al crearse (no hay orden, no hay importe hasta
+-- que el rentador acepta). Bug real de la Tarea 3: antes de este fix, TODA
+-- invitación (incluida la solicitud) nacía en preautorizando, y nada movía
+-- nunca a una solicitud de ahí — quedaba invisible para su receptor para
+-- siempre. Regla nueva de BRAIN: todo (tipo, estado inicial) que una función
+-- puede crear necesita probar quién lo ve (el receptor, acá abajo) y qué
+-- función lo mueve (Tarea 4, más adelante).
+-- ============================================================================
+select is(
+  (select estado::text from public.invitaciones where idempotency_key = 'key-1' and emisor_id = '22222222-2222-2222-2222-222222222222'),
+  'pendiente', 'una solicitud nace en pendiente, no en preautorizando');
+
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text,
+  true);
+set local role authenticated;
+select is(
+  (select count(*) from public.invitaciones where idempotency_key = 'key-1' and emisor_id = '22222222-2222-2222-2222-222222222222')::int,
+  1, 'el receptor (Ana, rentador) SÍ ve la solicitud — es lo que habría cazado el bug');
+reset role;
+select set_config('request.jwt.claims', null, true);
+
+-- Regresión: la corrección no debe tocar la rama `invitacion`.
+select is(
+  (select estado::text from public.invitaciones where idempotency_key = 'key-1' and emisor_id = '11111111-1111-1111-1111-111111111111'),
+  'preautorizando', 'una invitacion sigue naciendo en preautorizando (regresión)');
 
 -- ============================================================================
 -- Bebida inactiva rechazada.
