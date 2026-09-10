@@ -1,15 +1,174 @@
--- pgTAP: función confirmar_orden_pago (Fase 3.1) — mínimo tras E.1.
---
--- E.1 (20260909120000_matar_stock.sql) eliminó la tabla `bar`, que el CUERPO
--- de esta función todavía inserta — invocarla hoy fallaría con "relation
--- bar does not exist". Se reescribe en el bloque E.2 (spec §7, Task 5 del
--- plan de E.1: "déjalos en el mínimo que compile, su cobertura real vuelve
--- en E.2"). Hasta entonces este archivo solo verifica que la función sigue
--- existiendo; la cobertura de comportamiento completa (idempotencia, doble
--- confirmación, pago fallido, RLS) vuelve en E.2.
-select plan(1);
+-- pgTAP: función atómica capturar_orden (Fase E.2a) — reemplaza a
+-- confirmar_orden_pago (Fase 3.1). Mismo patrón de atomicidad (row lock, CAS
+-- de estado, idempotencia), pero sobre el ciclo hold: preautorizada →
+-- capturada | anulada, sin `bar`. El ledger escribe la MISMA terna
+-- compra/fee/escrow_lock que la función vieja (spec §4), pero referenciando
+-- la invitación, no la orden — la invitación es la compra.
+select plan(21);
 
-select has_function('public', 'confirmar_orden_pago',
-  'existe confirmar_orden_pago (se reescribe en E.2 — hoy referencia `bar`, ya eliminada)');
+insert into auth.users
+  (instance_id, id, aud, role, email, encrypted_password,
+   email_confirmed_at, created_at, updated_at,
+   confirmation_token, email_change, email_change_token_new, recovery_token)
+values
+  ('00000000-0000-0000-0000-000000000000',
+   '11111111-1111-1111-1111-111111111111', 'authenticated', 'authenticated',
+   'ana@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '22222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
+   'beto@test.dev', '', now(), now(), now(), '', '', '', '');
+
+insert into public.profiles (id, rol, alias)
+values
+  ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias'),
+  ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias');
+
+insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v)
+values ('99999999-9999-9999-9999-999999999999', 'Cerveza', 'divertida', 40.00);
+
+-- Cinco invitaciones, una por orden — el índice único parcial de E.1 permite
+-- solo UNA orden "viva" (preautorizada/capturada) por invitación, así que
+-- cada estado de partida necesita la suya.
+insert into public.invitaciones
+  (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id,
+   tiempo_estimado_min, zona_aproximada, estado)
+select id, '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222',
+       'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 60, 'Miraflores', 'preautorizando'
+from (values
+  ('a0000000-0000-0000-0000-00000000000a'::uuid),
+  ('a0000000-0000-0000-0000-00000000000b'::uuid),
+  ('a0000000-0000-0000-0000-00000000000c'::uuid),
+  ('a0000000-0000-0000-0000-00000000000d'::uuid),
+  ('a0000000-0000-0000-0000-00000000000e'::uuid)
+) as v(id);
+
+-- Órdenes: A preautorizada (a capturar), B preautorizada (a anular),
+-- C ya anulada, D pendiente (sin hold), E ya capturada.
+insert into public.ordenes_pago
+  (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111',
+   'a0000000-0000-0000-0000-00000000000a', 40.00, 6.00, 46.00, 'preautorizada', 'mock'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '11111111-1111-1111-1111-111111111111',
+   'a0000000-0000-0000-0000-00000000000b', 40.00, 6.00, 46.00, 'preautorizada', 'mock'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111',
+   'a0000000-0000-0000-0000-00000000000c', 40.00, 6.00, 46.00, 'anulada', 'mock'),
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111',
+   'a0000000-0000-0000-0000-00000000000d', 40.00, 6.00, 46.00, 'pendiente', 'mock'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '11111111-1111-1111-1111-111111111111',
+   'a0000000-0000-0000-0000-00000000000e', 40.00, 6.00, 46.00, 'capturada', 'mock');
+
+-- --- 1. capturar una orden preautorizada la deja capturada ---
+select is(
+  public.capturar_orden('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'capturada', 'hold-xyz'),
+  'aplicada', 'capturar una orden preautorizada devuelve aplicada');
+
+select is(
+  (select estado::text from public.ordenes_pago where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'capturada', 'la orden queda capturada');
+
+-- --- 2. escribe exactamente 3 filas de ledger ---
+select is(
+  (select count(*) from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid)::int,
+  3, 'la captura escribe 3 filas de ledger');
+
+select is(
+  (select monto from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid and tipo = 'compra'),
+  46.00::numeric, 'fila compra = +total (46)');
+select is(
+  (select monto from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid and tipo = 'fee'),
+  -6.00::numeric, 'fila fee = −buyer_fee (−6)');
+select is(
+  (select monto from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid and tipo = 'escrow_lock'),
+  -40.00::numeric, 'fila escrow_lock = −valor_v (−40)');
+
+-- --- 3. las tres netean a cero ---
+select is(
+  (select sum(monto) from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid),
+  0.00::numeric, 'las 3 filas netean a 0 — capturar no da saldo disponible a nadie');
+
+-- --- 4. referencia_id apunta a la invitación, no a la orden ---
+select is(
+  (select count(distinct referencia_id) from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid)::int,
+  1, 'referencia_id de las 3 filas es la invitación (no la orden)');
+
+-- --- 5. no crea nada fuera de ledger/ordenes_pago (no hay stock) ---
+select is(
+  (select count(*) from public.citas)::int,
+  0, 'capturar_orden no crea ninguna fila en citas ni en ninguna tabla de stock');
+
+-- --- 6/7. segunda llamada: idempotente, ve el estado ya resuelto ---
+select is(
+  public.capturar_orden('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'capturada', 'hold-xyz'),
+  'ya_resuelta', 'una segunda captura de la misma orden devuelve ya_resuelta (mismo row lock que serializaría llamadas concurrentes)');
+
+select is(
+  (select count(*) from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid)::int,
+  3, 'la segunda captura NO duplica el ledger');
+
+-- --- 8. capturar una orden ya anulada falla ---
+select throws_ok(
+  $$ select public.capturar_orden('cccccccc-cccc-cccc-cccc-cccccccccccc', 'capturada', null) $$,
+  'P0001', null, 'capturar una orden ya anulada falla (no se resucita un hold liberado)');
+
+-- --- 9. capturar una orden en pendiente (sin hold) falla ---
+select throws_ok(
+  $$ select public.capturar_orden('dddddddd-dddd-dddd-dddd-dddddddddddd', 'capturada', null) $$,
+  'P0001', null, 'capturar una orden sin hold (pendiente) falla');
+
+-- --- 10. p_resultado fuera del set válido lanza excepción ---
+select throws_ok(
+  $$ select public.capturar_orden('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pendiente', null) $$,
+  'P0001', null, 'p_resultado fuera de (capturada, anulada, fallida) lanza excepción');
+
+-- --- 11/12. el cliente no puede ejecutar la función ---
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text,
+  true);
+set local role authenticated;
+select throws_ok(
+  $$ select public.capturar_orden('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'capturada', null) $$,
+  '42501', null, 'un cliente autenticado NO puede ejecutar capturar_orden');
+reset role;
+select set_config('request.jwt.claims', null, true);
+
+set local role anon;
+select throws_ok(
+  $$ select public.capturar_orden('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'capturada', null) $$,
+  '42501', null, 'anon tampoco puede ejecutar capturar_orden');
+reset role;
+
+-- --- 13. los montos salen de la orden persistida, no de parámetros ---
+-- (la firma no acepta monto: si el ledger coincide con ordenes_pago, no hay
+-- forma de que un llamador haya inyectado otro importe)
+select is(
+  (select l.monto from public.ledger l where l.referencia_id = 'a0000000-0000-0000-0000-00000000000a'::uuid and l.tipo = 'compra'),
+  (select o.total from public.ordenes_pago o where o.id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'el monto de compra en el ledger coincide con el total persistido en la orden');
+
+-- --- 14. anular una orden preautorizada la deja anulada, sin ledger ---
+select is(
+  public.capturar_orden('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'anulada', null),
+  'aplicada', 'anular una orden preautorizada devuelve aplicada');
+select is(
+  (select estado::text from public.ordenes_pago where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  'anulada', 'la orden queda anulada');
+select is(
+  (select count(*) from public.ledger
+    where referencia_id = 'a0000000-0000-0000-0000-00000000000b'::uuid)::int,
+  0, 'anular NO escribe ledger — un hold no es un movimiento');
+
+-- --- 15. anular una orden ya capturada falla ---
+select throws_ok(
+  $$ select public.capturar_orden('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'anulada', null) $$,
+  'P0001', null, 'anular una orden ya capturada falla (no se libera un cobro ya hecho)');
 
 select * from finish();

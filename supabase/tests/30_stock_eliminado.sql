@@ -55,9 +55,9 @@ select is(
 -- Los estados del flujo hold → captura existen (ampliación aditiva).
 select is(
   (select count(*)::int from pg_enum e join pg_type t on t.oid = e.enumtypid
-    where t.typname = 'estado_invitacion' and e.enumlabel = 'por_pagar'),
+    where t.typname = 'estado_invitacion' and e.enumlabel = 'preautorizando'),
   1,
-  'estado_invitacion tiene por_pagar'
+  'estado_invitacion tiene preautorizando'
 );
 
 select is(
@@ -75,7 +75,7 @@ insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, esta
 values ('00000000-0000-0000-0000-0000000000e9'::uuid,
         '00000000-0000-0000-0000-0000000000e1'::uuid,
         '00000000-0000-0000-0000-0000000000e1'::uuid,
-        'invitacion', 'especifica', 'por_pagar');
+        'invitacion', 'especifica', 'preautorizando');
 
 insert into public.ordenes_pago (perfil_id, invitacion_id, valor_v, buyer_fee, total, provider, estado)
 values ('00000000-0000-0000-0000-0000000000e1'::uuid,
