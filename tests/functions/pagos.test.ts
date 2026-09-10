@@ -2,6 +2,12 @@ import {
   calcularDesgloseCompra,
   decidePaymentProvider,
   buildRedPontisOrderRequest,
+  buildPreautorizacionRequest,
+  buildCapturaRequest,
+  buildAnulacionRequest,
+  mockPreautorizar,
+  mockCapturar,
+  mockAnular,
   verifyPagoWebhookSignature,
   parsePagoWebhookPayload,
 } from '../../supabase/functions/_shared/pagos';
@@ -61,6 +67,78 @@ describe('buildRedPontisOrderRequest', () => {
     expect(body.external_id).toBe('ord-1');
     expect(body.amount).toBe(46);
     expect(body.currency).toBe('PEN');
+  });
+});
+
+describe('buildPreautorizacionRequest', () => {
+  it('manda el external_id de nuestra orden y el total calculado server-side, API key en header, no en body', () => {
+    const req = buildPreautorizacionRequest({
+      apiKey: 'secret-key',
+      externalId: 'ord-1',
+      total: 46,
+      moneda: 'PEN',
+    });
+    expect(req.method).toBe('POST');
+    expect(req.headers['Authorization']).toContain('secret-key');
+    const body = JSON.parse(req.body);
+    expect(body.external_id).toBe('ord-1');
+    expect(body.amount).toBe(46);
+    expect(JSON.stringify(body)).not.toContain('secret-key');
+  });
+});
+
+describe('buildCapturaRequest y buildAnulacionRequest', () => {
+  it('buildCapturaRequest referencia el providerRef del hold, no el external_id', () => {
+    const req = buildCapturaRequest('secret-key', 'hold:ord-1');
+    expect(req.method).toBe('POST');
+    expect(req.headers['Authorization']).toContain('secret-key');
+    expect(req.url).toContain('hold:ord-1');
+    expect(JSON.stringify(req)).not.toContain('external_id');
+  });
+
+  it('buildAnulacionRequest referencia el providerRef del hold, no el external_id', () => {
+    const req = buildAnulacionRequest('secret-key', 'hold:ord-1');
+    expect(req.method).toBe('POST');
+    expect(req.headers['Authorization']).toContain('secret-key');
+    expect(req.url).toContain('hold:ord-1');
+    expect(JSON.stringify(req)).not.toContain('external_id');
+  });
+});
+
+describe('mockPreautorizar / mockCapturar / mockAnular (ciclo hold)', () => {
+  it('mockPreautorizar devuelve un providerRef determinista derivado del externalId (reintento = mismo ref)', () => {
+    const r1 = mockPreautorizar('ord-1');
+    const r2 = mockPreautorizar('ord-1');
+    expect(r1.ok).toBe(true);
+    expect(r1).toEqual(r2);
+  });
+
+  it('providerRefs distintos para externalIds distintos', () => {
+    const r1 = mockPreautorizar('ord-1');
+    const r2 = mockPreautorizar('ord-2');
+    expect(r1.ok && r2.ok && r1.providerRef).not.toBe(r2.ok && r2.providerRef);
+  });
+
+  it('mockCapturar sobre el mismo ref dos veces: ok:true las dos (idempotente)', () => {
+    const { providerRef } = mockPreautorizar('ord-1') as { ok: true; providerRef: string };
+    expect(mockCapturar(providerRef)).toEqual({ ok: true, providerRef });
+    expect(mockCapturar(providerRef)).toEqual({ ok: true, providerRef });
+  });
+
+  it('mockAnular sobre el mismo ref dos veces: ok:true las dos (idempotente)', () => {
+    const { providerRef } = mockPreautorizar('ord-1') as { ok: true; providerRef: string };
+    const a1 = mockAnular(providerRef);
+    const a2 = mockAnular(providerRef);
+    expect(a1.ok).toBe(true);
+    expect(a2.ok).toBe(true);
+    expect(a1).toEqual(a2);
+  });
+
+  it('mockCapturar tras mockAnular del mismo ref devuelve ok:false — un hold anulado no se captura', () => {
+    const { providerRef } = mockPreautorizar('ord-1') as { ok: true; providerRef: string };
+    const anulado = mockAnular(providerRef) as { ok: true; providerRef: string };
+    const resultado = mockCapturar(anulado.providerRef);
+    expect(resultado.ok).toBe(false);
   });
 });
 

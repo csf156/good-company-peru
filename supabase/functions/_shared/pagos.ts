@@ -117,6 +117,101 @@ export function buildRedPontisOrderRequest(params: RedPontisOrderParams): HttpRe
 }
 
 // ============================================================================
+// Ciclo hold: preautorizar (al invitar) → capturar (al aceptar) | anular (al
+// rechazar) — Fase E.2a. Reemplaza el "comprar ahora" de la Fase 3.1: la
+// invitación es la compra (spec §3.1, §4), y el dinero se retiene, no se
+// mueve, hasta que hay un encuentro que confirmar.
+// ============================================================================
+
+/**
+ * Arma el request de creación de HOLD (preautorización) en Red Pontis. Mismo
+ * patrón que `buildRedPontisOrderRequest`: STUB, no ejecuta el fetch (lo hace
+ * el index.ts en Deno, E.2b). El monto es el que ya calculó `crear_invitacion`
+ * server-side; el cliente nunca lo envía.
+ */
+export function buildPreautorizacionRequest(params: RedPontisOrderParams): HttpRequestSpec {
+  return {
+    url: 'https://api.redpontis.com/v1/holds',
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      external_id: params.externalId,
+      amount: params.total,
+      currency: params.moneda,
+      capture: 'manual',
+    }),
+  };
+}
+
+/**
+ * Captura un hold ya preautorizado. Referencia el `providerRef` que devolvió
+ * la preautorización, NO el `external_id` de nuestra orden — capturar exige
+ * el identificador que asignó el proveedor al hold, no el nuestro.
+ */
+export function buildCapturaRequest(apiKey: string, providerRef: string): HttpRequestSpec {
+  return {
+    url: `https://api.redpontis.com/v1/holds/${providerRef}/capture`,
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  };
+}
+
+/** Anula (libera) un hold. Mismo criterio que `buildCapturaRequest`: por `providerRef`. */
+export function buildAnulacionRequest(apiKey: string, providerRef: string): HttpRequestSpec {
+  return {
+    url: `https://api.redpontis.com/v1/holds/${providerRef}/void`,
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  };
+}
+
+export type ResultadoHold = { ok: true; providerRef: string } | { ok: false; motivo: string };
+
+const MOCK_HOLD_PREFIX = 'hold:';
+const MOCK_ANULADO_PREFIX = 'anulado:';
+
+/**
+ * Mock del ciclo hold — modo por defecto (`decidePaymentProvider`) mientras
+ * Red Pontis está ASUMIDO, no confirmado (spec §3.1, decisión del usuario
+ * 2026-09-10). Deliberadamente SIN memoria de módulo: el mock corre en
+ * procesos Deno distintos entre invocaciones (una Edge Function no persiste
+ * estado entre requests), así que una variable global mentiría y pasaría los
+ * tests igual. El estado (anulado o no) se deriva del propio `providerRef`,
+ * prefijándolo al anular — es el propio caller (la función SQL) quien
+ * persiste y reenvía el ref correcto en la siguiente llamada.
+ */
+export function mockPreautorizar(externalId: string): ResultadoHold {
+  // Determinista: el mismo externalId (reintento del mismo intento) produce
+  // siempre el mismo providerRef — idempotencia sin estado.
+  return { ok: true, providerRef: `${MOCK_HOLD_PREFIX}${externalId}` };
+}
+
+export function mockCapturar(providerRef: string): ResultadoHold {
+  if (providerRef.startsWith(MOCK_ANULADO_PREFIX)) {
+    return { ok: false, motivo: 'el hold ya fue anulado, no se puede capturar' };
+  }
+  return { ok: true, providerRef };
+}
+
+export function mockAnular(providerRef: string): ResultadoHold {
+  if (providerRef.startsWith(MOCK_ANULADO_PREFIX)) {
+    return { ok: true, providerRef }; // ya estaba anulado — idempotente, no lo duplica
+  }
+  return { ok: true, providerRef: `${MOCK_ANULADO_PREFIX}${providerRef}` };
+}
+
+// ============================================================================
 // Webhook de confirmación de pago (firma + parseo)
 // ============================================================================
 
