@@ -255,6 +255,117 @@ git commit -m "feat(db): capturar_orden reemplaza a confirmar_orden_pago, sin st
 
 ---
 
+## Task 2b: La RLS de `invitaciones` falla cerrada por estado
+
+> **Añadida el 2026-09-10.** Hallazgo real de la Tarea 3, encontrado por BUILDER reproduciendo el acceso —no leyendo `pg_policy`— y confirmado: **el receptor ve una invitación en `preautorizando`.**
+
+**La causa.** `invitaciones_select_parte` (migración `20260723180000`) filtra solo por identidad:
+
+```sql
+using (emisor_id = (select auth.uid()) or receptor_id = (select auth.uid()))
+```
+
+Nunca se acotó por estado porque en la fase 4.0 **no existía ningún estado que debiera ocultarse**: `pendiente`, `aceptada`, `rechazada` y `expirada` son todos visibles para las dos partes por diseño. `preautorizando` es el primer estado que debe ocultarse de una de las partes, y la política no se revisó al añadirlo.
+
+**No es explotable hoy** —ninguna fila llega a ese estado porque `crear_invitacion` todavía no lo produce— pero **la Tarea 3 lo activaría**. Por eso va antes.
+
+### La decisión: lista blanca, no lista negra
+
+BUILDER preguntó si basta con `and estado <> 'preautorizando'` o si habrá futuros estados que necesiten el mismo trato. **No basta, y esa es la parte importante.**
+
+Un `<> 'preautorizando'` es una lista negra: **cada estado nuevo del enum es visible para el receptor por defecto**, y protegerlo depende de que alguien se acuerde de volver aquí. Es exactamente el fallo que estamos arreglando, repetido — la fase 4.0 tampoco "se acordó".
+
+La política se escribe como **lista blanca**:
+
+```sql
+using (
+  emisor_id = (select auth.uid())
+  or (
+    receptor_id = (select auth.uid())
+    and estado in ('pendiente', 'aceptada', 'rechazada', 'expirada')
+  )
+)
+```
+
+Así, **cualquier etiqueta que se añada a `estado_invitacion` en el futuro nace invisible para el receptor** y hay que abrirla a propósito. Falla cerrada. Si mañana existe un estado de error de preautorización, ya está protegido sin que nadie lo recuerde.
+
+El emisor ve siempre su propia invitación, en cualquier estado: es suya y está en curso.
+
+**Files:**
+- Create: `supabase/migrations/20260910160000_rls_invitaciones_por_estado.sql`
+- Modify: `supabase/tests/15_invitaciones_rls.sql` → `plan(9)` sube a **`plan(12)`**
+
+**Interfaces:**
+- Produces: `invitaciones_select_parte` redefinida. Sin cambio de nombre, sin cambio de firma; solo el `using`.
+
+- [ ] **Step 1: Escribir los tres asserts que faltan**
+
+En `15_invitaciones_rls.sql`, sube `plan(9)` a `plan(12)` y añade, **reproduciendo la lectura real** como cada rol (mismo patrón que el noveno assert que escribiste al arreglar el runner):
+
+1. El receptor **no ve** una invitación en `preautorizando`.
+2. El **emisor sí la ve** en `preautorizando` — es suya y está en curso; ocultársela sería un bug distinto.
+3. El receptor **sí ve** la misma invitación una vez en `pendiente` — la lista blanca no debe romper el camino normal.
+
+- [ ] **Step 2: Rojo granular**
+
+```bash
+npm run test:db
+```
+
+Esperado: el assert 1 falla (hoy la ve), los asserts 2 y 3 pasan ya. **Di explícitamente en el reporte que 2 y 3 no estuvieron en rojo** — son de regresión, no de validación; su valor es que fallen si la lista blanca se escribe mal.
+
+- [ ] **Step 3: Escribir la migración**
+
+```sql
+-- Fase E.2a, Tarea 2b — La visibilidad de una invitación depende del estado,
+-- no solo de la identidad.
+--
+-- `invitaciones_select_parte` (20260723180000) filtraba solo por identidad,
+-- porque en la Fase 4.0 ningún estado debía ocultarse de una de las partes.
+-- `preautorizando` es el primero: mientras la preautorización no responde, la
+-- invitación no existe para el amigo — si el hold falla, nunca existió.
+--
+-- Se escribe como LISTA BLANCA a propósito. Con una lista negra
+-- (`estado <> 'preautorizando'`) cada etiqueta nueva del enum nacería visible
+-- para el receptor y dependería de que alguien recordara volver aquí — que es
+-- justo el fallo que esta migración corrige. Así falla cerrada: un estado
+-- nuevo es invisible hasta que se le abra la puerta a propósito.
+
+drop policy invitaciones_select_parte on public.invitaciones;
+
+create policy invitaciones_select_parte
+  on public.invitaciones for select
+  to authenticated
+  using (
+    emisor_id = (select auth.uid())
+    or (
+      receptor_id = (select auth.uid())
+      and estado in ('pendiente', 'aceptada', 'rechazada', 'expirada')
+    )
+  );
+```
+
+- [ ] **Step 4: ALTO — el USUARIO revisa y autoriza**
+
+Es un `drop policy` sobre una tabla con datos. **Dile que es la corrección de un hallazgo de seguridad**, no una mejora: hasta ahora el receptor podía ver invitaciones que aún no estaban pagadas.
+
+- [ ] **Step 5: Aplicar y verificar por introspección**
+
+```sql
+select polname, pg_get_expr(polqual, polrelid) from pg_policy
+ where polrelid = 'public.invitaciones'::regclass;
+```
+
+- [ ] **Step 6: Verde y commit**
+
+```bash
+npm run test:db
+git add supabase/migrations/20260910160000_rls_invitaciones_por_estado.sql supabase/tests/15_invitaciones_rls.sql
+git commit -m "fix(db): el receptor no ve una invitacion en preautorizando"
+```
+
+---
+
 ## Task 3: `crear_invitacion` crea la invitación y su orden
 
 **Files:**
