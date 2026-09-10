@@ -58,7 +58,11 @@ Se preautoriza (hold sobre la tarjeta) al invitar y se captura al aceptar. Si el
 
 Es además lo más limpio contra la SBS: **ningún valor existe hasta que hay un encuentro acordado.**
 
-> **Dependencia dura, sin resolver.** Esto exige que Red Pontis soporte autorización / captura / anulación. Si solo hacen cobro directo, el bloque E.2 cambia entero y hay que volver a "cobrar al invitar, devolver si rechaza". Es la segunda pregunta que hay que hacerles **por escrito**, junto a la de titularidad (§8).
+> **Dependencia dura, ASUMIDA por decisión del usuario el 2026-09-10.** Esto exige que Red Pontis soporte autorización / captura / anulación. **No está confirmado por Red Pontis**: el usuario decidió asumir que sí, para no bloquear E.2 esperando su respuesta.
+>
+> **Qué significa asumirlo.** El trabajo de E.2 avanza contra la interfaz `PaymentProvider` en modo `mock`, igual que KYC avanzó contra `demo` antes de Truora. Si la respuesta llega y es "no": el adaptador `redpontis` se rehace —barato, es un archivo— pero **la máquina de estados de §4 se cae entera** y hay que volver a "cobrar al invitar, devolver si rechaza", lo que arrastra `estado_orden`, las funciones de E.2 y el copy de E.3/E.4. **Eso es caro y no lo evita ninguna cantidad de cuidado en el código.**
+>
+> Sigue siendo la segunda pregunta que hay que hacerles **por escrito**, junto a la de titularidad (§9). Asumirla no la responde: solo mueve el riesgo de "esperar" a "rehacer".
 
 ### 3.2 La invitación *es* la compra
 
@@ -226,7 +230,7 @@ Cada bloque cierra con tests verdes y su propio commit. Ninguno deja la rama rot
 
 ## 9. Riesgos y preguntas abiertas
 
-1. **Red Pontis y auth/capture/void.** Si no lo soportan, cae la decisión 3.1 y E.2 se rehace. **Preguntar por escrito.**
+1. **Red Pontis y auth/capture/void — ASUMIDO, no confirmado (2026-09-10).** El usuario decidió asumir que lo soportan y avanzar, en vez de bloquear E.2 esperando su respuesta. **La pregunta por escrito sigue pendiente y sigue siendo la que puede invalidar trabajo ya hecho:** si la respuesta es "no", cae la decisión 3.1 y con ella la máquina de estados de §4 — no solo el adaptador. Cuanto más tarde llegue la respuesta, más caro sale. Ver el detalle en §3.1.
 2. **Titularidad de la custodia.** La pregunta que puede tumbar el modelo entero: cuando el rentador paga, ¿Red Pontis recibe por cuenta del amigo, de Martini, o propia? Si la respuesta es "de Martini", la decisión 3 del usuario no se sostiene y el análisis legal hay que rehacerlo. **Preguntar por escrito.**
 3. **Datos existentes.** Hay filas de demo en `bar` (`scripts/seed-demo.mjs`). La migración de E.1 las destruye. Es aceptable — son datos de demo — pero el script de seed hay que actualizarlo en el mismo bloque o queda roto.
 4. **`pago-webhook` sigue sin desplegar.** E.2 lo toca; el despliegue real es infraestructura y no bloquea el cierre del bloque, pero hay que anotarlo otra vez y no darlo por hecho.
