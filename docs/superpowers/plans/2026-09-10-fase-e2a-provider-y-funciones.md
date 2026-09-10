@@ -22,6 +22,13 @@
 - **Idempotencia en todo.** Preautorizar, capturar y anular son reintentables sin duplicar.
 - Rutas explícitas en `git add`. Nunca `-A`, nunca `--amend`, sin push. `git diff tsconfig.json` antes de cada commit.
 - **El código de este plan es una hipótesis.** Los planes de D.3, D.4 y E.1 traían bugs reales cada uno. **Si un test y el snippet se contradicen, gana el test** — y avísame para corregir el plan.
+- **Antes de reescribir cualquier función, comprueba cuál es la ÚLTIMA migración que la define, no la primera que la creó.** Este repo redefine funciones con `create or replace` en migraciones posteriores, casi siempre para **cerrar un agujero de seguridad**: `crear_invitacion` se redefinió para acotar la idempotencia por usuario, `responder_invitacion` para el scope del gate de KYC, `detectar_discrepancias_sp3` para añadir invariantes de montos. Partir de la original **reintroduce ese agujero en silencio, y los tests no lo ven** — porque el test que lo cubría se escribió contra la versión corregida y sigue pasando contra ella. Es el defecto más peligroso que ha tenido ninguno de mis planes, y lo tuvo este (encontrado por BUILDER en la Tarea 3, 2026-09-10).
+
+  ```bash
+  grep -l "create or replace function public.<nombre>" supabase/migrations/*.sql | sort | tail -1
+  ```
+
+  **Si este plan nombra una migración distinta de la que sale ahí, gana el grep** — y avísame.
 
 ---
 
@@ -395,7 +402,7 @@ Ese último es el que sostiene "el amigo no ve una invitación que aún no está
 
 - [ ] **Step 3: Escribir la migración**
 
-Parte de `git show 9928e46:supabase/migrations/20260724120000_crear_invitacion.sql`. Conserva **intacto** el patrón de idempotencia: reclamar la fila de invitación **primero**, capturar `unique_violation` y devolver la existente. Ese orden fue deliberado en la fase 4.2 y sigue siendo correcto. Lo que cambia:
+Parte de **`20260724130000_invitacion_idempotency_scope.sql`**, que es la ultima migracion que define `crear_invitacion` — NO de la original `20260724120000`. Conserva **intacto** el patrón de idempotencia: reclamar la fila de invitación **primero**, capturar `unique_violation` y devolver la existente. Ese orden fue deliberado en la fase 4.2 y sigue siendo correcto. Lo que cambia:
 
 - El bloque que bloqueaba la bebida del bar **se sustituye** por: calcular el desglose desde `bebidas_catalogo` e insertar la `orden_pago`.
 - **El desglose se calcula en SQL.** Hoy vive en TypeScript (`calcularDesgloseCompra`, 15% en centavos). **Duplicarlo en SQL es una fuente de deriva y hay que decirlo en el commit** — anótalo en `docs/backlog.md` como deuda: el fee vive en dos sitios, y cuando los niveles (SP6) lo hagan variable habrá que unificarlo. Para E.2a, replica el cálculo en centavos (`round(v * 100 * 0.15)`) para que coincida al céntimo con el de TypeScript.
@@ -444,7 +451,7 @@ git commit -m "feat(db): la invitacion nace preautorizando con su orden de pago"
 
 - [ ] **Step 3: Escribir la migración**
 
-Parte de `git show 9928e46:supabase/migrations/20260724150000_responder_invitacion.sql`. Sustituye los bloques de `bar` (liberar / asignar) por llamadas a `capturar_orden`. Conserva el row lock y el patrón de idempotencia.
+Parte de **`20260724160000_responder_invitacion_kyc_scope.sql`**, que es la ultima migracion que define `responder_invitacion` — NO de la original `20260724150000`. Sustituye los bloques de `bar` (liberar / asignar) por llamadas a `capturar_orden`. Conserva el row lock y el patrón de idempotencia.
 
 > **Ojo con la atomicidad.** `capturar_orden` es una función SQL, así que corre **dentro** de la transacción de `responder_invitacion`: si lanza, aborta todo. Eso es lo que quieres. En E.2b, cuando la captura real sea una llamada HTTP al proveedor, **esa propiedad se rompe** — un `fetch` no participa de la transacción. Anótalo en `docs/backlog.md` ahora: el orden correcto en E.2b es capturar en el proveedor **primero** y escribir la base después, con la idempotencia de `capturar_orden` como red ante un fallo entre medias. No lo resuelvas aquí.
 
@@ -467,7 +474,7 @@ git commit -m "feat(db): aceptar captura el hold, rechazar lo anula"
 
 **No es hacerla compilar.** `detectar_discrepancias_sp3` comparaba el ledger contra el stock del bar; sin `bar`, esa pregunta ya no significa nada (spec §10.1). Hay que decidir **qué concilia ahora**.
 
-**Files:** las tres primeras invariantes del original (`20260723150000_conciliacion_sp3.sql`) siguen siendo válidas — léelas antes de escribir. La cuarta, `escrow_bar_conteo_desbalance`, es la que muere.
+Las invariantes vigentes estan en **`20260723160000_conciliacion_montos.sql`**, que es la ultima migracion que define `detectar_discrepancias_sp3` — NO en la original `20260723150000`. Esa segunda migracion anadio invariantes de montos que la primera no tiene. Leelas antes de escribir: sobreviven todas menos la que compara contra el stock. La cuarta, `escrow_bar_conteo_desbalance`, es la que muere.
 
 - [ ] **Step 1: Escribir el contrato de test**
 
