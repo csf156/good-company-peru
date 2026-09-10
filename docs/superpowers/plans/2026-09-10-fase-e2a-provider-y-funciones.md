@@ -22,6 +22,7 @@
 - **Idempotencia en todo.** Preautorizar, capturar y anular son reintentables sin duplicar.
 - Rutas explícitas en `git add`. Nunca `-A`, nunca `--amend`, sin push. `git diff tsconfig.json` antes de cada commit.
 - **El código de este plan es una hipótesis.** Los planes de D.3, D.4 y E.1 traían bugs reales cada uno. **Si un test y el snippet se contradicen, gana el test** — y avísame para corregir el plan.
+- **Todo estado en el que una fila puede NACER tiene que tener salida, y hay que probarlo.** Un estado sin transición de salida para algún tipo de fila es una trampa: la fila queda viva, invisible o inmóvil, y ninguna suite lo nota porque cada test mira su propio caso. Por cada combinación `(tipo, estado inicial)` que una función pueda crear, el test tiene que afirmar **quién la ve** y **qué función la mueve**. Esto ya falló una vez en esta fase: una `solicitud` nacía en `preautorizando`, invisible para su receptor y sin función capaz de sacarla de ahí (Tarea 3, corregido en la 3c).
 - **Antes de reescribir cualquier función, comprueba cuál es la ÚLTIMA migración que la define, no la primera que la creó.** Este repo redefine funciones con `create or replace` en migraciones posteriores, casi siempre para **cerrar un agujero de seguridad**: `crear_invitacion` se redefinió para acotar la idempotencia por usuario, `responder_invitacion` para el scope del gate de KYC, `detectar_discrepancias_sp3` para añadir invariantes de montos. Partir de la original **reintroduce ese agujero en silencio, y los tests no lo ven** — porque el test que lo cubría se escribió contra la versión corregida y sigue pasando contra ella. Es el defecto más peligroso que ha tenido ninguno de mis planes, y lo tuvo este (encontrado por BUILDER en la Tarea 3, 2026-09-10).
 
   ```bash
@@ -490,6 +491,57 @@ Row lock sobre la orden, igual que `capturar_orden`. Para el caso `solicitud`, *
 git add supabase/migrations/20260910135000_confirmar_preautorizacion.sql supabase/tests/34_confirmar_preautorizacion.sql
 git commit -F <archivo>   # nunca -m inline con backticks
 ```
+
+---
+
+## Task 3c: Una `solicitud` nace en `pendiente`, no en `preautorizando`
+
+> **Añadida el 2026-09-10.** Bug real en la Tarea 3 **ya aplicada**, encontrado por BUILDER antes de escribir el fixture de la Tarea 4. **Defecto del plan:** mi contrato decía en qué estado nace una `invitacion` y que una `solicitud` no crea orden, pero **nunca dijo en qué estado nace una `solicitud`** — y la lista de tests pedía comprobar el estado inicial de una rama y no el de la otra.
+
+**El bug.** `crear_invitacion` inserta **toda** invitación con `estado = 'preautorizando'`, sin distinguir tipo, y solo crea `orden_pago` cuando `tipo = 'invitacion'`. Una `solicitud` queda entonces:
+
+- **invisible para su receptor** — la lista blanca de la Tarea 2b no incluye `preautorizando`;
+- **inmóvil** — `confirmar_preautorizacion` opera sobre una orden, y una `solicitud` recién creada no tiene ninguna.
+
+No es un caso límite: **es el camino normal de toda solicitud**. El sub-proyecto 4 entero quedaría muerto por ese lado.
+
+**Por qué `pendiente` es lo correcto.** Una `solicitud` no tiene nada que preautorizar al crearse: el dinero lo pone el rentador **al aceptar**, y hasta entonces no hay importe ni tarjeta. `preautorizando` describe un hold en vuelo, y aquí no hay ninguno. La solicitud pasa por `preautorizando` **más tarde**, cuando el rentador acepta y elige bebida (Tarea 4) — que es justo el momento en que aparece la orden.
+
+**Files:**
+- Create: `supabase/migrations/20260910145000_solicitud_nace_pendiente.sql`
+- Modify: `supabase/tests/19_crear_invitacion.sql` → **≥ 29 aserciones** (26 actuales + 3)
+
+- [ ] **Step 1: Escribir los tres asserts que faltan**
+
+1. Una `solicitud` recién creada queda en **`pendiente`**, no en `preautorizando`.
+2. **Su receptor la ve** — reproduce la lectura como el rentador bajo su RLS. Este es el que habría cazado el bug.
+3. Una `invitacion` recién creada **sigue** naciendo en `preautorizando` (regresión: la corrección no debe tocar la otra rama).
+
+- [ ] **Step 2: Rojo granular** — el 1 y el 2 fallan, el 3 pasa ya. **Dilo en el reporte.**
+
+- [ ] **Step 3: Escribir la migración**
+
+`create or replace function public.crear_invitacion(...)` con la misma firma —**no cambia ningún parámetro, así que `create or replace` basta**— y el `estado` del insert pasa a ser condicional:
+
+```sql
+      (case when p_tipo = 'invitacion' then 'preautorizando' else 'pendiente' end)::estado_invitacion,
+```
+
+Cuidado con el cast explícito: dentro de un `CASE`, Postgres tipa el resultado como `text` y no lo castea solo al enum. Ya mordió en la Tarea 3b.
+
+Todo lo demás de la función queda **intacto**: el patrón de idempotencia scoped por emisor, el gate de KYC, la validación de bebida activa y el bloque de la orden.
+
+- [ ] **Step 4: ALTO — BRAIN revisa y autoriza** (reversible: `create or replace`, sin `drop`)
+
+- [ ] **Step 5: Introspección + Step 6: Verde y commit**
+
+Comprueba además, sobre la base ya migrada, que no quedan filas huérfanas de una `solicitud` en `preautorizando`:
+
+```sql
+select count(*) from public.invitaciones where tipo = 'solicitud' and estado = 'preautorizando';
+```
+
+Esperado: 0. Si no lo es, **no las arregles por tu cuenta** — dímelo: serían datos y eso lo aprueba el usuario, no yo.
 
 ---
 
