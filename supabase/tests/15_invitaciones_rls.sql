@@ -75,6 +75,16 @@ select throws_ok(
      where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' $$,
   '42501', null, 'Ana NO puede cambiar el estado de su invitación');
 
+-- El cliente tampoco borra (misma revocación que insert/update, migración
+-- 20260723180000, nunca antes probada — hueco encontrado al arreglar el
+-- runner de pgTAP para que valide `plan(N)` contra lo ejecutado: este
+-- archivo declaraba plan(9) con solo 8 asserts desde el commit original
+-- de la Fase 4.0, 927ccc1).
+select throws_ok(
+  $$ delete from public.invitaciones
+     where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' $$,
+  '42501', null, 'Ana NO puede borrar su invitación');
+
 -- --- impersonar a Beto (receptor) ---
 select set_config(
   'request.jwt.claims',

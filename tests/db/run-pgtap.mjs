@@ -6,7 +6,11 @@
 //
 // Cada archivo .sql de supabase/tests/ se ejecuta en su propia transacción
 // (BEGIN … ROLLBACK) para no dejar datos de prueba en la base. El runner
-// recolecta la salida TAP de las funciones pgTAP y falla si hay algún "not ok".
+// recolecta la salida TAP de las funciones pgTAP y falla si hay algún "not ok"
+// o si el plan declarado (`select plan(N)`) no coincide con lo realmente
+// ejecutado — pgTAP emite ese desajuste como comentario, no como "not ok",
+// así que sin este chequeo un archivo puede perder aserciones y seguir en
+// verde (hallazgo de la sesión BRAIN, 2026-09-10, sobre `15_invitaciones_rls.sql`).
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -72,11 +76,23 @@ async function main() {
 
     const fileFailures = lines.filter((l) => l.startsWith('not ok'));
     const fileOks = lines.filter((l) => l.startsWith('ok '));
-    assertions += fileOks.length + fileFailures.length;
+    const ran = fileOks.length + fileFailures.length;
+    assertions += ran;
 
-    if (fileFailures.length > 0) {
-      failures += fileFailures.length;
-      console.error(`\n✗ ${file} — ${fileFailures.length} fallo(s):`);
+    // Línea de plan `1..N` — pgTAP puede emitirla al principio o al final del
+    // bloque TAP según cómo aborte/termine el archivo; no asumir posición.
+    const planLine = lines.find((l) => /^\d+\.\.\d+$/.test(l));
+    const planned = planLine ? Number(planLine.split('..')[1]) : null;
+    const planMismatch = planned !== null && planned !== ran;
+
+    if (fileFailures.length > 0 || planMismatch) {
+      failures += fileFailures.length > 0 ? fileFailures.length : 1;
+      if (fileFailures.length > 0) {
+        console.error(`\n✗ ${file} — ${fileFailures.length} fallo(s):`);
+      }
+      if (planMismatch) {
+        console.error(`\n✗ ${file} — el plan declaró ${planned} test(s) pero corrieron ${ran}:`);
+      }
       for (const l of lines) console.error(`  ${l}`);
     } else {
       console.log(`✓ ${file} — ${fileOks.length} assertion(s) ok`);
