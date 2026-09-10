@@ -3,7 +3,7 @@
 -- dos partes (emisor / receptor). La creación y las transiciones de estado son
 -- exclusivas del service_role (Edge Functions `crear-invitacion` / `responder-
 -- invitacion`, fases 4.2/4.3): el cliente jamás inserta ni muta una invitación.
-select plan(9);
+select plan(12);
 
 -- --- enums nuevos existen con los valores del plan ---
 select has_type('public', 'tipo_propuesta', 'tipo_propuesta existe');
@@ -108,6 +108,65 @@ select is(
   (select count(*) from public.invitaciones
     where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')::int,
   0, 'Carla (ajena) NO ve la invitación');
+
+reset role;
+select set_config('request.jwt.claims', null, true);
+
+-- --- Tarea 2b: la visibilidad depende del estado, no solo de identidad ---
+-- Segunda invitación, en preautorizando — mientras la preautorización no
+-- responde, no existe todavía para el amigo (si el hold falla, nunca existió).
+insert into public.invitaciones
+  (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id,
+   tiempo_estimado_min, zona_aproximada, estado)
+values
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc',
+   '11111111-1111-1111-1111-111111111111',
+   '22222222-2222-2222-2222-222222222222',
+   'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999',
+   60, 'Miraflores', 'preautorizando');
+
+-- --- impersonar a Beto (receptor) ---
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text,
+  true);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.invitaciones
+    where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc')::int,
+  0, 'Beto (receptor) NO ve la invitación mientras está en preautorizando');
+
+-- --- impersonar a Ana (emisor) ---
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text,
+  true);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.invitaciones
+    where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc')::int,
+  1, 'Ana (emisor) SÍ ve su invitación en preautorizando — es suya y está en curso');
+
+-- La preautorización respondió (postgres, simula al service_role): la
+-- invitación pasa a pendiente — ahora sí visible para el receptor. La lista
+-- blanca no debe romper el camino normal.
+reset role;
+select set_config('request.jwt.claims', null, true);
+update public.invitaciones set estado = 'pendiente'
+ where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text,
+  true);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.invitaciones
+    where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc')::int,
+  1, 'Beto (receptor) SÍ ve la invitación una vez en pendiente');
 
 reset role;
 select set_config('request.jwt.claims', null, true);
