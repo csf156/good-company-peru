@@ -1,25 +1,41 @@
 // Edge Function: crear-invitacion
 //
-// Emite una propuesta de encuentro y, si es invitación de rentador, bloquea su
-// bebida del bar (disponible→bloqueada; los fondos ya están en escrow desde la
-// compra 3.1). Dos direcciones:
-//   * `invitacion`: rentador → amigo, lleva una bebida de su bar.
-//   * `solicitud`:  amigo → rentador, sin bebida (la pone el rentador al aceptar,
-//     fase 4.3, fuera de alcance de esta función).
+// Emite una propuesta de encuentro. Dos direcciones:
+//   * `invitacion`: rentador → amigo, lleva una bebida del catálogo — crea su
+//     orden y la preautoriza de una (spec §4).
+//   * `solicitud`:  amigo → rentador, sin bebida (la pone el rentador al
+//     aceptar, fase 4.3) — no hay dinero todavía, no hay nada que preautorizar.
 //
-// Toda la lógica atómica (gate KYC del emisor, validación+bloqueo de la bebida,
-// creación de la fila e idempotencia) vive en la función SQL crear_invitacion
-// (pgTAP). La validación de FORMA del body vive en ../_shared/invitaciones.ts
-// (Jest). El cliente nunca calcula ni mueve estado de escrow.
+// Orden obligatorio, no negociable (spec §4, plan E.2b):
+//   1. RPC crear_invitacion              → invitación + orden (si es `invitacion`)
+//   2. Si es `solicitud`: devolver y parar — no hay dinero todavía
+//   3. Leer la orden de esa invitación
+//   4. Si NO debePreautorizar(orden.estado): devolver sin llamar al proveedor
+//      — es la guarda contra el doble hold: un reintento con la misma
+//      idempotency_key recibe de crear_invitacion la invitación YA creada,
+//      con su orden YA preautorizada.
+//   5. Llamar al proveedor (mock)         → providerRef
+//   6. RPC confirmar_preautorizacion(orden, ok, providerRef) — proveedor
+//      PRIMERO, base DESPUÉS: al revés, un fallo del proveedor dejaría la
+//      base afirmando un hold que nunca existió (dinero fantasma).
+//   7. Devolver
+//
+// Toda la lógica atómica (gate KYC del emisor, validación de bebida,
+// creación de la fila e idempotencia) vive en crear_invitacion (pgTAP). La
+// validación de FORMA del body vive en ../_shared/invitaciones.ts (Jest). La
+// decisión de qué RPC llamar y si hay que preautorizar vive en
+// ../_shared/pagos.ts (Jest) — este archivo es cáscara: no tiene cobertura
+// de ningún tipo, así que no lleva lógica de negocio propia.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validarCrearInvitacion } from '../_shared/invitaciones.ts';
 import { corsHeaders, preflightResponse } from '../_shared/cors.ts';
+import { debePreautorizar, mockPreautorizar } from '../_shared/pagos.ts';
 
 // SQLSTATE personalizados que emite crear_invitacion → status HTTP.
 const ERRCODE_STATUS: Record<string, number> = {
   AY400: 400, // forma inválida (defensa en profundidad)
   AY403: 403, // emisor no verificado (KYC)
-  AY409: 409, // conflicto de bebida (no existe / no es tuya / no disponible)
+  AY409: 409, // conflicto de bebida (no existe / inactiva)
 };
 
 Deno.serve(async (req) => {
@@ -76,11 +92,12 @@ Deno.serve(async (req) => {
     );
   }
 
+  // --- 1. RPC crear_invitacion ---
   const { data: invitacion, error } = await admin.rpc('crear_invitacion', {
     p_emisor_id: user.id,
     p_receptor_id: body.receptorId,
     p_tipo: body.tipo,
-    p_bebida_bar_id: body.bebidaBarId,
+    p_bebida_catalogo_id: body.bebidaCatalogoId,
     p_tiempo_estimado_min: body.tiempoEstimadoMin,
     p_zona_aproximada: body.zonaAproximada,
     p_idempotency_key: body.idempotencyKey,
@@ -92,5 +109,67 @@ Deno.serve(async (req) => {
     return Response.json({ error: mensaje }, { status, headers: cors });
   }
 
-  return Response.json({ invitacion }, { headers: cors });
+  // --- 2. Una `solicitud` no crea orden: no hay dinero todavía ---
+  if (body.tipo === 'solicitud') {
+    return Response.json({ invitacion }, { headers: cors });
+  }
+
+  // --- 3. Leer la orden de esa invitación ---
+  const { data: orden, error: ordenError } = await admin
+    .from('ordenes_pago')
+    .select('id, estado')
+    .eq('invitacion_id', invitacion.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (ordenError || !orden) {
+    return Response.json(
+      { error: 'La invitación se creó pero no se encontró su orden.' },
+      { status: 500, headers: cors },
+    );
+  }
+
+  // --- 4. Guarda contra el doble hold ---
+  if (!debePreautorizar(orden.estado)) {
+    return Response.json({ invitacion }, { headers: cors });
+  }
+
+  // --- 5. Proveedor PRIMERO ---
+  const hold = mockPreautorizar(orden.id);
+
+  // --- 6. Base DESPUÉS, con el providerRef real (nunca null si el proveedor
+  // devolvió uno) ---
+  const { error: confirmarError } = await admin.rpc('confirmar_preautorizacion', {
+    p_orden_id: orden.id,
+    p_ok: hold.ok,
+    p_provider_ref: hold.ok ? hold.providerRef : null,
+  });
+
+  if (confirmarError) {
+    return Response.json(
+      { error: 'No se pudo registrar el resultado de la preautorización.' },
+      { status: 500, headers: cors },
+    );
+  }
+
+  // confirmar_preautorizacion acaba de mover la invitación (a `pendiente` si
+  // el hold salió bien, a `expirada` si no) — el objeto `invitacion` de arriba
+  // quedó desactualizado, sigue diciendo `preautorizando`. Se relee para no
+  // devolverle al cliente un estado que la base ya dejó atrás.
+  const { data: invitacionFinal } = await admin
+    .from('invitaciones')
+    .select('*')
+    .eq('id', invitacion.id)
+    .maybeSingle();
+
+  if (!hold.ok) {
+    return Response.json(
+      { invitacion: invitacionFinal ?? invitacion, error: hold.motivo },
+      { status: 402, headers: cors },
+    );
+  }
+
+  // --- 7. Devolver ---
+  return Response.json({ invitacion: invitacionFinal ?? invitacion }, { headers: cors });
 });

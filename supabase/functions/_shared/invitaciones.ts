@@ -14,8 +14,10 @@ export type CrearInvitacionBody = {
   receptorId: string;
   tipo: TipoPropuesta;
   // Solo en `invitacion` de rentador. En `solicitud` es null (la bebida la pone
-  // el rentador al aceptar, fase 4.3).
-  bebidaBarId: string | null;
+  // el rentador al aceptar, fase 4.3). Nombre actualizado en E.2b: la firma de
+  // crear_invitacion cambió a p_bebida_catalogo_id en E.2a (la invitación toma
+  // la bebida directo del catálogo, ya no de un bar).
+  bebidaCatalogoId: string | null;
   tiempoEstimadoMin: number | null;
   zonaAproximada: string | null;
   idempotencyKey: string;
@@ -56,10 +58,10 @@ export function validarCrearInvitacion(raw: unknown, emisorId: string): Validaci
   const tipo = b.tipo as TipoPropuesta;
 
   // Coherencia tipo ↔ bebida.
-  const bebidaPresente = b.bebidaBarId !== undefined && b.bebidaBarId !== null;
+  const bebidaPresente = b.bebidaCatalogoId !== undefined && b.bebidaCatalogoId !== null;
   if (tipo === 'invitacion') {
-    if (!esUuidNoVacio(b.bebidaBarId)) {
-      return { ok: false, error: 'Una invitación requiere una bebida de tu bar.' };
+    if (!esUuidNoVacio(b.bebidaCatalogoId)) {
+      return { ok: false, error: 'Una invitación requiere una bebida del catálogo.' };
     }
   } else if (bebidaPresente) {
     return { ok: false, error: 'Una solicitud no lleva bebida.' };
@@ -82,7 +84,7 @@ export function validarCrearInvitacion(raw: unknown, emisorId: string): Validaci
     body: {
       receptorId: b.receptorId,
       tipo,
-      bebidaBarId: tipo === 'invitacion' ? (b.bebidaBarId as string) : null,
+      bebidaCatalogoId: tipo === 'invitacion' ? (b.bebidaCatalogoId as string) : null,
       tiempoEstimadoMin,
       zonaAproximada,
       idempotencyKey: b.idempotencyKey,

@@ -11,7 +11,7 @@ function base(overrides: Record<string, unknown> = {}) {
   return {
     receptorId: RECEPTOR,
     tipo: 'invitacion',
-    bebidaBarId: BEBIDA,
+    bebidaCatalogoId: BEBIDA,
     tiempoEstimadoMin: 60,
     zonaAproximada: 'Miraflores',
     idempotencyKey: 'key-1',
@@ -27,7 +27,7 @@ describe('validarCrearInvitacion — forma del body', () => {
       expect(r.body).toEqual({
         receptorId: RECEPTOR,
         tipo: 'invitacion',
-        bebidaBarId: BEBIDA,
+        bebidaCatalogoId: BEBIDA,
         tiempoEstimadoMin: 60,
         zonaAproximada: 'Miraflores',
         idempotencyKey: 'key-1',
@@ -35,14 +35,14 @@ describe('validarCrearInvitacion — forma del body', () => {
     }
   });
 
-  it('acepta una solicitud sin bebida y normaliza bebidaBarId a null', () => {
+  it('acepta una solicitud sin bebida y normaliza bebidaCatalogoId a null', () => {
     const r = validarCrearInvitacion(
-      base({ tipo: 'solicitud', bebidaBarId: undefined, tiempoEstimadoMin: null }),
+      base({ tipo: 'solicitud', bebidaCatalogoId: undefined, tiempoEstimadoMin: null }),
       EMISOR,
     );
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect(r.body.bebidaBarId).toBeNull();
+      expect(r.body.bebidaCatalogoId).toBeNull();
       expect(r.body.tiempoEstimadoMin).toBeNull();
     }
   });
@@ -73,16 +73,16 @@ describe('validarCrearInvitacion — forma del body', () => {
 
   it('rechaza una invitación sin bebida', () => {
     expect(
-      validarCrearInvitacion(base({ tipo: 'invitacion', bebidaBarId: undefined }), EMISOR).ok,
+      validarCrearInvitacion(base({ tipo: 'invitacion', bebidaCatalogoId: undefined }), EMISOR).ok,
     ).toBe(false);
-    expect(validarCrearInvitacion(base({ tipo: 'invitacion', bebidaBarId: null }), EMISOR).ok).toBe(
-      false,
-    );
+    expect(
+      validarCrearInvitacion(base({ tipo: 'invitacion', bebidaCatalogoId: null }), EMISOR).ok,
+    ).toBe(false);
   });
 
   it('rechaza una solicitud que trae bebida', () => {
     expect(
-      validarCrearInvitacion(base({ tipo: 'solicitud', bebidaBarId: BEBIDA }), EMISOR).ok,
+      validarCrearInvitacion(base({ tipo: 'solicitud', bebidaCatalogoId: BEBIDA }), EMISOR).ok,
     ).toBe(false);
   });
 
