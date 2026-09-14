@@ -9,7 +9,9 @@ import {
   mockCapturar,
   mockAnular,
   verifyPagoWebhookSignature,
-  parsePagoWebhookPayload,
+  parseHoldWebhookPayload,
+  rpcParaEvento,
+  debePreautorizar,
 } from '../../supabase/functions/_shared/pagos';
 
 describe('calcularDesgloseCompra', () => {
@@ -191,27 +193,81 @@ describe('verifyPagoWebhookSignature', () => {
   });
 });
 
-describe('parsePagoWebhookPayload', () => {
-  it('mapea status pagado → confirmada con el id de la orden', () => {
-    expect(parsePagoWebhookPayload({ external_id: 'ord-1', status: 'paid' })).toEqual({
+describe('parseHoldWebhookPayload', () => {
+  it('mapea el vocabulario del partner al vocabulario del hold', () => {
+    expect(parseHoldWebhookPayload({ external_id: 'ord-1', status: 'authorized' })).toEqual({
       ordenId: 'ord-1',
-      estado: 'confirmada',
+      evento: 'autorizado',
+      providerRef: null,
+    });
+    expect(parseHoldWebhookPayload({ external_id: 'ord-1', status: 'captured' })).toEqual({
+      ordenId: 'ord-1',
+      evento: 'capturado',
+      providerRef: null,
+    });
+    expect(parseHoldWebhookPayload({ external_id: 'ord-1', status: 'voided' })).toEqual({
+      ordenId: 'ord-1',
+      evento: 'anulado',
+      providerRef: null,
+    });
+    expect(parseHoldWebhookPayload({ external_id: 'ord-1', status: 'failed' })).toEqual({
+      ordenId: 'ord-1',
+      evento: 'fallido',
+      providerRef: null,
     });
   });
 
-  it('mapea status fallido → fallida', () => {
-    expect(parsePagoWebhookPayload({ external_id: 'ord-1', status: 'failed' })).toEqual({
+  it('propaga el provider_ref del payload cuando viene', () => {
+    expect(parseHoldWebhookPayload({ external_id: 'ord-1', status: 'authorized', provider_ref: 'hold:xyz' })).toEqual({
       ordenId: 'ord-1',
-      estado: 'fallida',
+      evento: 'autorizado',
+      providerRef: 'hold:xyz',
     });
   });
 
   it('devuelve null para un status no reconocido', () => {
-    expect(parsePagoWebhookPayload({ external_id: 'ord-1', status: 'processing' })).toBeNull();
+    expect(parseHoldWebhookPayload({ external_id: 'ord-1', status: 'processing' })).toBeNull();
   });
 
-  it('devuelve null para un payload mal formado', () => {
-    expect(parsePagoWebhookPayload({})).toBeNull();
-    expect(parsePagoWebhookPayload(null)).toBeNull();
+  it('devuelve null para un payload sin external_id o sin status', () => {
+    expect(parseHoldWebhookPayload({ status: 'authorized' })).toBeNull();
+    expect(parseHoldWebhookPayload({ external_id: 'ord-1' })).toBeNull();
+    expect(parseHoldWebhookPayload({})).toBeNull();
+    expect(parseHoldWebhookPayload(null)).toBeNull();
+  });
+});
+
+describe('rpcParaEvento', () => {
+  it('autorizado -> confirmar_preautorizacion con ok:true', () => {
+    expect(rpcParaEvento('autorizado')).toEqual({ rpc: 'confirmar_preautorizacion', ok: true });
+  });
+
+  it('fallido -> confirmar_preautorizacion con ok:false', () => {
+    expect(rpcParaEvento('fallido')).toEqual({ rpc: 'confirmar_preautorizacion', ok: false });
+  });
+
+  it('capturado -> capturar_orden con resultado capturada', () => {
+    expect(rpcParaEvento('capturado')).toEqual({ rpc: 'capturar_orden', resultado: 'capturada' });
+  });
+
+  it('anulado -> capturar_orden con resultado anulada', () => {
+    expect(rpcParaEvento('anulado')).toEqual({ rpc: 'capturar_orden', resultado: 'anulada' });
+  });
+});
+
+describe('debePreautorizar', () => {
+  it('pendiente SÍ permite preautorizar — es el único estado que lo hace', () => {
+    expect(debePreautorizar('pendiente')).toBe(true);
+  });
+
+  it('preautorizada, capturada, anulada y fallida NO permiten — ya se preautorizó o ya se resolvió', () => {
+    expect(debePreautorizar('preautorizada')).toBe(false);
+    expect(debePreautorizar('capturada')).toBe(false);
+    expect(debePreautorizar('anulada')).toBe(false);
+    expect(debePreautorizar('fallida')).toBe(false);
+  });
+
+  it('un estado que no existe hoy tampoco permite — lista blanca, no lista negra', () => {
+    expect(debePreautorizar('un_estado_que_no_existe_todavia')).toBe(false);
   });
 });

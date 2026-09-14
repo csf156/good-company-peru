@@ -49,15 +49,10 @@ export function calcularDesgloseCompra(valorV: number, tier: RentadorTier = 'fre
   };
 }
 
-// La confirmación de pago (escribir el ledger `compra`/`fee`/`escrow_lock` y la
-// bebida al bar) NO vive aquí: es una función SQL atómica e idempotente
-// (`confirmar_orden_pago`, migración 20260723140000). Se ejecuta en una sola
-// transacción con row lock, así un fallo parcial no deja la orden confirmada
-// sin su ledger/bar, y un webhook duplicado no duplica la bebida. Los index.ts
-// (mock inline / webhook real) solo la invocan vía `admin.rpc(...)`.
-
-export type EstadoOrden = 'pendiente' | 'confirmada' | 'fallida';
-export type ResultadoPago = 'confirmada' | 'fallida';
+// La orquestación de la orden (captura/anulación/preautorización) NO vive
+// aquí: son funciones SQL atómicas e idempotentes (capturar_orden,
+// confirmar_preautorizacion — E.2a). Los index.ts (Deno) solo las invocan vía
+// `admin.rpc(...)`, según lo que decida `rpcParaEvento` más abajo.
 
 // ============================================================================
 // PaymentProvider (mock | redpontis)
@@ -259,26 +254,82 @@ export async function verifyPagoWebhookSignature(
   return diff === 0;
 }
 
-export type ParsedPagoWebhook = { ordenId: string; estado: ResultadoPago };
+// ============================================================================
+// Vocabulario del ciclo hold, y qué RPC toca para cada evento — Fase E.2b.
+// Reemplaza a parsePagoWebhookPayload/ParsedPagoWebhook (vocabulario paid/
+// failed de la Fase 3.1: describía una compra directa que ya no existe).
+// ============================================================================
 
-const STATUS_MAP: Record<string, ResultadoPago> = {
-  paid: 'confirmada',
-  failed: 'fallida',
+export type EventoHold = 'autorizado' | 'capturado' | 'anulado' | 'fallido';
+export type ParsedHoldWebhook = { ordenId: string; evento: EventoHold; providerRef: string | null };
+
+const HOLD_EVENTO_MAP: Record<string, EventoHold> = {
+  authorized: 'autorizado',
+  captured: 'capturado',
+  voided: 'anulado',
+  failed: 'fallido',
 };
 
 /**
- * Traduce el payload del webhook de pago a nuestro estado interno. `external_id`
- * es el id de nuestra orden. Null si el status no aplica o el payload está mal
- * formado. Nota: NUNCA se confía en montos del payload — los montos vienen de la
- * orden ya persistida server-side; el webhook solo dispara la confirmación.
+ * Traduce el payload del webhook del partner al vocabulario del hold.
+ * `external_id` es el id de nuestra orden. Null si el status no aplica o el
+ * payload está mal formado. Nota: NUNCA se confía en montos del payload — los
+ * montos vienen de la orden ya persistida server-side; el webhook solo
+ * dispara la transición.
  */
-export function parsePagoWebhookPayload(payload: unknown): ParsedPagoWebhook | null {
+export function parseHoldWebhookPayload(payload: unknown): ParsedHoldWebhook | null {
   if (!payload || typeof payload !== 'object') return null;
   const body = payload as Record<string, unknown>;
   const externalId = body.external_id;
   const status = body.status;
   if (typeof externalId !== 'string' || typeof status !== 'string') return null;
 
-  const estado = STATUS_MAP[status];
-  return estado ? { ordenId: externalId, estado } : null;
+  const evento = HOLD_EVENTO_MAP[status];
+  if (!evento) return null;
+
+  const providerRef = typeof body.provider_ref === 'string' ? body.provider_ref : null;
+  return { ordenId: externalId, evento, providerRef };
+}
+
+/**
+ * Qué RPC toca para un evento dado. `autorizado`/`fallido` son el resultado
+ * de la preautorización (confirmar_preautorizacion, Tarea 3b de E.2a);
+ * `capturado`/`anulado` son el resultado de mover un hold ya vivo
+ * (capturar_orden, Tarea 2 de E.2a) — dos funciones SQL distintas porque
+ * cada una gobierna una transición distinta de la máquina de estados.
+ */
+export function rpcParaEvento(
+  evento: EventoHold,
+):
+  | { rpc: 'confirmar_preautorizacion'; ok: boolean }
+  | { rpc: 'capturar_orden'; resultado: 'capturada' | 'anulada' }
+  | null {
+  switch (evento) {
+    case 'autorizado':
+      return { rpc: 'confirmar_preautorizacion', ok: true };
+    case 'fallido':
+      return { rpc: 'confirmar_preautorizacion', ok: false };
+    case 'capturado':
+      return { rpc: 'capturar_orden', resultado: 'capturada' };
+    case 'anulado':
+      return { rpc: 'capturar_orden', resultado: 'anulada' };
+    default:
+      // Inalcanzable con el EventoHold de hoy (union cerrada de 4 valores) —
+      // defensivo por si el vocabulario crece sin actualizar este switch.
+      return null;
+  }
+}
+
+// Lista BLANCA, no lista negra (misma regla que la RLS de invitaciones,
+// E.2a Tarea 2b): solo 'pendiente' permite preautorizar. Es el guardián
+// contra el doble hold — un reintento del cliente con la misma
+// idempotency_key recibe de crear_invitacion la invitación YA creada, con su
+// orden YA preautorizada/capturada/anulada/fallida; sin esta guarda
+// escribiéndose como "qué SÍ permite" en vez de "qué NO es 'preautorizada'",
+// un estado nuevo que se agregue mañana nacería permitiendo un segundo hold
+// por defecto, en vez de bloquearlo por defecto.
+const ESTADOS_QUE_PERMITEN_PREAUTORIZAR: ReadonlySet<string> = new Set(['pendiente']);
+
+export function debePreautorizar(estadoOrden: string): boolean {
+  return ESTADOS_QUE_PERMITEN_PREAUTORIZAR.has(estadoOrden);
 }
