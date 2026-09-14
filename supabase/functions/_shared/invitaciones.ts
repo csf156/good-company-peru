@@ -102,11 +102,13 @@ export type ResponderInvitacionBody = {
   invitacionId: string;
   accion: AccionInvitacion;
   // Solo relevante al ACEPTAR una `solicitud` (el receptor-rentador asigna una
-  // bebida de su bar). Al aceptar una `invitacion` o al rechazar, es null. Que la
-  // bebida corresponda al tipo real de la invitación es negocio (lo decide la
-  // función SQL responder_invitacion, que conoce el tipo); acá solo validamos la
-  // FORMA: rechazar nunca lleva bebida; aceptar la lleva opcional.
-  bebidaBarId: string | null;
+  // bebida del catálogo). Al aceptar una `invitacion` o al rechazar, es null.
+  // Que la bebida corresponda al tipo real de la invitación es negocio (lo
+  // decide la función SQL responder_invitacion, que conoce el tipo); acá solo
+  // validamos la FORMA: rechazar nunca lleva bebida; aceptar la lleva opcional.
+  // Nombre actualizado en E.2b: la firma de responder_invitacion cambió a
+  // p_bebida_catalogo_id en E.2a (la bebida sale del catálogo, ya no de un bar).
+  bebidaCatalogoId: string | null;
 };
 
 export type ResponderValidacionResult =
@@ -131,14 +133,14 @@ export function validarResponderInvitacion(raw: unknown): ResponderValidacionRes
   }
 
   const accion = b.accion as AccionInvitacion;
-  const bebidaPresente = b.bebidaBarId !== undefined && b.bebidaBarId !== null;
+  const bebidaPresente = b.bebidaCatalogoId !== undefined && b.bebidaCatalogoId !== null;
 
   if (accion === 'rechazar' && bebidaPresente) {
     return { ok: false, error: 'Rechazar no lleva bebida.' };
   }
   // Al aceptar, la bebida es opcional; si viene, debe ser un uuid no vacío.
-  if (bebidaPresente && !esUuidNoVacio(b.bebidaBarId)) {
-    return { ok: false, error: 'bebidaBarId inválida.' };
+  if (bebidaPresente && !esUuidNoVacio(b.bebidaCatalogoId)) {
+    return { ok: false, error: 'bebidaCatalogoId inválida.' };
   }
 
   return {
@@ -146,7 +148,7 @@ export function validarResponderInvitacion(raw: unknown): ResponderValidacionRes
     body: {
       invitacionId: b.invitacionId,
       accion,
-      bebidaBarId: bebidaPresente ? (b.bebidaBarId as string) : null,
+      bebidaCatalogoId: bebidaPresente ? (b.bebidaCatalogoId as string) : null,
     },
   };
 }

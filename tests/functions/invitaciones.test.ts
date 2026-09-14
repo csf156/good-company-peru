@@ -104,28 +104,30 @@ function baseResponder(overrides: Record<string, unknown> = {}) {
 }
 
 describe('validarResponderInvitacion — forma del body', () => {
-  it('acepta un rechazo válido y normaliza bebidaBarId a null', () => {
+  it('acepta un rechazo válido y normaliza bebidaCatalogoId a null', () => {
     const r = validarResponderInvitacion(baseResponder());
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.body).toEqual({
         invitacionId: INVITACION,
         accion: 'rechazar',
-        bebidaBarId: null,
+        bebidaCatalogoId: null,
       });
     }
   });
 
-  it('acepta aceptar sin bebida (invitación de rentador) → bebidaBarId null', () => {
+  it('acepta aceptar sin bebida (invitación de rentador) → bebidaCatalogoId null', () => {
     const r = validarResponderInvitacion(baseResponder({ accion: 'aceptar' }));
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.body.bebidaBarId).toBeNull();
+    if (r.ok) expect(r.body.bebidaCatalogoId).toBeNull();
   });
 
-  it('acepta aceptar con bebida (solicitud) y conserva bebidaBarId', () => {
-    const r = validarResponderInvitacion(baseResponder({ accion: 'aceptar', bebidaBarId: BEBIDA }));
+  it('acepta aceptar con bebida (solicitud) y conserva bebidaCatalogoId', () => {
+    const r = validarResponderInvitacion(
+      baseResponder({ accion: 'aceptar', bebidaCatalogoId: BEBIDA }),
+    );
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.body.bebidaBarId).toBe(BEBIDA);
+    if (r.ok) expect(r.body.bebidaCatalogoId).toBe(BEBIDA);
   });
 
   it('rechaza un body que no es objeto', () => {
@@ -145,16 +147,16 @@ describe('validarResponderInvitacion — forma del body', () => {
 
   it('rechaza un rechazo que trae bebida (rechazar no lleva bebida)', () => {
     expect(
-      validarResponderInvitacion(baseResponder({ accion: 'rechazar', bebidaBarId: BEBIDA })).ok,
+      validarResponderInvitacion(baseResponder({ accion: 'rechazar', bebidaCatalogoId: BEBIDA })).ok,
     ).toBe(false);
   });
 
-  it('rechaza aceptar con una bebidaBarId presente pero inválida', () => {
+  it('rechaza aceptar con una bebidaCatalogoId presente pero inválida', () => {
     expect(
-      validarResponderInvitacion(baseResponder({ accion: 'aceptar', bebidaBarId: '' })).ok,
+      validarResponderInvitacion(baseResponder({ accion: 'aceptar', bebidaCatalogoId: '' })).ok,
     ).toBe(false);
     expect(
-      validarResponderInvitacion(baseResponder({ accion: 'aceptar', bebidaBarId: 123 })).ok,
+      validarResponderInvitacion(baseResponder({ accion: 'aceptar', bebidaCatalogoId: 123 })).ok,
     ).toBe(false);
   });
 });
