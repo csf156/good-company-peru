@@ -192,6 +192,51 @@ Hoy cualquier error de la RPC devuelve 404, y un 404 le dice al partner que deje
 
 ---
 
+## Task 4b: El webhook distingue por errcode, no por el texto del mensaje
+
+> **Añadida el 2026-09-14, tras revisar la Tarea 4.** No es un bug hoy: funciona. Es una desviación de un patrón que este repo ya tiene resuelto, y el coste de que falle es perder una confirmación de pago.
+
+**El problema.** `pago-webhook` decide entre 404 y 500 así:
+
+```ts
+const status = error.message.startsWith('orden no encontrada') ? 404 : 500;
+```
+
+Un `startsWith` sobre el **texto** de una excepción. Si alguien reescribe ese mensaje en una migración futura —cambiar "orden" por "orden de pago", traducirlo, añadirle un prefijo— el webhook empieza a devolver 500 donde debía devolver 404, **sin que ningún test lo note**: la lógica de decisión está probada en `pagos.test.ts`, pero esa línea no.
+
+**El repo ya resolvió esto.** `crear-invitacion` y `responder-invitacion` mapean **SQLSTATE → HTTP** con su tabla `ERRCODE_STATUS`, y las funciones SQL emiten `AY400` / `AY403` / `AY404` / `AY409` a propósito para eso — `responder_invitacion` lo hace nueve veces. Las funciones de E.2a son la excepción: sus tres `raise exception 'orden no encontrada: %'` salen sin errcode, así que el texto era lo único que quedaba.
+
+**Files:**
+- Create: `supabase/migrations/20260914120000_errcode_orden_no_encontrada.sql`
+- Modify: `supabase/functions/pago-webhook/index.ts`
+- Modify: `supabase/tests/13_confirmar_orden_pago.sql` y `34_confirmar_preautorizacion.sql` (+1 assert cada uno)
+
+- [ ] **Step 1: Escribir los asserts que faltan**
+
+En cada archivo, que la excepción de orden inexistente lanza con **`AY404`**, no con el genérico `P0001`. Usa `throws_ok` con el errcode, que es lo que ya hacen los demás tests del repo.
+
+- [ ] **Step 2: Rojo** → `npm run test:db`
+
+- [ ] **Step 3: La migración**
+
+`create or replace` de `capturar_orden` y `confirmar_preautorizacion` —**firma idéntica, así que no hace falta `drop`**— añadiendo `using errcode = 'AY404'` a los tres `raise exception 'orden no encontrada: %'`. **Nada más cambia.** Conserva todos los comentarios.
+
+Parte de los archivos de migración existentes y toca solo esas tres líneas, igual que hiciste en la Tarea 3c.
+
+- [ ] **Step 4: ALTO — BRAIN revisa y autoriza**
+
+- [ ] **Step 5: El webhook mapea por código**
+
+```ts
+const status = error.code === 'AY404' ? 404 : 500;
+```
+
+Mismo criterio que sus dos hermanas. Si te sale natural extraer la tabla `ERRCODE_STATUS` a `_shared/` para que las tres la compartan, mejor — pero no lo conviertas en un refactor: si te lleva más de unos minutos, déjalo anotado en backlog y sigue.
+
+- [ ] **Step 6: Verde y commit**
+
+---
+
 ## Task 5: Muere `comprar-bebida`
 
 **Files:**
