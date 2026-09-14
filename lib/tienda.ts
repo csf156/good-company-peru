@@ -43,24 +43,8 @@ export function newIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/**
- * Compra una bebida vía el Edge Function `comprar-bebida`. El cliente solo
- * envía el id y una idempotency key — el fee y el total los calcula el servidor
- * (Fase 3.1); nunca se recalculan aquí. La key hace idempotente la CREACIÓN de
- * la orden: un reintento con la misma key devuelve la orden existente en vez de
- * crear otra.
- */
-export async function comprarBebida(
-  bebidaId: string,
-  idempotencyKey: string,
-): Promise<CompraResult> {
-  const { data, error } = await supabase.functions.invoke('comprar-bebida', {
-    body: { bebidaId, idempotencyKey },
-  });
-
-  if (error) {
-    return { estado: null, desglose: null, error: error.message };
-  }
-
-  return { estado: data.estado, desglose: data.desglose, error: null };
-}
+// `comprarBebida` (comprar una bebida sin destinatario, vía el Edge Function
+// `comprar-bebida`) se borró en E.2b, Tarea 5 — veto 1 del backlog: esa
+// operación no existe en el modelo nuevo (la invitación es la compra, spec
+// §3.2) y no puede volver a existir. `CompraResult` se conserva: lo sigue
+// usando el stub de `app/store.tsx` hasta que E.3 reescriba esa pantalla.

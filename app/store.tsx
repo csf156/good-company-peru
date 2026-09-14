@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import {
   getCatalogo,
-  comprarBebida,
   newIdempotencyKey,
   type Bebida,
+  type CompraResult,
   type TipoInvitacion,
 } from '@/lib/tienda';
 import { colors, fontFamily, touchTarget, tabularNums } from '@/lib/theme';
@@ -60,7 +60,15 @@ export default function StoreScreen() {
     setComprandoId(bebida.id);
     setEstado({ tipo: 'comprando' });
 
-    const result = await comprarBebida(bebida.id, key);
+    // `comprarBebida` (comprar sin destinatario) murió en E.2b, Tarea 5 —
+    // veto 1 del backlog. Esta pantalla entera muere en E.3 ("muerte de
+    // Tienda y Bar", spec §7); el stub solo mantiene el archivo compilando
+    // hasta entonces, sin fingir que la compra directa sigue existiendo.
+    const result: CompraResult = {
+      estado: null,
+      desglose: null,
+      error: 'Comprar una bebida sin destinatario ya no existe — invita directamente.',
+    };
 
     setComprandoId(null);
 

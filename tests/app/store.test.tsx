@@ -1,19 +1,23 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import StoreScreen from '@/app/store';
-import { getCatalogo, comprarBebida } from '@/lib/tienda';
+import { getCatalogo } from '@/lib/tienda';
 
 jest.mock('@/lib/tienda', () => {
   let n = 0;
   return {
     getCatalogo: jest.fn(),
-    comprarBebida: jest.fn(),
     newIdempotencyKey: jest.fn(() => `key-${++n}`),
   };
 });
 
 const mockedGetCatalogo = getCatalogo as jest.Mock;
-const mockedComprarBebida = comprarBebida as jest.Mock;
+// `comprarBebida` ya no existe en lib/tienda (E.2b Tarea 5, veto 1 del
+// backlog) — app/store.tsx la reemplazó por un stub que siempre falla. Este
+// mock queda local, sin conexión al módulo real: la suite entera sigue en
+// `.skip` desde E.1 (la pantalla muere de verdad en E.3), así que nunca se
+// ejecuta — solo tiene que seguir compilando.
+const mockedComprarBebida = jest.fn();
 
 const catalogo = [
   { id: 'd1', nombre: 'Cerveza', tipo_invitacion: 'divertida', valor_v: 40 },

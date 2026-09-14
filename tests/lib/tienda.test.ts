@@ -1,4 +1,4 @@
-import { getCatalogo, comprarBebida, newIdempotencyKey } from '@/lib/tienda';
+import { getCatalogo, newIdempotencyKey } from '@/lib/tienda';
 import { supabase } from '@/lib/supabase';
 
 jest.mock('@/lib/supabase', () => ({
@@ -51,38 +51,10 @@ describe('getCatalogo', () => {
   });
 });
 
-describe('comprarBebida', () => {
-  it('invokes comprar-bebida with the bebidaId and idempotency key (no client-side amounts)', async () => {
-    mockedSupabase.functions.invoke.mockResolvedValue({
-      data: { estado: 'confirmada', ordenId: 'ord-1', desglose: { valorV: 40, buyerFee: 6, total: 46 } },
-      error: null,
-    });
-
-    const result = await comprarBebida('d1', 'idem-1');
-
-    expect(mockedSupabase.functions.invoke).toHaveBeenCalledWith('comprar-bebida', {
-      body: { bebidaId: 'd1', idempotencyKey: 'idem-1' },
-    });
-    expect(result).toEqual({
-      estado: 'confirmada',
-      desglose: { valorV: 40, buyerFee: 6, total: 46 },
-      error: null,
-    });
-  });
-
-  it('surfaces a function invocation error (e.g. KYC no verificado, bebida no disponible)', async () => {
-    mockedSupabase.functions.invoke.mockResolvedValue({
-      data: null,
-      error: { message: 'Debes verificar tu identidad (KYC) antes de comprar.' },
-    });
-
-    const result = await comprarBebida('d1', 'idem-1');
-
-    expect(result.estado).toBeNull();
-    expect(result.desglose).toBeNull();
-    expect(result.error).toBe('Debes verificar tu identidad (KYC) antes de comprar.');
-  });
-});
+// comprarBebida (comprar una bebida sin destinatario) se borró entera en
+// E.2b, Tarea 5 — veto 1 del backlog, no se adapta ni se repone: a
+// diferencia de bar/store/wallet (E.3/E.4 las reconstruyen), esta operación
+// no puede volver a existir en el modelo nuevo.
 
 describe('newIdempotencyKey', () => {
   it('generates a non-empty unique-ish key on each call', () => {
