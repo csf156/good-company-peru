@@ -63,7 +63,8 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 | Fase | Descripción | Estado |
 |------|-------------|--------|
 | E.1 | Esquema: matar `bar`, invariantes de crédito/débito en Postgres, `por_cobrar` | ✅ |
-| E.2 | `PaymentProvider` + reescritura de `confirmar_orden_pago`/`crear_invitacion`/`responder_invitacion` | ⬜ |
+| E.2a | `PaymentProvider` (hold/captura/anulación) + las cinco funciones SQL del flujo de dinero | ✅ |
+| E.2b | Edge Functions, seed de demo y árbol verde | ⬜ |
 | E.3 | UI del rentador (muerte de Tienda y Bar) | ⬜ |
 | E.4 | UI del amigo ("Por cobrar") + barrido de vocabulario | ⬜ |
 
@@ -113,6 +114,19 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase E.2a — Provider de preautorización y funciones SQL — 2026-09-14
+
+- **Qué se construyó:** el ciclo del dinero pasa de "comprar una bebida" a **preautorizar al invitar y capturar al aceptar**. `_shared/pagos.ts` gana las tres operaciones del hold sobre `PaymentProvider` (modo `mock`), y las cinco funciones SQL del flujo se reescriben contra el esquema sin stock de E.1. La conciliación se **redefine**: compara el ledger contra capturas, no contra un inventario que ya no existe.
+- **Archivos/pantallas clave:** ninguno de UI — E.2a es provider y base. `supabase/functions/_shared/pagos.ts`, `tests/functions/pagos.test.ts`.
+- **Tablas / Edge Functions / migraciones:** `20260910110000_renombrar_preautorizando.sql`, `20260910120000_capturar_orden.sql` (reemplaza `confirmar_orden_pago`, que se elimina), `20260910130000_crear_invitacion_preautorizando.sql`, `20260910135000_confirmar_preautorizacion.sql` (+ `abrir_cita`), `20260910145000_solicitud_nace_pendiente.sql`, `20260910140000_responder_invitacion_captura.sql`, `20260910150000_conciliacion_sin_bar.sql`, `20260910160000_rls_invitaciones_por_estado.sql`. pgTAP nuevo: `34_confirmar_preautorizacion.sql`. Sin Edge Functions tocadas — son E.2b.
+- **Decisiones tomadas en la fase:** (1) **`por_pagar` → `preautorizando`**: el usuario leyó el nombre viejo como "pendiente de pago hasta el encuentro", que es lo contrario de lo que significa; se renombró cuando aún costaba una línea. (2) **El camino de la `solicitud` es simétrico al de la `invitacion`** — el plan original pedía "crear la orden y capturar en el mismo acto", que **no se puede construir**: una función SQL no puede llamar al proveedor. Ahora `responder_invitacion` solo prepara y `confirmar_preautorizacion` cierra; de paso, la llamada al proveedor queda **entre** dos transacciones en vez de dentro de una. (3) **Un fallo de tarjeta no mata la solicitud del amigo**: vuelve a `pendiente`, no a `expirada` — el índice único parcial de E.1 permite el reintento. (4) **Convención de locks para toda la serie E**: `invitaciones` primero, `ordenes_pago` después. (5) **La RLS de invitaciones se escribe como lista blanca**, no como lista negra: un estado nuevo nace invisible para el receptor y hay que abrirlo a propósito.
+- **Tests:** 289 → **342 aserciones pgTAP** (32 archivos) y 411 → **419 jest** (46 suites verdes, **3 en `.skip`**: bar/store/wallet, sin cambio desde E.1). Contrato de cobertura de la deuda de E.1 **cumplido con holgura: 105 aserciones repuestas contra 72 exigidas** (13→21, 14→11, 19→29, 20→44). Criterio objetivo de cierre verificado por introspección: **cero funciones referencian la tabla `bar`**; al empezar E.2a eran cuatro. Lint y `tsc --noEmit` limpios. Verificado por BRAIN corriendo las suites, no por reporte.
+- **Deuda / notas para fases futuras:**
+  - **Red Pontis auth/capture/void sigue ASUMIDO, no confirmado.** Si la respuesta es "no", cae la máquina de estados entera, no solo el adaptador. Las dos preguntas por escrito (titularidad y auth/capture) siguen sin hacerse.
+  - **Cuatro huecos anotados en backlog durante la fase:** que `preautorizando` no delate la tarjeta del rentador al amigo (E.3/E.4), el lock del catálogo que serializa compradores, la invitación que puede quedar encallada en `preautorizando` si el proveedor no responde (E.2b), y el join por `idempotency_key` no indexable.
+  - **Al anular contra el proveedor en E.2b hay que persistir el `provider_ref` nuevo**, o la guarda "capturar tras anular falla" se evapora y queda solo la de la base.
+  - **De nueve bloques, seis destaparon defectos de premisa, casi todos del plan.** El más grave habría reintroducido en silencio una fuga de idempotencia cross-user ya cerrada, porque el plan mandaba a partir de la migración que **creó** cada función en vez de la última que la **redefine**. Dos más eran **tests en verde probando un mundo que no existe**: invariantes comparando contra un estado que ninguna función produce ya, y un fixture con claves de idempotencia que la aplicación nunca genera.
 
 ### Fase E.1 — Esquema del rediseño de dinero para evitar la licencia SBS — 2026-09-09
 
