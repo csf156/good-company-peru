@@ -26,6 +26,13 @@ Los chats existen porque el seed crea las citas saltándose la invitación.
 - **Reglas de UI de `CLAUDE.md`:** rojo solo para SOS/error/no-show; estados con **icono y texto**, nunca solo color; contraste AA; targets ≥44dp; cifras tabulares; modo oscuro.
 - **Skills de diseño:** `awesome-design-skills/skills/refined/SKILL.md` y `.../editorial/SKILL.md`. Se usan para **retícula, jerarquía y ritmo tipográfico**. **Los tokens de `lib/theme.ts` ganan sobre cualquier paleta que propongan.** La identidad Martini está cerrada.
 - Rutas explícitas en `git add`. Nunca `-A`, nunca `--amend`, sin push. `git diff tsconfig.json` antes de cada commit. Commits por `-F`.
+- **Antes de reescribir cualquier función SQL, comprueba cuál es la ÚLTIMA migración que la define, no la primera que la creó.** Regla heredada de E.2a, donde su ausencia casi reintroduce una fuga de idempotencia cross-user ya cerrada. **Se me olvidó incluirla en la primera versión de este plan**; BUILDER la aplicó igual, de memoria, en la Tarea 2.
+
+  ```bash
+  grep -l "create or replace function public.<nombre>" supabase/migrations/*.sql | sort | tail -1
+  ```
+
+- **Cuidado con los `count(*)` globales en los tests.** Esta base tiene datos demo persistentes desde E.2b que **no se pueden borrar** (ledger append-only, órdenes capturadas). Un assert que cuente una tabla entera falla aunque la función sea correcta. Escopa siempre por el fixture. Ya pasó dos veces: `13_confirmar_orden_pago.sql` en E.2b, y el primer borrador de la Tarea 2 de esta fase.
 - **El código de este plan es una hipótesis.** En E.2a seis de nueve bloques destaparon defectos de premisa. **Si un test y el snippet se contradicen, gana el test** — y avísame.
 
 ---
