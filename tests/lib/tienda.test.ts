@@ -1,4 +1,4 @@
-import { getCatalogo, newIdempotencyKey } from '@/lib/tienda';
+import { getCatalogo } from '@/lib/tienda';
 import { supabase } from '@/lib/supabase';
 
 jest.mock('@/lib/supabase', () => ({
@@ -55,13 +55,6 @@ describe('getCatalogo', () => {
 // E.2b, Tarea 5 — veto 1 del backlog, no se adapta ni se repone: a
 // diferencia de bar/store/wallet (E.3/E.4 las reconstruyen), esta operación
 // no puede volver a existir en el modelo nuevo.
-
-describe('newIdempotencyKey', () => {
-  it('generates a non-empty unique-ish key on each call', () => {
-    const a = newIdempotencyKey();
-    const b = newIdempotencyKey();
-    expect(typeof a).toBe('string');
-    expect(a.length).toBeGreaterThan(0);
-    expect(a).not.toBe(b);
-  });
-});
+//
+// newIdempotencyKey (y su test) se mudaron a lib/invitaciones.ts en la
+// Tarea 3 de E.3 — ver tests/lib/invitaciones.test.ts.

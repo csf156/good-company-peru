@@ -22,23 +22,11 @@ export async function getCatalogo(): Promise<Bebida[]> {
   return data as Bebida[];
 }
 
-/**
- * Genera una idempotency key para un intento de compra. El cliente la reusa en
- * reintentos del MISMO intento (misma bebida hasta que la compra tenga éxito),
- * así un reintento no crea una segunda orden. Usa `crypto.randomUUID` si está
- * disponible (Node/algunos runtimes RN) y cae a un id de tiempo+aleatorio.
- */
-export function newIdempotencyKey(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (c?.randomUUID) {
-    return c.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 // `comprarBebida` (comprar una bebida sin destinatario, vía el Edge Function
 // `comprar-bebida`) se borró en E.2b, Tarea 5 — veto 1 del backlog: esa
 // operación no existe en el modelo nuevo (la invitación es la compra, spec
 // §3.2) y no puede volver a existir. `app/store.tsx` (su único consumidor,
 // junto con los tipos `CompraResult`/`Desglose` que solo existían para su
 // stub) se borró en E.3, Tarea 1 — la propuesta reemplaza a la compra suelta.
+// `newIdempotencyKey` vivía acá también; se mudó a `lib/invitaciones.ts` en
+// la Tarea 3 — es la propuesta la que la usa ahora, no una compra suelta.
