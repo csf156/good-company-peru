@@ -26,7 +26,10 @@ export type CitaDetalle = {
   hora: string | null;
   mensaje: string | null;
   // Resumen "Cita confirmada" (bebida + V + tiempo estimado), leído vía
-  // invitaciones → bar → bebidas_catalogo (Fase 4.0/3.x, ya existente).
+  // invitaciones → bebidas_catalogo directo — `bebida_catalogo_id` vive en
+  // `invitaciones` desde E.1 (el salto intermedio por `bar`, que E.1
+  // eliminó, sobra: se dejó puesto por error hasta E.3 Tarea 3b, y la
+  // consulta rota fallaba en silencio, ver `getCitaDetalle` abajo).
   bebidaNombre: string | null;
   valorV: number | null;
   tiempoEstimadoMin: number | null;
@@ -39,7 +42,7 @@ type CitaRow = {
   mensaje: string | null;
   invitaciones: {
     tiempo_estimado_min: number | null;
-    bar: { bebidas_catalogo: { nombre: string; valor_v: number } | null } | null;
+    bebidas_catalogo: { nombre: string; valor_v: number } | null;
   } | null;
 };
 
@@ -57,7 +60,7 @@ export async function getCitaDetalle(citaId: string): Promise<CitaDetalle | null
   const { data, error } = await supabase
     .from('citas')
     .select(
-      'estado, zona, hora, mensaje, invitaciones(tiempo_estimado_min, bar(bebidas_catalogo(nombre, valor_v)))',
+      'estado, zona, hora, mensaje, invitaciones(tiempo_estimado_min, bebidas_catalogo(nombre, valor_v))',
     )
     .eq('id', citaId)
     .maybeSingle();
@@ -67,7 +70,7 @@ export async function getCitaDetalle(citaId: string): Promise<CitaDetalle | null
   }
 
   const row = data as unknown as CitaRow;
-  const bebida = row.invitaciones?.bar?.bebidas_catalogo ?? null;
+  const bebida = row.invitaciones?.bebidas_catalogo ?? null;
 
   return {
     estado: row.estado,

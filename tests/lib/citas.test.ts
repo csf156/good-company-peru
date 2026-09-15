@@ -24,6 +24,29 @@ beforeEach(() => {
 });
 
 describe('getCitaDetalle', () => {
+  // E.3 Tarea 3b: `bar` se eliminó en E.1 — la consulta seguía pidiéndola
+  // (invitaciones → bar → bebidas_catalogo) y fallaba en silencio (`if
+  // (error || !data) return null`), así que el panel entero desaparecía del
+  // chat. Un mock no puede probar que la consulta REAL funcione (ver Step 4,
+  // verificado contra la base) — lo único que un test con supabase mockeado
+  // puede afirmar de verdad es la FORMA de la cadena que se le pasa al
+  // cliente: que cuelgue bebidas_catalogo directo de invitaciones, y que
+  // `bar` no aparezca en ningún lado.
+  it('consulta bebidas_catalogo colgando de invitaciones, sin pasar por bar (E.1 la eliminó)', async () => {
+    mockedGetOwnProfile.mockResolvedValue({ rol: 'amigo' });
+    const maybeSingle = jest.fn().mockResolvedValue({ data: null, error: null });
+    const eq = jest.fn().mockReturnValue({ maybeSingle });
+    const select = jest.fn().mockReturnValue({ eq });
+    mockedSupabase.from.mockReturnValue({ select });
+
+    await getCitaDetalle('c1');
+
+    const consulta = select.mock.calls[0]?.[0] as string;
+    expect(consulta).toContain('invitaciones(');
+    expect(consulta).toContain('bebidas_catalogo(nombre, valor_v)');
+    expect(consulta).not.toContain('bar');
+  });
+
   it('returns null when there is no signed-in profile', async () => {
     mockedGetOwnProfile.mockResolvedValue(null);
 
@@ -43,7 +66,7 @@ describe('getCitaDetalle', () => {
         mensaje: null,
         invitaciones: {
           tiempo_estimado_min: 60,
-          bar: { bebidas_catalogo: { nombre: 'Pisco Sour', valor_v: 30 } },
+          bebidas_catalogo: { nombre: 'Pisco Sour', valor_v: 30 },
         },
       },
       error: null,
@@ -76,7 +99,7 @@ describe('getCitaDetalle', () => {
         zona: 'Barranco',
         hora: '2026-07-25T21:30:00-05:00',
         mensaje: 'Nos vemos',
-        invitaciones: { tiempo_estimado_min: 45, bar: { bebidas_catalogo: { nombre: 'Vino', valor_v: 50 } } },
+        invitaciones: { tiempo_estimado_min: 45, bebidas_catalogo: { nombre: 'Vino', valor_v: 50 } },
       },
       error: null,
     });
@@ -98,7 +121,7 @@ describe('getCitaDetalle', () => {
         zona: null,
         hora: null,
         mensaje: null,
-        invitaciones: { tiempo_estimado_min: null, bar: null },
+        invitaciones: { tiempo_estimado_min: null, bebidas_catalogo: null },
       },
       error: null,
     });
