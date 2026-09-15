@@ -1,20 +1,26 @@
 // Siembra y limpieza de datos de DEMO (Fase D.3, plan
-// docs/superpowers/plans/2026-09-04-datos-demo.md, Tareas 2-6).
+// docs/superpowers/plans/2026-09-04-datos-demo.md, Tareas 2-6; revivida en
+// E.2b Tarea 6 sobre el flujo de dinero nuevo — preautorizar al invitar,
+// capturar al aceptar).
 //
 // Desechable y marcado: todo perfil sembrado lleva flags->>'demo' = 'true'.
 // La limpieza borra SOLO eso. El catálogo de bebidas es dato de producto y
 // vive en su propia migración (Tarea 1) — este script no lo toca.
 //
-// SUSPENDIDO desde Fase E.1 (2026-09-09): la siembra de bar (Tarea 3 de este
-// script) y de invitaciones/citas/chat (Tarea 4) están cortadas a propósito.
-// El rediseño de dinero (docs/superpowers/plans/2026-09-09-fase-e1-esquema-
-// sbs.md) mató la tabla `bar` y con ella tres funciones que este script
-// llamaba: crear_invitacion / responder_invitacion (insertan/leen `bar`
-// directo) y detectar_discrepancias_sp3() (su invariante #4 cuenta filas de
-// `bar`). Las tres existen todavía pero invocarlas hoy falla con "relation
-// bar does not exist" — se reescriben en E.2 sobre preautorización/captura.
-// Hasta entonces este script solo siembra lo que no depende de ellas:
-// perfiles con foto (Tarea 2) y el cambio de rol a demanda (Tarea 6).
+// Igual que antes de E.1: invitaciones/citas se siembran vía las funciones
+// SQL reales (crear_invitacion, responder_invitacion), nunca por inserts a
+// mano. Nuevo en E.2b: la preautorización que en producción hace el Edge
+// Function (llamar al proveedor, luego confirmar_preautorizacion) se simula
+// acá mismo con el mock — `preautorizar()` reproduce exactamente esa cadena.
+//
+// ADVERTENCIA que no existía antes de esta tarea: `ordenes_pago.perfil_id` y
+// `ledger.perfil_id` NO tienen `on delete cascade` — a propósito, desde la
+// Fase 3.0 ("el ledger es un registro financiero que sobrevive; un perfil
+// con historial no se borra en duro"). Antes de E.2b eso no importaba
+// porque nada escribía ledger de demo. Ahora sí: cualquier perfil demo que
+// participe en una invitación ACEPTADA (con su captura) queda con filas de
+// ledger para siempre, y `--limpiar` NO PUEDE borrarlo en duro — ver
+// `limpiar()` más abajo, que lo hace explícito en vez de fallar en silencio.
 //
 // Reglas de oro que siguen vigentes:
 //   - El script se niega a tocar cualquier perfil sin flags->>'demo'='true',
@@ -24,12 +30,14 @@
 //     marca y debe quedar intacto).
 //
 // Uso:
-//   npm run demo:seed                      — siembra perfiles+fotos (Tarea 2,
-//                                             Tareas 3/4 suspendidas) y deja
-//                                             la cuenta del usuario como
-//                                             'rentador' (decisión del usuario).
+//   npm run demo:seed                      — siembra completa (perfiles+
+//                                             fotos+invitaciones/citas/chat)
+//                                             y deja la cuenta del usuario
+//                                             como 'rentador' (decisión del
+//                                             usuario).
 //   npm run demo:seed -- --rol=amigo       — solo cambia el rol de su cuenta.
-//   npm run demo:limpiar                   — borra todo lo sembrado.
+//   npm run demo:limpiar                   — borra lo sembrado que se pueda
+//                                             borrar (ver advertencia arriba).
 
 import pg from 'pg';
 import {
@@ -323,6 +331,333 @@ async function asegurarUsuarioVerificado(client, targetUserId) {
 }
 
 // ============================================================================
+// Tarea 4 — Invitaciones, citas y chat (revivida en E.2b Tarea 6 sobre el
+// flujo de dinero nuevo — preautorizar al invitar/al aceptar solicitud,
+// capturar al aceptar). Siembra por las funciones SQL reales
+// (crear_invitacion / responder_invitacion / confirmar_cita), nunca por
+// inserts a mano — mismo criterio que la versión pre-E.1 de este script.
+//
+// La preautorización que en producción hace el Edge Function (proveedor
+// PRIMERO, base DESPUÉS — ver supabase/functions/crear-invitacion/index.ts y
+// responder-invitacion/index.ts) se simula acá mismo con `preautorizar()`,
+// que reproduce EXACTAMENTE esa cadena: lee la orden 'pendiente' de la
+// invitación y la confirma con el mismo mock determinista que usan las
+// Edge Functions (`hold:<orden_id>`, siempre ok — ver mockPreautorizar en
+// supabase/functions/_shared/pagos.ts).
+// ============================================================================
+
+async function getCatalogoIds(client) {
+  const { rows } = await client.query(
+    `select id from public.bebidas_catalogo where activo order by valor_v`,
+  );
+  if (rows.length === 0) {
+    throw new Error("bebidas_catalogo está vacío — no se puede sembrar ninguna invitación.");
+  }
+  return rows.map((r) => r.id);
+}
+
+async function preautorizar(client, invitacionId) {
+  const { rows } = await client.query(
+    `select id, estado from public.ordenes_pago
+      where invitacion_id = $1
+      order by created_at desc limit 1`,
+    [invitacionId],
+  );
+  const orden = rows[0];
+  // Sin orden (una `solicitud` recién creada, Tarea 3c) o ya resuelta (un
+  // reintento): nada que preautorizar — mismo guard que `debePreautorizar`
+  // en _shared/pagos.ts.
+  if (!orden || orden.estado !== 'pendiente') return;
+  const providerRef = `hold:${orden.id}`;
+  await client.query(`select public.confirmar_preautorizacion($1, true, $2)`, [orden.id, providerRef]);
+}
+
+async function crearInvitacion(client, { emisorId, receptorId, tipo, bebidaCatalogoId, key }) {
+  const { rows } = await client.query(
+    `select * from public.crear_invitacion($1,$2,$3,$4,$5,$6,$7)`,
+    [emisorId, receptorId, tipo, bebidaCatalogoId, 30, 'Por confirmar', key],
+  );
+  const inv = rows[0];
+  // Solo `invitacion` crea su orden de una (spec §4) — simula el paso 5-6 de
+  // crear-invitacion/index.ts. Una `solicitud` no tiene nada que preautorizar
+  // todavía; preautorizar() lo detecta sola (no encuentra orden 'pendiente').
+  await preautorizar(client, inv.id);
+  return inv;
+}
+
+async function responderInvitacion(client, { receptorId, invitacionId, accion, bebidaCatalogoId }) {
+  const { rows } = await client.query(
+    `select public.responder_invitacion($1,$2,$3,$4) as resultado`,
+    [receptorId, invitacionId, accion, bebidaCatalogoId],
+  );
+  const resultado = rows[0].resultado;
+  // Solo el camino `solicitud` aceptada devuelve 'preautorizando' — simula el
+  // resto de responder-invitacion/index.ts (paso proveedor + confirmar).
+  if (resultado === 'preautorizando') {
+    await preautorizar(client, invitacionId);
+    return 'aceptada';
+  }
+  return resultado;
+}
+
+async function citaDe(client, invitacionId) {
+  const { rows } = await client.query(`select * from public.citas where invitacion_id = $1`, [invitacionId]);
+  return rows[0];
+}
+
+async function confirmarCita(client, { amigoId, citaId, zona, hora, mensaje }) {
+  const { rows } = await client.query(
+    `select public.confirmar_cita($1, $2, $3, $4, $5) as resultado`,
+    [amigoId, citaId, zona, hora, mensaje],
+  );
+  return rows[0].resultado;
+}
+
+async function insertarMensaje(client, { citaId, emisorId, texto }) {
+  const { rows } = await client.query(
+    `insert into public.chat_mensajes (cita_id, emisor_id, texto) values ($1, $2, $3) returning oculto`,
+    [citaId, emisorId, texto],
+  );
+  return rows[0].oculto;
+}
+
+async function tieneMensajes(client, citaId) {
+  const { rows } = await client.query(`select count(*)::int as n from public.chat_mensajes where cita_id = $1`, [
+    citaId,
+  ]);
+  return rows[0].n > 0;
+}
+
+// Siete escenarios: cubren cada (tipo, estado) en el que una invitación puede
+// nacer o quedar bajo el mock (que siempre preautoriza ok — 'expirada' no es
+// alcanzable sin simular un fallo del proveedor, queda fuera a propósito).
+// Solo dos perfiles terminan con filas de ledger (Rodri y Fer, los que pagan
+// en A y F) — nunca emparejados entre sí, así que ninguna invitación queda
+// atrapada sin poder limpiarse (ver limpiar()).
+async function seedInvitacionesCitasChat(client) {
+  const catalogo = await getCatalogoIds(client);
+  const bebida = (i) => catalogo[i % catalogo.length];
+  const perfil = Object.fromEntries(DEMO_PROFILES.map((d) => [d.alias, d.id]));
+  let contadorKey = 0;
+  const key = () => `demo-seed-${++contadorKey}`;
+
+  let invitaciones = 0;
+  let citasConfirmadas = 0;
+  let mensajesTotales = 0;
+  let mensajesOcultos = 0;
+  // Ids de las invitaciones que crea ESTA corrida — para poder distinguir,
+  // en el chequeo de discrepancias de más abajo, "esto lo rompió lo que
+  // acabo de sembrar" de "esto ya estaba roto de antes" (ver ese chequeo).
+  const invitacionIds = [];
+
+  // A) invitación (Rodri→Vale) aceptada, capturada, cita confirmada, con
+  //    historial de chat que incluye un mensaje que dispara moderación.
+  {
+    const inv = await crearInvitacion(client, {
+      emisorId: perfil.Rodri,
+      receptorId: perfil.Vale,
+      tipo: 'invitacion',
+      bebidaCatalogoId: bebida(0),
+      key: key(),
+    });
+    invitaciones++;
+    invitacionIds.push(inv.id);
+    await responderInvitacion(client, {
+      receptorId: perfil.Vale,
+      invitacionId: inv.id,
+      accion: 'aceptar',
+      bebidaCatalogoId: null,
+    });
+    const cita = await citaDe(client, inv.id);
+    await confirmarCita(client, {
+      amigoId: perfil.Vale,
+      citaId: cita.id,
+      zona: 'Miraflores',
+      hora: new Date(Date.now() + 2 * 86400000).toISOString(),
+      mensaje: 'Nos vemos en el parque Kennedy',
+    });
+    citasConfirmadas++;
+    // A diferencia de crear_invitacion/responder_invitacion/confirmar_cita,
+    // chat_mensajes no tiene idempotencia propia (no hay unique/idempotency_
+    // key) — en un reintento sobre una cita YA sembrada (crearInvitacion
+    // reusó la invitación por su idempotency_key), insertar sin este guard
+    // duplicaría el historial en cada corrida de `npm run demo:seed`.
+    if (!(await tieneMensajes(client, cita.id))) {
+      await insertarMensaje(client, {
+        citaId: cita.id,
+        emisorId: perfil.Rodri,
+        texto: '¡Hola! Nos vemos el jueves 😊',
+      });
+      mensajesTotales++;
+      const oculto = await insertarMensaje(client, {
+        citaId: cita.id,
+        emisorId: perfil.Vale,
+        texto: 'Mejor te paso mi yape así no pagamos comisión',
+      });
+      mensajesTotales++;
+      if (oculto) mensajesOcultos++;
+    }
+  }
+
+  // B) invitación (Fer→Seba) aceptada, capturada, cita SIN confirmar, sin chat.
+  {
+    const inv = await crearInvitacion(client, {
+      emisorId: perfil.Fer,
+      receptorId: perfil.Seba,
+      tipo: 'invitacion',
+      bebidaCatalogoId: bebida(1),
+      key: key(),
+    });
+    invitaciones++;
+    invitacionIds.push(inv.id);
+    await responderInvitacion(client, {
+      receptorId: perfil.Seba,
+      invitacionId: inv.id,
+      accion: 'aceptar',
+      bebidaCatalogoId: null,
+    });
+  }
+
+  // C) invitación (Gaby→Cami) rechazada — hold preautorizado anulado.
+  {
+    const inv = await crearInvitacion(client, {
+      emisorId: perfil.Gaby,
+      receptorId: perfil.Cami,
+      tipo: 'invitacion',
+      bebidaCatalogoId: bebida(2),
+      key: key(),
+    });
+    invitaciones++;
+    invitacionIds.push(inv.id);
+    await responderInvitacion(client, {
+      receptorId: perfil.Cami,
+      invitacionId: inv.id,
+      accion: 'rechazar',
+      bebidaCatalogoId: null,
+    });
+  }
+
+  // D) invitación (Diego→Andy) preautorizada, pendiente de respuesta.
+  {
+    const inv = await crearInvitacion(client, {
+      emisorId: perfil.Diego,
+      receptorId: perfil.Andy,
+      tipo: 'invitacion',
+      bebidaCatalogoId: bebida(3),
+      key: key(),
+    });
+    invitaciones++;
+    invitacionIds.push(inv.id);
+  }
+
+  // E) solicitud (Vale→Rodri) pendiente, nunca respondida — nace en
+  //    'pendiente' directo (Tarea 3c), sin orden todavía.
+  {
+    const inv = await crearInvitacion(client, {
+      emisorId: perfil.Vale,
+      receptorId: perfil.Rodri,
+      tipo: 'solicitud',
+      bebidaCatalogoId: null,
+      key: key(),
+    });
+    invitaciones++;
+    invitacionIds.push(inv.id);
+  }
+
+  // F) solicitud (Seba→Fer) aceptada — el rentador asigna la bebida al
+  //    aceptar, cita confirmada, chat vacío ("iniciada").
+  {
+    const inv = await crearInvitacion(client, {
+      emisorId: perfil.Seba,
+      receptorId: perfil.Fer,
+      tipo: 'solicitud',
+      bebidaCatalogoId: null,
+      key: key(),
+    });
+    invitaciones++;
+    invitacionIds.push(inv.id);
+    await responderInvitacion(client, {
+      receptorId: perfil.Fer,
+      invitacionId: inv.id,
+      accion: 'aceptar',
+      bebidaCatalogoId: bebida(0),
+    });
+    const cita = await citaDe(client, inv.id);
+    await confirmarCita(client, {
+      amigoId: perfil.Seba,
+      citaId: cita.id,
+      zona: 'San Borja',
+      hora: new Date(Date.now() + 3 * 86400000).toISOString(),
+      mensaje: null,
+    });
+    citasConfirmadas++;
+  }
+
+  // G) solicitud (Cami→Gaby) rechazada — nunca tuvo orden, nada que anular.
+  {
+    const inv = await crearInvitacion(client, {
+      emisorId: perfil.Cami,
+      receptorId: perfil.Gaby,
+      tipo: 'solicitud',
+      bebidaCatalogoId: null,
+      key: key(),
+    });
+    invitaciones++;
+    invitacionIds.push(inv.id);
+    await responderInvitacion(client, {
+      receptorId: perfil.Gaby,
+      invitacionId: inv.id,
+      accion: 'rechazar',
+      bebidaCatalogoId: null,
+    });
+  }
+
+  console.log(
+    `✓ Tarea 4 — ${invitaciones} invitaciones/solicitudes sembradas (7 escenarios: invitación ` +
+      'aceptada+confirmada+chat con moderación, invitación aceptada sin confirmar, invitación ' +
+      'rechazada, invitación pendiente, solicitud pendiente, solicitud aceptada+confirmada, ' +
+      `solicitud rechazada), ${citasConfirmadas} citas confirmadas, ${mensajesTotales} mensajes ` +
+      `(${mensajesOcultos} oculto por moderación, esperado — contiene 'yape').`,
+  );
+
+  // No sembrar discrepancias: el mismo chequeo que corre en pgTAP (14).
+  //
+  // Solo aborta por discrepancias cuya `referencia` sea una invitación de
+  // ESTA corrida — no por el total de la tabla. Motivo real, no hipotético:
+  // un bug ya corregido de limpiar() (esta misma tarea, antes de este fix)
+  // borró en duro 4 órdenes YA CAPTURADAS antes de que existiera la guarda
+  // `estado <> 'capturada'` de abajo — sus filas de ledger (append-only,
+  // CLAUDE.md prohíbe DELETE/UPDATE sin excepción, ni siquiera para arreglar
+  // esto) quedaron huérfanas para siempre en esta base de dev. Eso deja
+  // 'escrow_captura_desbalance' (agregado global, no por invitación) en rojo
+  // permanentemente — no es nuevo ni lo causó esta siembra. Ver
+  // docs/backlog.md. Las clases por-invitación (con `referencia`) SÍ siguen
+  // abortando duro si aparecen en una de las 7 de esta corrida.
+  const { rows: discrepancias } = await client.query(`select * from public.detectar_discrepancias_sp3()`);
+  const idsNuevos = new Set(invitacionIds);
+  const nuevas = discrepancias.filter((d) => d.referencia && idsNuevos.has(d.referencia));
+  const preexistentes = discrepancias.filter((d) => !nuevas.includes(d));
+
+  if (nuevas.length > 0) {
+    console.error(nuevas);
+    throw new Error(
+      `detectar_discrepancias_sp3() encontró ${nuevas.length} discrepancia(s) EN LO QUE ACABA DE ` +
+        'SEMBRAR esta corrida — la siembra no debe crear discrepancias nuevas. Ver filas arriba.',
+    );
+  }
+
+  if (preexistentes.length > 0) {
+    console.log(
+      `⚠ detectar_discrepancias_sp3() reporta ${preexistentes.length} discrepancia(s) preexistente(s) ` +
+        '(no de esta corrida — ver comentario arriba y docs/backlog.md). No abortan la siembra:',
+    );
+    console.table(preexistentes);
+  }
+
+  console.log('✓ Tarea 4 — detectar_discrepancias_sp3() confirma 0 discrepancias nuevas de esta corrida.');
+}
+
+// ============================================================================
 // Tarea 6 — Rol a demanda
 // ============================================================================
 
@@ -339,33 +674,134 @@ async function setRol(client, targetUserId, rol) {
 // Tarea 5 — Limpieza
 // ============================================================================
 
+// Un perfil NO se puede borrar en duro si:
+//   (a) tiene filas propias en `ledger` (append-only, sin cascada — pagó
+//       algo), o
+//   (b) es parte (emisor o receptor) de una invitación con una orden
+//       'capturada' TODAVÍA VIVA. Encontrado sembrando dos veces seguidas en
+//       esta misma tarea (E.2b Tarea 6): una orden 'capturada' escribe
+//       ledger (capturar_orden), así que borrarla —aunque ordenes_pago en sí
+//       NO sea append-only— deja esas filas de ledger huérfanas
+//       (`ledger_sin_orden` en detectar_discrepancias_sp3()). Por eso la
+//       orden capturada tiene que sobrevivir igual que el ledger, y
+//       ordenes_pago.invitacion_id es 'no action' (no cascada): mientras esa
+//       orden viva, su invitación tampoco se puede borrar, así que NINGUNA
+//       de las dos partes de esa invitación es borrable — tenga o no ledger
+//       propio (el que no pagó igual queda atrapado por el que sí).
+async function perfilesBloqueados(client, ids) {
+  if (ids.length === 0) return new Set();
+  const { rows } = await client.query(
+    `select p.id
+       from unnest($1::uuid[]) as p(id)
+      where exists (select 1 from public.ledger l where l.perfil_id = p.id)
+         or exists (
+              select 1
+                from public.invitaciones i
+                join public.ordenes_pago o on o.invitacion_id = i.id
+               where o.estado = 'capturada'
+                 and (i.emisor_id = p.id or i.receptor_id = p.id)
+            )`,
+    [ids],
+  );
+  return new Set(rows.map((r) => r.id));
+}
+
 async function limpiar(client) {
-  const ids = await getDemoIds(client);
+  const todos = await getDemoIds(client);
 
-  // Defensa explícita (Tarea 5, Step 2): si hay MÁS perfiles marcados demo de
-  // los que este script sembró, algo los marcó de más — abortar sin borrar
-  // nada, en vez de arrastrar filas que no sembramos nosotros.
-  if (ids.length > DEMO_PROFILES.length) {
-    throw new Error(
-      `Hay ${ids.length} perfiles con flags->>'demo'='true', pero este script solo sembró ` +
-        `${DEMO_PROFILES.length}. Abortando sin borrar nada — el delete alcanzaría más filas de ` +
-        'las sembradas.',
-    );
-  }
-
-  if (ids.length === 0) {
+  if (todos.length === 0) {
     console.log('✓ Tarea 5 — nada que limpiar.');
     return;
   }
 
-  // Con la siembra de bar/ledger/ordenes_pago/invitaciones suspendida (ver
-  // nota de cabecera, Fase E.1), no hay dinero ni citas de demo que limpiar
-  // aparte — borrar por auth.users basta: profiles.id → auth.users.id es on
-  // delete cascade y arrastra preferencias_salida (y cualquier invitación
-  // vieja donde el perfil demo participe, si quedó alguna de antes de E.1).
-  await client.query(`delete from auth.users where id = any($1::uuid[])`, [ids]);
+  // Defensa (Tarea 5, Step 2, endurecida en E.2b Tarea 6 tras un caso real:
+  // dos perfiles de una verificación manual de E.2b Tareas 2/3 quedaron
+  // marcados flags->>'demo'='true', sin ser de este script — y uno de ellos
+  // estaba bloqueado). Comparar CANTIDADES (ids.length > DEMO_PROFILES.
+  // length) se rompía permanentemente ante eso: ese sobrante nunca se va,
+  // así que --limpiar abortaría por el resto de la vida del proyecto. En vez
+  // de eso, se distingue por IDENTIDAD:
+  //   - ajeno bloqueado (como el caso real de arriba): atrapado para siempre
+  //     por la MISMA razón que uno propio (ver perfilesBloqueados) — no se
+  //     toca nada suyo y no bloquea la limpieza de lo propio. Solo se informa.
+  //   - ajeno SIN bloqueo: nada lo protege de un delete — si alguien lo marcó
+  //     demo por error, esto es lo único que puede atraparlo antes de que
+  //     `--limpiar` lo borre. Aborta TODO sin tocar nada, igual que antes.
+  const idsPropios = new Set(DEMO_PROFILES.map((p) => p.id));
+  const ajenos = todos.filter((id) => !idsPropios.has(id));
 
-  console.log(`✓ Tarea 5 — ${ids.length} perfiles de demo y su rastro (cascada) borrados.`);
+  if (ajenos.length > 0) {
+    const ajenosBloqueados = await perfilesBloqueados(client, ajenos);
+    const ajenosSinBloqueo = ajenos.filter((id) => !ajenosBloqueados.has(id));
+
+    if (ajenosSinBloqueo.length > 0) {
+      throw new Error(
+        `Hay ${ajenosSinBloqueo.length} perfil(es) con flags->>'demo'='true' que este script NO ` +
+          `sembró y que nada protege de un delete: ${ajenosSinBloqueo.join(', ')}. Algo los marcó ` +
+          'de más — abortando sin borrar nada.',
+      );
+    }
+
+    console.log(
+      `⚠ ${ajenosBloqueados.size} perfil(es) demo AJENOS a este script (marcados por otra tarea, ` +
+        'p.ej. una verificación manual) están bloqueados y quedan atrapados para siempre, igual que ' +
+        'uno propio bloqueado — no se tocan y no bloquean la limpieza de abajo.',
+    );
+  }
+
+  const ids = todos.filter((id) => idsPropios.has(id));
+  if (ids.length === 0) {
+    console.log('✓ Tarea 5 — nada propio que limpiar (solo quedaban perfiles ajenos, ver arriba).');
+    return;
+  }
+
+  // Paso 1: se borra toda orden que NUNCA se capturó (pendiente,
+  // preautorizada, anulada, fallida) — no escribió ledger, no deja rastro
+  // que perder. Una orden 'capturada' se preserva a propósito (ver
+  // perfilesBloqueados) — ANTES de tocar auth.users, para que el cascade de
+  // abajo no choque con una orden no-capturada todavía viva (ordenes_pago no
+  // tiene 'on delete cascade' desde profiles ni desde invitaciones).
+  await client.query(
+    `delete from public.ordenes_pago
+      where estado <> 'capturada'
+        and (perfil_id = any($1::uuid[])
+          or invitacion_id in (
+               select id from public.invitaciones
+                where emisor_id = any($1::uuid[]) or receptor_id = any($1::uuid[])
+             ))`,
+    [ids],
+  );
+
+  // Paso 2: perfiles bloqueados (propios o no) no se tocan. El resto sí: su
+  // cascada desde auth.users arrastra profiles/preferencias_salida, y de
+  // regreso cualquier invitación/cita/chat donde participe — el cascade de
+  // `invitaciones` dispara con CUALQUIERA de sus dos partes, así que una
+  // invitación entre un perfil borrable y uno bloqueado igual se limpia
+  // (su orden, si tenía una, ya no está capturada — Paso 1 la borró).
+  const idsBloqueados = await perfilesBloqueados(client, ids);
+  const idsBorrables = ids.filter((id) => !idsBloqueados.has(id));
+
+  if (idsBorrables.length > 0) {
+    await client.query(`delete from auth.users where id = any($1::uuid[])`, [idsBorrables]);
+  }
+
+  console.log(
+    `✓ Tarea 5 — ${idsBorrables.length}/${ids.length} perfiles de demo y su rastro (cascada) borrados.`,
+  );
+
+  if (idsBloqueados.size > 0) {
+    const alias = DEMO_PROFILES.filter((p) => idsBloqueados.has(p.id))
+      .map((p) => p.alias)
+      .join(', ');
+    console.log(
+      `⚠ ${idsBloqueados.size} perfil(es) de demo NO se pudieron borrar en duro (${alias}): tienen ` +
+        'ledger propio o son parte de una invitación con una orden capturada — ambos append-only en ' +
+        'la práctica, por diseño (un registro financiero sobrevive). Sus invitaciones SIN captura ' +
+        '(y las citas/chat de esas) SÍ se limpiaron. El perfil, su foto, su invitación capturada y ' +
+        'sus filas de ledger quedan para siempre — volver a sembrar los saltea (ON CONFLICT DO ' +
+        'NOTHING), sin duplicarlos.',
+    );
+  }
 }
 
 // ============================================================================
@@ -401,17 +837,26 @@ async function main() {
     await asegurarUsuarioVerificado(client, usuario.id);
     await seedAuthUsersYProfiles(client);
     await seedFotos();
-
-    console.log(
-      "\n⚠ Tarea 3 (bar) y Tarea 4 (invitaciones/citas/chat) SUSPENDIDAS: dependen de " +
-        "crear_invitacion / responder_invitacion / detectar_discrepancias_sp3(), rotas por " +
-        "la Fase E.1 hasta que E.2 las reescriba sobre preautorización/captura.",
-    );
+    await seedInvitacionesCitasChat(client);
 
     // ---- Reporte final ----
-    const conteos = await client.query(`
-      select (select count(*) from public.profiles where flags->>'demo'='true') as perfiles_demo
-    `);
+    const demoIds = await getDemoIds(client);
+    const conteos = await client.query(
+      `select
+         (select count(*) from public.profiles where id = any($1::uuid[])) as perfiles_demo,
+         (select count(*) from public.invitaciones
+            where emisor_id = any($1::uuid[]) or receptor_id = any($1::uuid[])) as invitaciones,
+         (select count(*) from public.citas c
+            join public.invitaciones i on i.id = c.invitacion_id
+           where i.emisor_id = any($1::uuid[]) or i.receptor_id = any($1::uuid[])) as citas,
+         (select count(*) from public.chat_mensajes m
+            join public.citas c on c.id = m.cita_id
+            join public.invitaciones i on i.id = c.invitacion_id
+           where i.emisor_id = any($1::uuid[]) or i.receptor_id = any($1::uuid[])) as mensajes_chat,
+         (select count(*) from public.ledger where perfil_id = any($1::uuid[])) as filas_ledger
+      `,
+      [demoIds],
+    );
 
     console.log('\n=== Reporte de siembra ===');
     console.table(conteos.rows[0]);
