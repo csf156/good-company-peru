@@ -47,6 +47,7 @@ async function llegarAConfirmarComoRentador() {
   await render(<InvitarScreen />);
   const chip = await screen.findByText(/Pisco Sour/);
   await fireEvent.press(chip);
+  await fireEvent.press(await screen.findByText('Siguiente'));
   await screen.findByText('Rodri');
 }
 
@@ -60,19 +61,57 @@ describe('InvitarScreen — rol rentador (tipo invitacion)', () => {
     expect(screen.getByText(/Vino/)).toBeTruthy();
   });
 
-  it('al elegir una bebida pasa a confirmar y muestra el DESGLOSE COMPLETO antes del botón de enviar', async () => {
+  it('elegir una bebida NO navega sola — "Siguiente" queda deshabilitado hasta elegir, y se puede cambiar de opción antes de avanzar', async () => {
+    mockedGetOwnProfile.mockResolvedValue({ rol: 'rentador' });
+    await render(<InvitarScreen />);
+    await screen.findByText(/Pisco Sour/);
+
+    // Sin bebida elegida, "Siguiente" está deshabilitado — tocarlo no hace nada.
+    await fireEvent.press(screen.getByText('Siguiente'));
+    expect(mockedGetDesglose).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByText(/Pisco Sour/));
+    // Elegir sola no navega: sigue en paso 1, sin desglose ni "Confirmar".
+    expect(mockedGetDesglose).not.toHaveBeenCalled();
+    expect(screen.queryByText('Rodri')).toBeNull();
+
+    // Cambia de opción antes de avanzar — es exactamente el caso de "estoy indeciso".
+    // findByText (no getByText) entre los dos toques: le da tiempo al cambio de
+    // selección a confirmarse en el estado antes de que "Siguiente" lo lea.
+    await fireEvent.press(screen.getByText(/Vino/));
+    await fireEvent.press(await screen.findByText('Siguiente'));
+
+    expect(mockedGetDesglose).toHaveBeenCalledWith('d2');
+    expect(mockedGetDesglose).not.toHaveBeenCalledWith('d1');
+    await screen.findByText('Rodri');
+  });
+
+  it('al tocar Siguiente pasa a confirmar y muestra el DESGLOSE COMPLETO antes del botón de enviar', async () => {
     await llegarAConfirmarComoRentador();
 
     expect(mockedGetDesglose).toHaveBeenCalledWith('d1');
-    expect(await screen.findByText(/46\.00/)).toBeTruthy(); // total
+    expect((await screen.findAllByText(/46\.00/)).length).toBeGreaterThan(0); // total (y lo repite el aviso de retención)
 
-    // El total aparece ANTES del botón "Invitar" en el árbol renderizado.
+    // El total aparece ANTES del botón de confirmar en el árbol renderizado.
     const tree = JSON.stringify(screen.toJSON());
     const idxTotal = tree.indexOf('46.00');
-    const idxBoton = tree.indexOf('Invitar');
+    const idxBoton = tree.indexOf('Retener e invitar');
     expect(idxTotal).toBeGreaterThan(-1);
     expect(idxBoton).toBeGreaterThan(-1);
     expect(idxTotal).toBeLessThan(idxBoton);
+  });
+
+  it('explica la retención antes del botón: se retiene, se cobra solo si acepta, se libera si no — sin jerga ni "saldo"/"billetera"/"monedero"', async () => {
+    await llegarAConfirmarComoRentador();
+
+    const aviso = await screen.findByText(/Se retiene/);
+    const texto = [aviso.props.children].flat().join('');
+    expect(texto).toMatch(/Se retiene S\/ 46\.00/);
+    expect(texto).toMatch(/Rodri acepta/);
+    expect(texto).toMatch(/se libera/i);
+
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree).not.toMatch(/saldo|billetera|monedero|wallet/i);
   });
 
   it('el botón queda deshabilitado mientras la llamada está en vuelo — un doble toque no dispara dos crearPropuesta', async () => {
@@ -84,7 +123,7 @@ describe('InvitarScreen — rol rentador (tipo invitacion)', () => {
     );
     await llegarAConfirmarComoRentador();
 
-    const boton = screen.getByText('Invitar');
+    const boton = screen.getByText('Retener e invitar');
     // No se espera este primer press: el handler queda pendiente hasta
     // resolver() (mismo patrón que el resto del repo, p.ej. store.tsx antes
     // de E.3 — awaitearlo colgaría el test).
@@ -97,7 +136,7 @@ describe('InvitarScreen — rol rentador (tipo invitacion)', () => {
     // dejando a los tests SIGUIENTES sin poder renderizar. Esperando acá se
     // evita, y de paso se prueba lo real: el botón queda deshabilitado antes
     // del segundo toque, no solo "no duplica por casualidad".
-    const botonEnVuelo = await screen.findByText('Enviando…');
+    const botonEnVuelo = await screen.findByText('Reteniendo…');
     fireEvent.press(botonEnVuelo); // segundo toque, con el botón ya deshabilitado
 
     resolver({ ok: true, invitacionId: 'inv-1' });
@@ -110,19 +149,19 @@ describe('InvitarScreen — rol rentador (tipo invitacion)', () => {
     mockedCrearPropuesta.mockResolvedValue({ ok: false, error: 'emisor no verificado' });
     await llegarAConfirmarComoRentador();
 
-    await fireEvent.press(screen.getByText('Invitar'));
+    await fireEvent.press(screen.getByText('Retener e invitar'));
 
     expect(await screen.findByText('emisor no verificado')).toBeTruthy();
     // La pantalla sigue mostrando el formulario de confirmar, no queda en blanco.
     expect(screen.getByText('Rodri')).toBeTruthy();
-    expect(screen.getByText(/46\.00/)).toBeTruthy();
+    expect(screen.getAllByText(/46\.00/).length).toBeGreaterThan(0);
   });
 
   it('al enviar con éxito llama a crearPropuesta con la idempotencyKey y vuelve', async () => {
     mockedCrearPropuesta.mockResolvedValue({ ok: true, invitacionId: 'inv-1' });
     await llegarAConfirmarComoRentador();
 
-    await fireEvent.press(screen.getByText('Invitar'));
+    await fireEvent.press(screen.getByText('Retener e invitar'));
 
     expect(mockedCrearPropuesta).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -29,6 +29,7 @@ export default function InvitarScreen() {
   const [bebidaId, setBebidaId] = useState<string | null>(null);
   const [desglose, setDesglose] = useState<Desglose | null>(null);
   const [paso, setPaso] = useState<1 | 2>(1);
+  const [avanzando, setAvanzando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Guarda de doble-toque — ver handleEnviar.
@@ -59,10 +60,21 @@ export default function InvitarScreen() {
     };
   }, [receptorId]);
 
-  async function elegirBebida(id: string) {
+  // Elegir una bebida solo la selecciona — no avanza sola. Alguien indeciso
+  // tiene que poder mirar precios y cambiar de opción antes de comprometerse
+  // (spec de la Tarea 4, endurecida tras recorrido del usuario en E.3).
+  function elegirBebida(id: string) {
     setBebidaId(id);
-    const d = await getDesglose(id);
+  }
+
+  async function avanzarAConfirmar() {
+    if (!bebidaId) {
+      return;
+    }
+    setAvanzando(true);
+    const d = await getDesglose(bebidaId);
     setDesglose(d);
+    setAvanzando(false);
     setPaso(2);
   }
 
@@ -121,12 +133,18 @@ export default function InvitarScreen() {
           }}
           max={1}
         />
+        <Button
+          label={avanzando ? 'Cargando…' : 'Siguiente'}
+          disabled={!bebidaId || avanzando}
+          onPress={avanzarAConfirmar}
+        />
       </Screen>
     );
   }
 
   const bebidaElegida = catalogo.find((b) => b.id === bebidaId) ?? null;
-  const etiquetaBoton = tipo === 'invitacion' ? 'Invitar' : 'Solicitar';
+  const etiquetaBoton = tipo === 'invitacion' ? 'Retener e invitar' : 'Solicitar';
+  const etiquetaEnviando = tipo === 'invitacion' ? 'Reteniendo…' : 'Enviando…';
 
   return (
     <Screen background={colors.background} scroll contentStyle={styles.content}>
@@ -164,6 +182,16 @@ export default function InvitarScreen() {
         </View>
       )}
 
+      {tipo === 'invitacion' && desglose && (
+        <View style={styles.retencionFila}>
+          <Icon name="lock-outline" size="sm" tone="muted" />
+          <Text style={styles.retencionTexto}>
+            Se retiene S/ {desglose.total.toFixed(2)} en tu tarjeta. Solo se cobra si{' '}
+            {contraparte?.alias ?? 'la otra persona'} acepta. Si no acepta, se libera.
+          </Text>
+        </View>
+      )}
+
       {tipo === 'solicitud' && (
         <Text style={styles.hint}>
           Tu solicitud se envía sin bebida — {contraparte?.alias ?? 'la otra persona'} elige una y
@@ -179,7 +207,7 @@ export default function InvitarScreen() {
       )}
 
       <Button
-        label={enviando ? 'Enviando…' : etiquetaBoton}
+        label={enviando ? etiquetaEnviando : etiquetaBoton}
         onPress={handleEnviar}
         disabled={enviando}
       />
@@ -251,6 +279,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodyLg,
     fontWeight: '700',
     color: colors.primary,
+  },
+  retencionFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  retencionTexto: {
+    ...textStyles.body,
+    flex: 1,
+    fontSize: fontSize.body,
+    color: colors.mutedForeground,
   },
   errorRow: {
     flexDirection: 'row',

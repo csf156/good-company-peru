@@ -32,6 +32,14 @@ describe('SelectionGrid', () => {
     expect(screen.getByText(/máximo 2/i)).toBeTruthy();
   });
 
+  it('con max=1, elegir otra opción reemplaza la anterior en vez de bloquear — para poder comparar antes de decidir', async () => {
+    const onChange = jest.fn();
+    await render(<SelectionGrid options={OPCIONES} selected={['a']} onChange={onChange} max={1} />);
+    await fireEvent.press(screen.getByText('Beta'));
+    expect(onChange).toHaveBeenCalledWith(['b']);
+    expect(screen.queryByText(/máximo 1/i)).toBeNull();
+  });
+
   it('marca lo seleccionado con estado accesible, no solo con color', async () => {
     await render(<SelectionGrid options={OPCIONES} selected={['a']} onChange={jest.fn()} max={2} />);
     expect(screen.getByLabelText('Alfa').props.accessibilityState.selected).toBe(true);

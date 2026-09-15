@@ -39,6 +39,14 @@ export function SelectionGrid({ options, selected, onChange, max, searchable }: 
       return;
     }
     if (selected.length >= max) {
+      if (max === 1) {
+        // Selección única: elegir otra opción reemplaza a la actual en vez
+        // de bloquear — quien está indeciso puede cambiar de opinión con un
+        // solo toque, en vez de tener que deseleccionar primero.
+        setMaxError(false);
+        onChange([value]);
+        return;
+      }
       setMaxError(true);
       return;
     }
