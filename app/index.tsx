@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getPerfilesDescubrir, type Descubrimiento } from '@/lib/descubrimiento';
 import { getPhotoSignedUrl } from '@/lib/storage';
 import { colors, fontFamily, tabularNums } from '@/lib/theme';
@@ -12,6 +13,7 @@ const CTA_LABEL: Record<'amigo' | 'rentador', string> = {
 };
 
 export default function DiscoverScreen() {
+  const router = useRouter();
   const [data, setData] = useState<Descubrimiento | null>(null);
   const [cargando, setCargando] = useState(true);
   const [idx, setIdx] = useState(0);
@@ -113,6 +115,7 @@ export default function DiscoverScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={CTA_LABEL[data!.rolPropio]}
+            onPress={() => router.push(`/invitar/${perfil.id}`)}
             style={styles.cta}
           >
             <Text style={styles.ctaLabel}>{CTA_LABEL[data!.rolPropio]}</Text>
