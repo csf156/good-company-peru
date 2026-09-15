@@ -186,8 +186,12 @@ export default function InvitarScreen() {
         <View style={styles.retencionFila}>
           <Icon name="lock-outline" size="sm" tone="muted" />
           <Text style={styles.retencionTexto}>
-            Se retiene S/ {desglose.total.toFixed(2)} en tu tarjeta. Solo se cobra si{' '}
-            {contraparte?.alias ?? 'la otra persona'} acepta. Si no acepta, se libera.
+            Se retiene S/ {desglose.total.toFixed(2)} en tu tarjeta.{'\n'}
+            Si {contraparte?.alias ?? 'la otra persona'} acepta, se cobra y queda en custodia.
+            {'\n'}
+            {contraparte?.alias ?? 'La otra persona'} lo recibe solo cuando el encuentro se
+            verifique.{'\n'}
+            Si no acepta, se libera y no se cobra nada.
           </Text>
         </View>
       )}

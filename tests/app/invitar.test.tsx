@@ -101,13 +101,21 @@ describe('InvitarScreen — rol rentador (tipo invitacion)', () => {
     expect(idxTotal).toBeLessThan(idxBoton);
   });
 
-  it('explica la retención antes del botón: se retiene, se cobra solo si acepta, se libera si no — sin jerga ni "saldo"/"billetera"/"monedero"', async () => {
+  it('explica la retención antes del botón con los TRES momentos del dinero (retención, captura a custodia, entrega solo con encuentro verificado) y la liberación si no acepta — sin jerga ni "saldo"/"billetera"/"monedero"', async () => {
     await llegarAConfirmarComoRentador();
 
     const aviso = await screen.findByText(/Se retiene/);
     const texto = [aviso.props.children].flat().join('');
+    // Momento 1: la invitación solo retiene, no cobra todavía.
     expect(texto).toMatch(/Se retiene S\/ 46\.00/);
+    // Momento 2: aceptar cobra Y manda a custodia — no "listo, ya está".
     expect(texto).toMatch(/Rodri acepta/);
+    expect(texto).toMatch(/custodia/i);
+    // Momento 3, el que se comía la versión anterior: Rodri no ve la plata
+    // hasta que el encuentro se verifique (spec ToS: "Custodia: retención...
+    // hasta que el Encuentro sea verificado").
+    expect(texto).toMatch(/verifi/i);
+    // Si no acepta, no pasa nada de esto.
     expect(texto).toMatch(/se libera/i);
 
     const tree = JSON.stringify(screen.toJSON());
