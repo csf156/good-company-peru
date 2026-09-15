@@ -217,8 +217,12 @@ Cada bloque cierra con tests verdes y su propio commit. Ninguno deja la rama rot
 |---|---|---|
 | **E.1** | Esquema | Borrar `bar` y `estado_bar`; `invitaciones` pierde `bebida_bar_id` (la FK que apuntaba al stock) y gana `bebida_catalogo_id`; `ordenes_pago` gana `invitacion_id` (con índice único parcial) y pierde `bebida_catalogo_id`; ampliar los dos enums; las tres invariantes; vista `por_cobrar` en lugar de `balance`. pgTAP que **reproduce los ataques**. |
 | **E.2** | Provider y funciones | `PaymentProvider` gana `preautorizar` / `capturar` / `anular`; `confirmar_orden_pago`, `crear_invitacion`, `responder_invitacion` **y `detectar_discrepancias_sp3`** reescritas; Edge Functions `comprar-bebida` (renombrada) y `pago-webhook`. Idempotencia en las tres operaciones nuevas. **Restaurar la cobertura pgTAP que E.1 vació** (ver §10). |
-| **E.3** | UI del rentador | Catálogo dentro del flujo de invitar; "Mis invitaciones"; muerte de Tienda y Bar; `lib/bar.ts` reemplazada. |
-| **E.4** | UI del amigo y vocabulario | "Por cobrar"; barrido de vocabulario en toda la app; verificación del copy del ToS. |
+| **E.3** | La propuesta, de punta a punta | Flujo de invitar (persona → bebida → confirmar con el importe a la vista), pantalla de propuestas recibidas y enviadas donde **ambos roles** responden, muerte de Tienda, Bar y Wallet. |
+| **E.4** | "Por cobrar" y vocabulario | Pantalla "Por cobrar" del amigo; barrido de vocabulario en toda la app; verificación del copy del ToS. |
+
+> **Reparto corregido el 2026-09-14, antes de planificar E.3.** El spec partía E.3/E.4 **por rol** —rentador / amigo— asumiendo que el flujo de invitar ya existía y solo había que reescribirlo. **No existe:** verificado en el código y en la bitácora de la fase 4.2, que lista como entregables la Edge Function, la validación compartida y los tests, y **ninguna pantalla**. El botón "Invitar una bebida" del descubrimiento no tiene `onPress`, y el cliente nunca ha llamado a `crear-invitacion` ni a `responder-invitacion`. Los chats existen porque el seed crea las citas saltándose la invitación.
+>
+> Además, partir por rol dejaba a caballo la pantalla de responder: **el amigo responde invitaciones y el rentador responde solicitudes**, así que la necesitan los dos. El reparto pasa a ser **por flujo**: E.3 entrega la propuesta entera y se puede probar de punta a punta; E.4 queda con el dinero del amigo y el vocabulario.
 
 **Orden obligatorio:** E.1 antes que E.2 (las funciones necesitan el esquema nuevo), E.2 antes que E.3 y E.4 (la UI necesita algo que llamar). E.3 y E.4 son independientes entre sí.
 
