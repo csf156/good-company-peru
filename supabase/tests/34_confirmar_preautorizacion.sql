@@ -3,7 +3,7 @@
 -- responder_invitacion (necesita pendiente/preautorizada para responder). Dos
 -- escrituras acopladas (orden + invitación) que tienen que ser atómicas — por
 -- eso es SQL, no dos updates sueltos desde el Edge Function de E.2b.
-select plan(24);
+select plan(25);
 
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
@@ -157,6 +157,15 @@ select throws_ok(
 select throws_ok(
   $$ select public.confirmar_preautorizacion('b0000000-0000-0000-0000-00000000000e', true, null) $$,
   'P0001', null, 'confirmar sobre una invitación que ya no espera preautorización falla');
+
+-- ============================================================================
+-- Orden inexistente falla como no encontrada (AY404, no genérico) — E.2b
+-- Tarea 4b, mismo motivo que capturar_orden (13): pago-webhook distinguía
+-- 404 de 500 leyendo el TEXTO del mensaje, sin errcode propio que lo probara.
+-- ============================================================================
+select throws_ok(
+  $$ select public.confirmar_preautorizacion('ffffffff-ffff-ffff-ffff-ffffffffffff', true, null) $$,
+  'AY404', null, 'confirmar sobre una orden inexistente falla con AY404, no con un error genérico');
 
 -- ============================================================================
 -- 11-12. El cliente no puede ejecutar la función.

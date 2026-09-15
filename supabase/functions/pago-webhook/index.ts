@@ -16,6 +16,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parseHoldWebhookPayload, rpcParaEvento, verifyPagoWebhookSignature } from '../_shared/pagos.ts';
 
+// SQLSTATE personalizados que emiten capturar_orden/confirmar_preautorizacion
+// → status HTTP. Mismo patrón que crear-invitacion/responder-invitacion
+// (ERRCODE_STATUS), desde E.2b Tarea 4b: antes se leía el TEXTO del mensaje
+// de la excepción (`error.message.startsWith('orden no encontrada')`) porque
+// esas dos funciones no tenían errcode propio — un simple retoque de
+// redacción lo habría roto en silencio, sin que ningún test lo notara.
+const ERRCODE_STATUS: Record<string, number> = {
+  AY404: 404, // orden no encontrada
+};
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -69,13 +79,13 @@ Deno.serve(async (req) => {
         });
 
   if (error) {
-    // Orden inexistente: no hay nada que reintentar, se ack-ea con 404 (el
-    // partner deja de reintentar algo que nunca va a existir). Cualquier
-    // OTRO error —transición ilegal, error transitorio de base— es
-    // reintentable: un 500 le dice al partner que vuelva a intentar, en vez
-    // de perder la confirmación para siempre con el 404 indiscriminado que
-    // tenía esta función antes (backlog, code-review de la fase 3.4).
-    const status = error.message.startsWith('orden no encontrada') ? 404 : 500;
+    // Orden inexistente (AY404): no hay nada que reintentar, se ack-ea con
+    // 404 (el partner deja de reintentar algo que nunca va a existir).
+    // Cualquier OTRO error —transición ilegal, error transitorio de base—
+    // es reintentable: un 500 le dice al partner que vuelva a intentar, en
+    // vez de perder la confirmación para siempre con el 404 indiscriminado
+    // que tenía esta función antes (backlog, code-review de la fase 3.4).
+    const status = ERRCODE_STATUS[error.code ?? ''] ?? 500;
     const mensaje = status === 404 ? 'Orden no encontrada.' : 'No se pudo procesar el evento.';
     return Response.json({ error: mensaje }, { status });
   }

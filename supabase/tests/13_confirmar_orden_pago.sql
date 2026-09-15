@@ -4,7 +4,7 @@
 -- capturada | anulada, sin `bar`. El ledger escribe la MISMA terna
 -- compra/fee/escrow_lock que la función vieja (spec §4), pero referenciando
 -- la invitación, no la orden — la invitación es la compra.
-select plan(21);
+select plan(22);
 
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
@@ -99,8 +99,15 @@ select is(
   1, 'referencia_id de las 3 filas es la invitación (no la orden)');
 
 -- --- 5. no crea nada fuera de ledger/ordenes_pago (no hay stock) ---
+-- Escopado a la invitación del fixture, no a la tabla entera (BRAIN, code-
+-- review de la Tarea 4b de E.2b): antes contaba `citas` global y solo pasaba
+-- porque la tabla estaba vacía — en cuanto seed-demo.mjs revivió la siembra
+-- de citas (E.2b Tarea 6), este assert se caía aunque capturar_orden siguiera
+-- sin crear ninguna. Mismo defecto, mismo arreglo que la conciliación (14):
+-- filtrar por referencia concreta, no por conteo global de tabla.
 select is(
-  (select count(*) from public.citas)::int,
+  (select count(*) from public.citas
+    where invitacion_id = 'a0000000-0000-0000-0000-00000000000a')::int,
   0, 'capturar_orden no crea ninguna fila en citas ni en ninguna tabla de stock');
 
 -- --- 6/7. segunda llamada: idempotente, ve el estado ya resuelto ---
@@ -170,5 +177,17 @@ select is(
 select throws_ok(
   $$ select public.capturar_orden('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'anulada', null) $$,
   'P0001', null, 'anular una orden ya capturada falla (no se libera un cobro ya hecho)');
+
+-- --- 16. orden inexistente falla como no encontrada (AY404, no genérico) ---
+-- E.2b Tarea 4b: antes salía sin errcode propio (P0001) — el único diferenciador
+-- era el TEXTO del mensaje ('orden no encontrada: %'), del que dependía
+-- pago-webhook para distinguir 404 (no reintentar) de 500 (sí reintentar). Un
+-- futuro retoque de redacción rompería esa lectura en silencio, sin que
+-- ningún test lo notara (BRAIN, revisando la Tarea 4). Mismo criterio AY4xx
+-- que crear_invitacion/responder_invitacion/confirmar_cita/
+-- confirmar_preautorizacion.
+select throws_ok(
+  $$ select public.capturar_orden('ffffffff-ffff-ffff-ffff-ffffffffffff', 'capturada', null) $$,
+  'AY404', null, 'capturar una orden inexistente falla con AY404, no con un error genérico');
 
 select * from finish();
