@@ -150,6 +150,43 @@ export async function getPropuestasEnviadas(): Promise<Propuesta[]>;
 
 ---
 
+## Task 3b: El panel de la cita en el chat lleva roto desde E.1
+
+> **Añadida el 2026-09-14.** Encontrado por BUILDER durante la Tarea 3 y confirmado por BRAIN. **Lo rompió la serie E**, así que lo arregla la serie E.
+
+`lib/citas.ts` → `getCitaDetalle` consulta `citas → invitaciones → bar → bebidas_catalogo`. **`bar` se eliminó en E.1.** La consulta falla, y la función hace `if (error || !data) return null` — así que **falla en silencio**: el panel de la cita desaparece entero del chat, **incluido el botón de confirmar cita del amigo**. No es cosmético: es la fase 4.5 muerta desde E.1.
+
+**Por qué va en esta fase y no "en una sesión aparte":** el criterio de cierre de E.3 es una prueba real de punta a punta —proponer, aceptar, abrir el chat— y esa prueba aterriza justo en este panel. Dejarlo para después significa cerrar E.3 sin poder completar su propia verificación.
+
+**Barrido hecho por BRAIN:** es el **único** caso. Ninguna otra consulta del cliente apunta a una relación inexistente (`.from('fotos')` es un bucket de storage, no una tabla).
+
+**Files:**
+- Modify: `lib/citas.ts`, `tests/lib/citas.test.ts`
+
+- [ ] **Step 1: El test que falla**
+
+El test actual **mockea supabase**, así que valida el mapeo y **nunca la consulta**. Por eso pasa con la consulta rota. Escribe el assert sobre **la cadena `select` que se le pasa al cliente**: que contenga `bebidas_catalogo` colgando de `invitaciones`, y que **no** contenga `bar`. Es feo, pero es lo único que un test con supabase mockeado puede afirmar de verdad aquí.
+
+- [ ] **Step 2: Rojo** → `npm test -- citas`
+
+- [ ] **Step 3: Arreglar la consulta**
+
+`bebida_catalogo_id` vive ahora **en `invitaciones`** (E.1), así que el salto intermedio sobra:
+
+```
+'estado, zona, hora, mensaje, invitaciones(tiempo_estimado_min, bebidas_catalogo(nombre, valor_v))'
+```
+
+Ajusta `CitaRow` en consecuencia y actualiza el comentario que todavía dice "vía invitaciones → bar → bebidas_catalogo".
+
+- [ ] **Step 4: Verde, y compruébalo DE VERDAD contra la base**
+
+El test con mock no prueba que la consulta funcione. Ejecútala contra Supabase con una cita real del seed y confirma que devuelve la bebida y su valor. **Pega esa salida** — es la única verificación que vale aquí.
+
+- [ ] **Step 5: Commit**
+
+---
+
 ## Task 4: El flujo de proponer
 
 **Files:**
