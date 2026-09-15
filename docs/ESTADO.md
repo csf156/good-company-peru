@@ -64,7 +64,7 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 |------|-------------|--------|
 | E.1 | Esquema: matar `bar`, invariantes de crédito/débito en Postgres, `por_cobrar` | ✅ |
 | E.2a | `PaymentProvider` (hold/captura/anulación) + las cinco funciones SQL del flujo de dinero | ✅ |
-| E.2b | Edge Functions, seed de demo y árbol verde | ⬜ |
+| E.2b | Edge Functions del ciclo hold, seed de demo y árbol verde | ✅ |
 | E.3 | UI del rentador (muerte de Tienda y Bar) | ⬜ |
 | E.4 | UI del amigo ("Por cobrar") + barrido de vocabulario | ⬜ |
 
@@ -114,6 +114,22 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase E.2b — Edge Functions del ciclo hold — 2026-09-14
+
+- **Qué se construyó:** las Edge Functions se conectan con el proveedor de pagos y el ciclo hold queda cerrado de punta a punta. `crear-invitacion` preautoriza tras crear; `responder-invitacion` preautoriza al aceptar una solicitud; `pago-webhook` enruta al RPC correcto según el evento; `comprar-bebida` **se elimina**, del repo y del servidor. El seed de demo revive sobre el flujo real. Primer despliegue verificado por HTTP de toda la serie.
+- **Archivos/pantallas clave:** ninguno de UI. `supabase/functions/_shared/pagos.ts` (vocabulario del hold y decisiones de orquestación como funciones puras), `crear-invitacion/`, `responder-invitacion/`, `pago-webhook/`, `scripts/seed-demo.mjs`, `lib/tienda.ts` (pierde `comprarBebida`).
+- **Tablas / Edge Functions / migraciones:** migración `20260914120000_ay404_orden_no_encontrada.sql` (`AY404` en los tres `raise` de "orden no encontrada", `create or replace` sin `drop`). Edge Functions desplegadas: `crear-invitacion`, `responder-invitacion`, `confirmar-cita` (v2) y **`pago-webhook` (v1, primer despliegue desde que se escribió en la fase 3.1)**, con `verify_jwt=false` confirmado. **`comprar-bebida` eliminada del servidor** con `supabase functions delete`.
+- **Decisiones tomadas en la fase:** (1) **Toda decisión de orquestación vive en `_shared/` como función pura**, y los `index.ts` quedan como cáscara — no es estilo: los `index.ts` corren en Deno y **ninguna suite los ejecuta**, así que lo que se escriba ahí no tiene cobertura. (2) **Proveedor primero, base después**: un hold real sin registrar lo caza la conciliación; un registro sin hold real es dinero fantasma que nadie detecta. (3) **`debePreautorizar` como lista blanca** — solo `'pendiente'` permite llamar al proveedor. Es la guarda del doble hold, y el camino que la rompe es inocente: un reintento recibe de `crear_invitacion` la invitación ya creada, correctamente, y sin guarda dispararía un segundo hold sobre la tarjeta. (4) **`comprar-bebida` se elimina en vez de adaptarse**: era el endpoint de comprar sin destinatario, el veto 1. (5) **El webhook mapea `SQLSTATE`→HTTP, no el texto del mensaje**, siguiendo la convención que el repo ya tenía en sus dos funciones hermanas.
+- **Tests:** 342 → **344 aserciones pgTAP** (32 archivos), 419 → **424 jest** (46 suites verdes, 3 en `.skip`: bar/store/wallet, las repone E.3/E.4). Lint y `tsc --noEmit` limpios. Criterio objetivo de cierre verificado: **los 5 nombres de RPC que referencian las Edge Functions existen en `pg_proc`**. Verificado por BRAIN contra la base, no por reporte.
+- **Verificación por HTTP (lo que ninguna suite cubre):** 8 llamadas con JWT real obtenido por login de verdad sobre perfiles demo. Crear invitación → `pendiente`/`preautorizada`; **reintento con la misma `idempotency_key` → una sola orden**; solicitud → `pendiente` sin órdenes; aceptarla → `aceptada`/`capturada`/3 ledger/cita; rechazar → `anulada`/cero ledger; body inválido → 400, no 500; `comprar-bebida` → 404. `detectar_discrepancias_sp3()` en **cero** después de todo.
+- **Deuda / notas para fases futuras:**
+  - **`pago-webhook` es el único trozo del flujo de dinero sin verificación directa.** No se puede probar sin una firma HMAC de un partner que aún no existe; su lógica quedó ejercitada indirectamente por las mismas dos RPC. Se cierra cuando Red Pontis sea real.
+  - **Una orden `'capturada'` es, en la práctica, tan append-only como el `ledger` que escribió** — borrarla deja sus 3 filas huérfanas para siempre. Y por la FK, **tampoco se puede borrar la invitación que la referencia, así que ninguna de sus dos partes es borrable**. Consecuencia de protección de datos: "borrar mi cuenta" no podrá ser un `delete` real para nadie que haya participado en un encuentro pagado. Para el abogado colegiado.
+  - **Reset manual de los datos de dinero en dev**, ejecutado por el usuario el 2026-09-14 tras 13 discrepancias permanentes: `truncate public.ledger` + `delete from public.ordenes_pago` + `demo:limpiar`. **No se tocó el trigger append-only** — `TRUNCATE` no dispara triggers de fila, que es justo por lo que la fase 4.x se lo revocó a los roles de cliente. Sin dejar script ni herramienta.
+  - **6 cuentas demo quedaron con contraseña real** sobre el proyecto, y las que participaron en un encuentro capturado ya no son borrables. Razón adicional para lanzar sobre un proyecto Supabase limpio.
+  - **Un test que solo pasa con la tabla vacía deja de proteger cuando el sistema tiene datos.** `13_confirmar_orden_pago.sql` contaba `citas` global en vez de las de su fixture; el seed revivido lo destapó. Se corrigió escopándolo, y se barrió el resto de `supabase/tests/` sin encontrar más casos reales.
+  - **Borrar una Edge Function del repo no la quita del servidor.** `comprar-bebida` seguía ACTIVE semanas después de que el modelo la prohibiera. Cualquier función que se retire en el futuro hay que borrarla explícitamente del proyecto.
 
 ### Fase E.2a — Provider de preautorización y funciones SQL — 2026-09-14
 
