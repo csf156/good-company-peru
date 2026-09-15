@@ -3,7 +3,7 @@ import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getPerfilesDescubrir, type Descubrimiento } from '@/lib/descubrimiento';
 import { getPhotoSignedUrl } from '@/lib/storage';
-import { colors, fontFamily, tabularNums } from '@/lib/theme';
+import { colors, fontFamily, tabularNums, touchTarget } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 import { Icon } from '@/components/Icon';
 
@@ -65,8 +65,20 @@ export default function DiscoverScreen() {
 
   return (
     <Screen background={colors.background} scroll contentStyle={styles.content}>
-      <Text style={styles.eyebrow}>Martini</Text>
-      <Text style={styles.title}>Descubre</Text>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.eyebrow}>Martini</Text>
+          <Text style={styles.title}>Descubre</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ver propuestas"
+          onPress={() => router.push('/propuestas')}
+          style={styles.propuestasButton}
+        >
+          <Icon name="email-outline" size="md" />
+        </Pressable>
+      </View>
 
       {!cargando && total === 0 && (
         <Text style={styles.empty}>No hay perfiles disponibles por ahora.</Text>
@@ -130,6 +142,20 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     gap: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  propuestasButton: {
+    ...touchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   eyebrow: {
     fontFamily: fontFamily.label,
