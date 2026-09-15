@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getOwnProfile, getPublicProfile, type PublicProfile } from '@/lib/profile';
 import { getCatalogo, type Bebida } from '@/lib/tienda';
 import { getDesglose, crearPropuesta, newIdempotencyKey, type Desglose } from '@/lib/invitaciones';
-import { colors, fontFamily, tabularNums } from '@/lib/theme';
+import { colors, spacing, fontSize, textStyles, tabularNums, radius } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 import { StepHeader } from '@/components/StepHeader';
 import { SelectionGrid } from '@/components/SelectionGrid';
@@ -189,80 +189,79 @@ export default function InvitarScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
-    gap: 10,
+    padding: spacing[5],
+    gap: spacing[2],
   },
   label: {
-    fontFamily: fontFamily.label,
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
     color: colors.mutedForeground,
-    marginTop: 8,
+    marginTop: spacing[2],
   },
   valor: {
-    fontFamily: fontFamily.display,
-    fontStyle: 'italic',
-    fontSize: 20,
+    ...textStyles.display,
+    fontSize: fontSize.titleLg,
     color: colors.foreground,
   },
   hint: {
-    fontSize: 13,
+    ...textStyles.body,
+    fontSize: fontSize.body,
     color: colors.mutedForeground,
-    marginTop: 8,
+    marginTop: spacing[2],
   },
   desglose: {
-    marginTop: 12,
+    marginTop: spacing[3],
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
+    borderRadius: radius.xl,
+    padding: spacing[4],
+    gap: spacing[2],
   },
   desgloseFila: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   desgloseLabel: {
-    fontSize: 13,
+    ...textStyles.body,
+    fontSize: fontSize.body,
     color: colors.mutedForeground,
   },
   desgloseMonto: {
-    fontFamily: fontFamily.label,
+    ...textStyles.label,
     ...tabularNums,
-    fontSize: 13,
+    fontSize: fontSize.body,
     color: colors.foreground,
   },
   desgloseTotalFila: {
-    marginTop: 6,
-    paddingTop: 10,
+    marginTop: spacing[2],
+    paddingTop: spacing[3],
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   desgloseTotalLabel: {
-    fontFamily: fontFamily.label,
-    fontSize: 13,
+    ...textStyles.label,
+    fontSize: fontSize.body,
     fontWeight: '700',
-    textTransform: 'uppercase',
     color: colors.foreground,
   },
   desgloseTotalMonto: {
-    fontFamily: fontFamily.label,
+    ...textStyles.label,
     ...tabularNums,
-    fontSize: 16,
+    fontSize: fontSize.bodyLg,
     fontWeight: '700',
     color: colors.primary,
   },
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: spacing[2],
+    marginTop: spacing[2],
   },
   error: {
+    ...textStyles.body,
     flex: 1,
-    color: colors.destructive,
-    fontSize: 13,
+    color: colors.destructiveText,
+    fontSize: fontSize.body,
   },
 });

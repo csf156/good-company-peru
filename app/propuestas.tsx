@@ -10,7 +10,7 @@ import {
   type Desglose,
 } from '@/lib/invitaciones';
 import { getCatalogo, type Bebida } from '@/lib/tienda';
-import { colors, fontFamily, tabularNums } from '@/lib/theme';
+import { colors, spacing, fontSize, radius, textStyles, tabularNums } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 import { SelectionGrid } from '@/components/SelectionGrid';
 import { Button } from '@/components/Button';
@@ -156,18 +156,18 @@ export default function PropuestasScreen() {
 
       <View style={styles.lista}>
         {lista.map((p) => (
-          <Pressable
-            key={p.id}
-            accessibilityRole="button"
-            accessibilityLabel={`Propuesta de ${p.contraparte.alias ?? 'alguien'}`}
-            onPress={() => router.push(`/profile/${p.contraparte.id}`)}
-            style={styles.card}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.alias}>{p.contraparte.alias ?? 'Alguien'}</Text>
-              <EstadoBadge estado={p.estado} testIdSufijo={p.id} />
-            </View>
-            {p.bebida && <Text style={styles.bebida}>{p.bebida.nombre}</Text>}
+          <View key={p.id} style={styles.card}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Propuesta de ${p.contraparte.alias ?? 'alguien'}`}
+              onPress={() => router.push(`/profile/${p.contraparte.id}`)}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={styles.alias}>{p.contraparte.alias ?? 'Alguien'}</Text>
+                <EstadoBadge estado={p.estado} testIdSufijo={p.id} />
+              </View>
+              {p.bebida && <Text style={styles.bebida}>{p.bebida.nombre}</Text>}
+            </Pressable>
 
             {tab === 'recibidas' && p.estado === 'pendiente' && (
               <View style={styles.acciones}>
@@ -180,7 +180,7 @@ export default function PropuestasScreen() {
                 <Button label="Aceptar" disabled={accionando === p.id} onPress={() => handleAceptar(p)} />
               </View>
             )}
-          </Pressable>
+          </View>
         ))}
       </View>
 
@@ -230,7 +230,7 @@ export default function PropuestasScreen() {
             )}
 
             <Button label="Confirmar" disabled={!bebidaId} onPress={confirmarAceptarSolicitud} />
-            <Pressable onPress={() => setSolicitudEnCurso(null)}>
+            <Pressable accessibilityRole="button" onPress={() => setSolicitudEnCurso(null)}>
               <Text style={styles.modalCancelar}>Cancelar</Text>
             </Pressable>
           </View>
@@ -242,32 +242,29 @@ export default function PropuestasScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
-    gap: 8,
+    padding: spacing[5],
+    gap: spacing[2],
   },
   eyebrow: {
-    fontFamily: fontFamily.label,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
     color: colors.primary,
   },
   title: {
-    fontFamily: fontFamily.display,
-    fontStyle: 'italic',
-    fontSize: 30,
+    ...textStyles.display,
+    fontSize: fontSize.display,
     color: colors.foreground,
   },
   tabs: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    gap: spacing[2],
+    marginTop: spacing[3],
   },
   tab: {
     minHeight: 44,
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 999,
+    paddingHorizontal: spacing[4],
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -277,31 +274,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   tabTexto: {
-    fontFamily: fontFamily.label,
-    fontSize: 11,
-    textTransform: 'uppercase',
+    ...textStyles.label,
+    fontSize: fontSize.caption,
     color: colors.mutedForeground,
   },
   tabTextoActivo: {
     color: colors.primaryForeground,
   },
   vacio: {
+    ...textStyles.body,
     color: colors.mutedForeground,
-    fontSize: 13,
-    marginTop: 16,
+    fontSize: fontSize.body,
+    marginTop: spacing[4],
     textAlign: 'center',
   },
   lista: {
-    gap: 10,
-    marginTop: 12,
+    gap: spacing[3],
+    marginTop: spacing[3],
   },
   card: {
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 14,
-    gap: 6,
+    borderRadius: radius.xl,
+    padding: spacing[4],
+    gap: spacing[2],
   },
   cardHeader: {
     flexDirection: 'row',
@@ -309,39 +306,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   alias: {
-    fontFamily: fontFamily.display,
-    fontStyle: 'italic',
-    fontSize: 17,
+    ...textStyles.display,
+    fontSize: fontSize.title,
     color: colors.foreground,
   },
   estadoFila: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing[1],
   },
   estadoTexto: {
-    fontSize: 11,
+    ...textStyles.body,
+    fontSize: fontSize.caption,
     color: colors.mutedForeground,
   },
   bebida: {
-    fontSize: 13,
+    ...textStyles.body,
+    fontSize: fontSize.body,
     color: colors.mutedForeground,
   },
   acciones: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 6,
+    gap: spacing[2],
+    marginTop: spacing[2],
   },
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: spacing[2],
+    marginTop: spacing[2],
   },
   error: {
+    ...textStyles.body,
     flex: 1,
-    color: colors.destructive,
-    fontSize: 13,
+    color: colors.destructiveText,
+    fontSize: fontSize.body,
   },
   modalOverlay: {
     flex: 1,
@@ -352,68 +351,66 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
-    gap: 10,
+    padding: spacing[5],
+    gap: spacing[3],
   },
   modalEyebrow: {
-    fontFamily: fontFamily.label,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
     color: colors.primary,
   },
   modalTitulo: {
-    fontFamily: fontFamily.display,
-    fontStyle: 'italic',
-    fontSize: 20,
+    ...textStyles.display,
+    fontSize: fontSize.titleLg,
     color: colors.foreground,
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   modalCancelar: {
+    ...textStyles.body,
     textAlign: 'center',
     color: colors.mutedForeground,
-    fontSize: 12,
-    marginTop: 10,
+    fontSize: fontSize.small,
+    marginTop: spacing[3],
   },
   desglose: {
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.background,
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
+    borderRadius: radius.xl,
+    padding: spacing[4],
+    gap: spacing[2],
   },
   desgloseFila: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   desgloseLabel: {
-    fontSize: 13,
+    ...textStyles.body,
+    fontSize: fontSize.body,
     color: colors.mutedForeground,
   },
   desgloseMonto: {
-    fontFamily: fontFamily.label,
+    ...textStyles.label,
     ...tabularNums,
-    fontSize: 13,
+    fontSize: fontSize.body,
     color: colors.foreground,
   },
   desgloseTotalFila: {
-    marginTop: 6,
-    paddingTop: 10,
+    marginTop: spacing[2],
+    paddingTop: spacing[3],
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   desgloseTotalLabel: {
-    fontFamily: fontFamily.label,
-    fontSize: 13,
+    ...textStyles.label,
+    fontSize: fontSize.body,
     fontWeight: '700',
-    textTransform: 'uppercase',
     color: colors.foreground,
   },
   desgloseTotalMonto: {
-    fontFamily: fontFamily.label,
+    ...textStyles.label,
     ...tabularNums,
-    fontSize: 16,
+    fontSize: fontSize.bodyLg,
     fontWeight: '700',
     color: colors.primary,
   },

@@ -3,7 +3,7 @@ import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getPerfilesDescubrir, type Descubrimiento } from '@/lib/descubrimiento';
 import { getPhotoSignedUrl } from '@/lib/storage';
-import { colors, fontFamily, tabularNums, touchTarget } from '@/lib/theme';
+import { colors, fontFamily, tabularNums, touchTarget, radius } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 import { Icon } from '@/components/Icon';
 
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     ...touchTarget,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: radius.xxl,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
