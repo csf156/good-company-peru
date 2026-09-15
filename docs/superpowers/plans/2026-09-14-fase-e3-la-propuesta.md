@@ -33,6 +33,7 @@ Los chats existen porque el seed crea las citas saltándose la invitación.
   ```
 
 - **Cuidado con los `count(*)` globales en los tests.** Esta base tiene datos demo persistentes desde E.2b que **no se pueden borrar** (ledger append-only, órdenes capturadas). Un assert que cuente una tabla entera falla aunque la función sea correcta. Escopa siempre por el fixture. Ya pasó dos veces: `13_confirmar_orden_pago.sql` en E.2b, y el primer borrador de la Tarea 2 de esta fase.
+- **Dos `fireEvent.press` seguidos sin esperar nada entre medias corrompen el archivo de test entero.** Abren `act()` superpuestos, y los tests *siguientes* fallan con errores sin relación aparente — el síntoma aparece lejos de la causa. Para probar una guarda de doble toque, **espera a que la UI refleje el primer toque** (por ejemplo, que el botón muestre "Enviando…") antes del segundo: además de no romper nada, prueba lo real —que el botón deshabilitado bloquea— en vez de forzarlo. Detectado por BUILDER en la Tarea 4; aplica igual a la Tarea 5.
 - **El código de este plan es una hipótesis.** En E.2a seis de nueve bloques destaparon defectos de premisa. **Si un test y el snippet se contradicen, gana el test** — y avísame.
 
 ---
