@@ -22,13 +22,6 @@ export async function getCatalogo(): Promise<Bebida[]> {
   return data as Bebida[];
 }
 
-export type Desglose = { valorV: number; buyerFee: number; total: number };
-export type CompraResult = {
-  estado: 'confirmada' | 'pendiente' | null;
-  desglose: Desglose | null;
-  error: string | null;
-};
-
 /**
  * Genera una idempotency key para un intento de compra. El cliente la reusa en
  * reintentos del MISMO intento (misma bebida hasta que la compra tenga éxito),
@@ -46,5 +39,6 @@ export function newIdempotencyKey(): string {
 // `comprarBebida` (comprar una bebida sin destinatario, vía el Edge Function
 // `comprar-bebida`) se borró en E.2b, Tarea 5 — veto 1 del backlog: esa
 // operación no existe en el modelo nuevo (la invitación es la compra, spec
-// §3.2) y no puede volver a existir. `CompraResult` se conserva: lo sigue
-// usando el stub de `app/store.tsx` hasta que E.3 reescriba esa pantalla.
+// §3.2) y no puede volver a existir. `app/store.tsx` (su único consumidor,
+// junto con los tipos `CompraResult`/`Desglose` que solo existían para su
+// stub) se borró en E.3, Tarea 1 — la propuesta reemplaza a la compra suelta.
