@@ -1,7 +1,8 @@
 export type AuthSegment =
   | 'carrusel'
   | 'sign-in'
-  | 'verify-otp'
+  | 'recuperar'
+  | 'nueva-contrasena'
   | 'select-role'
   | 'tos'
   | 'profile-setup'
@@ -34,8 +35,17 @@ export function computeRedirect({
   kycEstado,
   authSegment,
 }: RouteGuardInput): string | null {
+  // D.5: el enlace de recuperación de contraseña aterriza en nueva-contrasena
+  // y establece la sesión ÉL MISMO (parseando el fragmento de la URL) — antes
+  // de que eso termine, hasSession todavía puede ser false; después, puede
+  // ser true con un perfil ya completo. En los dos casos se queda: es la
+  // única pantalla que ignora el resto de la cadena de guardas.
+  if (authSegment === 'nueva-contrasena') {
+    return null;
+  }
+
   if (!hasSession) {
-    const allowedWhileSigningIn: AuthSegment[] = ['carrusel', 'sign-in', 'verify-otp'];
+    const allowedWhileSigningIn: AuthSegment[] = ['carrusel', 'sign-in', 'recuperar'];
     return allowedWhileSigningIn.includes(authSegment) ? null : '/(auth)/sign-in';
   }
 

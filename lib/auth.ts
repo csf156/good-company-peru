@@ -2,7 +2,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
-import { isValidEmail, toE164Peru } from '@/lib/validation';
+import { isValidEmail } from '@/lib/validation';
 
 // Requerido por expo-web-browser en web para cerrar el flujo de auth al volver.
 WebBrowser.maybeCompleteAuthSession();
@@ -26,53 +26,88 @@ function isWeb(): boolean {
   return typeof window !== 'undefined' && typeof window.location !== 'undefined';
 }
 
-export type Contact = { type: 'email'; value: string } | { type: 'phone'; value: string };
-
 export type RolUsuario = 'amigo' | 'rentador';
 
-export type AuthResult = { error: string | null };
+export type AuthResult = { error: string | null; needsEmailConfirmation?: boolean };
 
-function normalizeContact(contact: Contact): { field: 'email' | 'phone'; value: string } | null {
-  if (contact.type === 'email') {
-    return isValidEmail(contact.value) ? { field: 'email', value: contact.value.trim() } : null;
-  }
-  const e164 = toE164Peru(contact.value);
-  return e164 ? { field: 'phone', value: e164 } : null;
+const MIN_PASSWORD_LENGTH = 8;
+
+// D.5: un único mensaje pase lo que pase del lado del servidor — correo
+// inexistente, contraseña incorrecta o correo sin confirmar se ven todos
+// iguales desde afuera. Distinguirlos es la puerta de la enumeración de
+// cuentas (spec de la fase, regla de copy de seguridad).
+const CREDENCIALES_INVALIDAS = 'Correo o contraseña incorrectos.';
+
+function passwordError(password: string): string | null {
+  return password.length < MIN_PASSWORD_LENGTH
+    ? `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+    : null;
 }
 
-const INVALID_MESSAGE: Record<Contact['type'], string> = {
-  email: 'Correo inválido.',
-  phone: 'Número de celular inválido.',
-};
-
-/** Sends a one-time code to the given email or Peru mobile number. */
-export async function requestOtp(contact: Contact): Promise<AuthResult> {
-  const normalized = normalizeContact(contact);
-  if (!normalized) {
-    return { error: INVALID_MESSAGE[contact.type] };
+/**
+ * Crea una cuenta con correo y contraseña. Con la confirmación de correo
+ * activa (D.5, requisito de seguridad de esta fase), Supabase no deja sesión
+ * iniciada tras el signup — `data.session` viene null aunque no haya error.
+ */
+export async function signUpWithPassword(email: string, password: string): Promise<AuthResult> {
+  if (!isValidEmail(email)) {
+    return { error: 'Correo inválido.' };
+  }
+  const pwError = passwordError(password);
+  if (pwError) {
+    return { error: pwError };
   }
 
-  const { error } = await supabase.auth.signInWithOtp(
-    normalized.field === 'email' && isWeb()
-      ? { email: normalized.value, options: { emailRedirectTo: webRedirectUri() } }
-      : ({ [normalized.field]: normalized.value } as { email: string } | { phone: string }),
+  const { data, error } = await supabase.auth.signUp(
+    isWeb()
+      ? { email: email.trim(), password, options: { emailRedirectTo: webRedirectUri() } }
+      : { email: email.trim(), password },
   );
 
-  return { error: error?.message ?? null };
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { error: null, needsEmailConfirmation: !data.session };
 }
 
-/** Verifies a one-time code previously sent via requestOtp. */
-export async function verifyOtp(contact: Contact, token: string): Promise<AuthResult> {
-  const normalized = normalizeContact(contact);
-  if (!normalized) {
-    return { error: INVALID_MESSAGE[contact.type] };
+/** Inicia sesión con correo y contraseña. */
+export async function signInWithPassword(email: string, password: string): Promise<AuthResult> {
+  if (!isValidEmail(email) || password.length === 0) {
+    return { error: CREDENCIALES_INVALIDAS };
   }
 
-  const { error } = await supabase.auth.verifyOtp(
-    normalized.field === 'email'
-      ? { email: normalized.value, token, type: 'email' }
-      : { phone: normalized.value, token, type: 'sms' },
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+
+  return { error: error ? CREDENCIALES_INVALIDAS : null };
+}
+
+/**
+ * Pide el correo de recuperación de contraseña. Responde éxito SIEMPRE,
+ * exista o no la cuenta — lo contrario permite averiguar qué correos están
+ * registrados (misma regla que `signInWithPassword`).
+ */
+export async function requestPasswordReset(email: string): Promise<AuthResult> {
+  if (!isValidEmail(email)) {
+    return { error: 'Correo inválido.' };
+  }
+
+  await supabase.auth.resetPasswordForEmail(
+    email.trim(),
+    isWeb() ? { redirectTo: webRedirectUri() } : undefined,
   );
+
+  return { error: null };
+}
+
+/** Fija una nueva contraseña para la sesión activa (tras el enlace de recuperación). */
+export async function updatePassword(newPassword: string): Promise<AuthResult> {
+  const pwError = passwordError(newPassword);
+  if (pwError) {
+    return { error: pwError };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
 
   return { error: error?.message ?? null };
 }
@@ -97,23 +132,54 @@ export async function createProfile(rol: RolUsuario): Promise<AuthResult> {
 }
 
 /**
+ * Extrae access_token/refresh_token de un fragmento de URL (`#token=...` o
+ * `token=...`, con o sin el `#` inicial — `window.location.hash` lo trae
+ * puesto, la URL de retorno de WebBrowser no). Usado tanto por el retorno de
+ * Google como por el enlace de recuperación de contraseña (D.5): los dos
+ * mandan la sesión nueva de la misma forma.
+ */
+function parseSessionFragment(fragment: string): { accessToken: string; refreshToken: string } | null {
+  const params = new URLSearchParams(fragment.replace(/^#/, ''));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  return accessToken && refreshToken ? { accessToken, refreshToken } : null;
+}
+
+/**
  * Establece la sesión de Supabase a partir de la URL de retorno del flujo
  * OAuth (contiene access_token/refresh_token en el fragmento `#`). Separada
  * de signInWithGoogle para poder testear el parseo sin mockear WebBrowser.
  */
 export async function completeGoogleSignIn(url: string): Promise<AuthResult> {
-  const fragment = url.split('#')[1] ?? '';
-  const params = new URLSearchParams(fragment);
-  const accessToken = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-
-  if (!accessToken || !refreshToken) {
+  const parsed = parseSessionFragment(url.split('#')[1] ?? '');
+  if (!parsed) {
     return { error: 'No se pudo completar el ingreso con Google.' };
   }
 
   const { error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
+    access_token: parsed.accessToken,
+    refresh_token: parsed.refreshToken,
+  });
+
+  return { error: error?.message ?? null };
+}
+
+/**
+ * Establece la sesión a partir del enlace de recuperación de contraseña
+ * (D.5). En web, `detectSessionInUrl: false` (lib/supabase.ts) hace que
+ * Supabase NUNCA consuma solo el access_token de la URL — hay que leerlo a
+ * mano de `window.location.hash` y pasarlo aquí.
+ */
+export async function completePasswordRecovery(fragment: string): Promise<AuthResult> {
+  const parsed = parseSessionFragment(fragment);
+  if (!parsed) {
+    return { error: 'El enlace de recuperación no es válido o ya venció.' };
+  }
+
+  const { error } = await supabase.auth.setSession({
+    access_token: parsed.accessToken,
+    refresh_token: parsed.refreshToken,
   });
 
   return { error: error?.message ?? null };

@@ -25,7 +25,8 @@ import {
 const AUTH_SEGMENTS: AuthSegment[] = [
   'carrusel',
   'sign-in',
-  'verify-otp',
+  'recuperar',
+  'nueva-contrasena',
   'select-role',
   'tos',
   'profile-setup',

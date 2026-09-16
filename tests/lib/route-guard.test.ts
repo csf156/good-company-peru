@@ -25,14 +25,38 @@ describe('computeRedirect', () => {
     ).toBeNull();
   });
 
-  it('does not redirect a signed-out user already on verify-otp', () => {
+  it('does not redirect a signed-out user already on recuperar', () => {
     expect(
       computeRedirect({
         hasSession: false,
         profileStatus: 'none',
         tosAceptado: false,
         kycEstado: 'pendiente',
-        authSegment: 'verify-otp',
+        authSegment: 'recuperar',
+      }),
+    ).toBeNull();
+  });
+
+  it('D.5: nueva-contrasena se queda siempre, sin sesión (el enlace todavía no terminó de establecerla)', () => {
+    expect(
+      computeRedirect({
+        hasSession: false,
+        profileStatus: 'none',
+        tosAceptado: false,
+        kycEstado: 'pendiente',
+        authSegment: 'nueva-contrasena',
+      }),
+    ).toBeNull();
+  });
+
+  it('D.5: nueva-contrasena se queda siempre, CON sesión ya completa — el enlace de recuperación la establece antes de fijar la contraseña', () => {
+    expect(
+      computeRedirect({
+        hasSession: true,
+        profileStatus: 'complete',
+        tosAceptado: true,
+        kycEstado: 'verificado',
+        authSegment: 'nueva-contrasena',
       }),
     ).toBeNull();
   });

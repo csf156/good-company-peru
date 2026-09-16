@@ -1,29 +1,50 @@
 import { useState } from 'react';
-import { Text, TextInput, StyleSheet } from 'react-native';
+import { Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { requestOtp, signInWithGoogle } from '@/lib/auth';
+import { signInWithPassword, signUpWithPassword, signInWithGoogle } from '@/lib/auth';
 import { isValidEmail } from '@/lib/validation';
 import { colors, radius, spacing, fontSize, textStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 
+type Modo = 'entrar' | 'crear';
+
 export default function SignInScreen() {
   const router = useRouter();
-  const [value, setValue] = useState('');
+  const [modo, setModo] = useState<Modo>('entrar');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  // D.5: con confirmación de correo activa, crear cuenta no deja sesión
+  // iniciada — esta pantalla se queda mostrando el aviso en vez de navegar a
+  // ningún lado (la sesión real, cuando llegue, la maneja el guardián).
+  const [revisaCorreo, setRevisaCorreo] = useState(false);
+
+  const enVuelo = loading || googleLoading;
+
+  function cambiarModo(nuevo: Modo) {
+    setModo(nuevo);
+    setError(null);
+    setRevisaCorreo(false);
+  }
 
   async function handleSubmit() {
     setError(null);
 
-    if (!isValidEmail(value)) {
-      setError('Correo inválido.');
+    if (!isValidEmail(email)) {
+      setError(modo === 'entrar' ? 'Correo o contraseña incorrectos.' : 'Correo inválido.');
+      return;
+    }
+    if (modo === 'crear' && password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
 
     setLoading(true);
-    const result = await requestOtp({ type: 'email', value });
+    const result =
+      modo === 'entrar' ? await signInWithPassword(email, password) : await signUpWithPassword(email, password);
     setLoading(false);
 
     if (result.error) {
@@ -31,10 +52,14 @@ export default function SignInScreen() {
       return;
     }
 
-    router.push({
-      pathname: '/(auth)/verify-otp',
-      params: { type: 'email', value },
-    });
+    if (modo === 'crear' && result.needsEmailConfirmation) {
+      setRevisaCorreo(true);
+      return;
+    }
+    // Si no hay error y no hace falta confirmar, supabase.auth ya dejó la
+    // sesión establecida internamente — dispara onAuthStateChange, que
+    // useAuthSession() escucha; app/_layout.tsx reacciona y redirige solo,
+    // igual que Google más abajo.
   }
 
   async function handleGoogle() {
@@ -46,15 +71,27 @@ export default function SignInScreen() {
     if (result.error) {
       setError(result.error);
     }
-    // Si no hay error, supabase.auth.setSession() dispara onAuthStateChange,
-    // que useAuthSession() escucha; app/_layout.tsx reacciona a ese cambio de
-    // sesión y redirige solo — no hace falta router.replace aquí.
+  }
+
+  if (revisaCorreo) {
+    return (
+      <Screen scroll center contentStyle={styles.content}>
+        <Text style={styles.eyebrow}>Casi listo</Text>
+        <Text style={styles.title}>Revisa tu correo</Text>
+        <Text style={styles.subtitle}>
+          Te mandamos un enlace a {email} para confirmar tu cuenta. Ábrelo para poder entrar.
+        </Text>
+        <Pressable accessibilityRole="button" onPress={() => cambiarModo('entrar')}>
+          <Text style={styles.toggle}>Volver a entrar</Text>
+        </Pressable>
+      </Screen>
+    );
   }
 
   return (
     <Screen scroll center contentStyle={styles.content}>
       <Text style={styles.eyebrow}>Bienvenido</Text>
-      <Text style={styles.title}>Ingresa a tu cuenta</Text>
+      <Text style={styles.title}>{modo === 'entrar' ? 'Ingresa a tu cuenta' : 'Crea tu cuenta'}</Text>
 
       <TextInput
         style={styles.input}
@@ -62,13 +99,47 @@ export default function SignInScreen() {
         placeholderTextColor={colors.mutedForeground}
         keyboardType="email-address"
         autoCapitalize="none"
-        value={value}
-        onChangeText={setValue}
+        value={email}
+        onChangeText={setEmail}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña"
+        placeholderTextColor={colors.mutedForeground}
+        secureTextEntry
+        autoCapitalize="none"
+        value={password}
+        onChangeText={setPassword}
       />
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Button label="Enviar código" onPress={handleSubmit} disabled={loading || googleLoading} />
+      <Button
+        label={loading ? (modo === 'entrar' ? 'Entrando…' : 'Creando…') : modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
+        onPress={handleSubmit}
+        disabled={enVuelo}
+      />
+
+      {modo === 'entrar' && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/(auth)/recuperar')}
+          disabled={enVuelo}
+        >
+          <Text style={styles.toggle}>¿Olvidaste tu contraseña?</Text>
+        </Pressable>
+      )}
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => cambiarModo(modo === 'entrar' ? 'crear' : 'entrar')}
+        disabled={enVuelo}
+      >
+        <Text style={styles.toggle}>
+          {modo === 'entrar' ? '¿No tienes cuenta? Créala' : '¿Ya tienes cuenta? Entra'}
+        </Text>
+      </Pressable>
 
       <Text style={styles.separator}>o</Text>
 
@@ -76,7 +147,7 @@ export default function SignInScreen() {
         label="Continuar con Google"
         variant="secondary"
         onPress={handleGoogle}
-        disabled={loading || googleLoading}
+        disabled={enVuelo}
       />
     </Screen>
   );
@@ -98,6 +169,10 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     marginBottom: spacing[2],
   },
+  subtitle: {
+    ...textStyles.body,
+    color: colors.mutedForeground,
+  },
   input: {
     ...textStyles.body,
     fontSize: fontSize.bodyLg,
@@ -113,6 +188,12 @@ const styles = StyleSheet.create({
   error: {
     ...textStyles.body,
     color: colors.destructiveText,
+  },
+  toggle: {
+    ...textStyles.label,
+    fontSize: fontSize.tiny,
+    color: colors.primary,
+    textAlign: 'center',
   },
   separator: {
     ...textStyles.label,

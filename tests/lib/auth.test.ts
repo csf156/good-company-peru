@@ -1,5 +1,14 @@
 import * as WebBrowser from 'expo-web-browser';
-import { requestOtp, verifyOtp, createProfile, signInWithGoogle, completeGoogleSignIn } from '@/lib/auth';
+import {
+  signUpWithPassword,
+  signInWithPassword,
+  requestPasswordReset,
+  updatePassword,
+  createProfile,
+  signInWithGoogle,
+  completeGoogleSignIn,
+  completePasswordRecovery,
+} from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 jest.mock('expo-constants', () => ({
@@ -9,8 +18,10 @@ jest.mock('expo-constants', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      signInWithOtp: jest.fn(),
-      verifyOtp: jest.fn(),
+      signUp: jest.fn(),
+      signInWithPassword: jest.fn(),
+      resetPasswordForEmail: jest.fn(),
+      updateUser: jest.fn(),
       getUser: jest.fn(),
       signInWithOAuth: jest.fn(),
       setSession: jest.fn(),
@@ -28,8 +39,10 @@ jest.mock('expo-auth-session', () => ({
 
 const mockedSupabase = supabase as unknown as {
   auth: {
-    signInWithOtp: jest.Mock;
-    verifyOtp: jest.Mock;
+    signUp: jest.Mock;
+    signInWithPassword: jest.Mock;
+    resetPasswordForEmail: jest.Mock;
+    updateUser: jest.Mock;
     getUser: jest.Mock;
     signInWithOAuth: jest.Mock;
     setSession: jest.Mock;
@@ -44,89 +57,142 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('requestOtp', () => {
-  it('sends an OTP to a valid email', async () => {
-    mockedSupabase.auth.signInWithOtp.mockResolvedValue({ error: null });
-
-    const result = await requestOtp({ type: 'email', value: 'ana@example.com' });
-
-    expect(result.error).toBeNull();
-    expect(mockedSupabase.auth.signInWithOtp).toHaveBeenCalledWith({
-      email: 'ana@example.com',
-    });
-  });
-
-  it('normalizes and sends an OTP to a valid Peru phone', async () => {
-    mockedSupabase.auth.signInWithOtp.mockResolvedValue({ error: null });
-
-    const result = await requestOtp({ type: 'phone', value: '987654321' });
-
-    expect(result.error).toBeNull();
-    expect(mockedSupabase.auth.signInWithOtp).toHaveBeenCalledWith({
-      phone: '+51987654321',
-    });
-  });
-
-  it('rejects an invalid email without calling supabase', async () => {
-    const result = await requestOtp({ type: 'email', value: 'not-an-email' });
+describe('signUpWithPassword', () => {
+  it('rechaza un correo inválido sin llamar a Supabase', async () => {
+    const result = await signUpWithPassword('no-es-un-correo', 'contraseñaLarga1');
 
     expect(result.error).toBe('Correo inválido.');
-    expect(mockedSupabase.auth.signInWithOtp).not.toHaveBeenCalled();
+    expect(mockedSupabase.auth.signUp).not.toHaveBeenCalled();
   });
 
-  it('rejects an invalid phone without calling supabase', async () => {
-    const result = await requestOtp({ type: 'phone', value: '12345' });
+  it('rechaza una contraseña de menos de 8 caracteres sin llamar a Supabase', async () => {
+    const result = await signUpWithPassword('ana@example.com', 'corta1');
 
-    expect(result.error).toBe('Número de celular inválido.');
-    expect(mockedSupabase.auth.signInWithOtp).not.toHaveBeenCalled();
+    expect(result.error).toMatch(/8/);
+    expect(mockedSupabase.auth.signUp).not.toHaveBeenCalled();
+  });
+
+  it('con confirmación de correo activa, NO deja sesión iniciada — devuelve needsEmailConfirmation', async () => {
+    mockedSupabase.auth.signUp.mockResolvedValue({
+      data: { user: { id: 'u1' }, session: null },
+      error: null,
+    });
+
+    const result = await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
+
+    expect(result.error).toBeNull();
+    expect(result.needsEmailConfirmation).toBe(true);
   });
 
   it('surfaces the provider error message', async () => {
-    mockedSupabase.auth.signInWithOtp.mockResolvedValue({
-      error: { message: 'rate limit exceeded' },
+    mockedSupabase.auth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'User already registered' },
     });
 
-    const result = await requestOtp({ type: 'email', value: 'ana@example.com' });
+    const result = await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
 
-    expect(result.error).toBe('rate limit exceeded');
+    expect(result.error).toBe('User already registered');
   });
 });
 
-describe('verifyOtp', () => {
-  it('verifies a phone OTP with the sms type', async () => {
-    mockedSupabase.auth.verifyOtp.mockResolvedValue({ error: null });
+describe('signInWithPassword', () => {
+  it('rechaza un correo inválido sin llamar a Supabase, con el MISMO mensaje genérico', async () => {
+    const result = await signInWithPassword('no-es-un-correo', 'algo');
 
-    const result = await verifyOtp({ type: 'phone', value: '987654321' }, '123456');
-
-    expect(result.error).toBeNull();
-    expect(mockedSupabase.auth.verifyOtp).toHaveBeenCalledWith({
-      phone: '+51987654321',
-      token: '123456',
-      type: 'sms',
-    });
+    expect(result.error).toBe('Correo o contraseña incorrectos.');
+    expect(mockedSupabase.auth.signInWithPassword).not.toHaveBeenCalled();
   });
 
-  it('verifies an email OTP with the email type', async () => {
-    mockedSupabase.auth.verifyOtp.mockResolvedValue({ error: null });
+  it('entra con credenciales válidas', async () => {
+    mockedSupabase.auth.signInWithPassword.mockResolvedValue({ error: null });
 
-    const result = await verifyOtp({ type: 'email', value: 'ana@example.com' }, '654321');
+    const result = await signInWithPassword('ana@example.com', 'contraseñaLarga1');
 
     expect(result.error).toBeNull();
-    expect(mockedSupabase.auth.verifyOtp).toHaveBeenCalledWith({
+    expect(mockedSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
       email: 'ana@example.com',
-      token: '654321',
-      type: 'email',
+      password: 'contraseñaLarga1',
     });
   });
 
-  it('surfaces an invalid/expired token error', async () => {
-    mockedSupabase.auth.verifyOtp.mockResolvedValue({
-      error: { message: 'Token has expired or is invalid' },
+  it('un correo que no existe da el MISMO mensaje genérico que una contraseña incorrecta', async () => {
+    mockedSupabase.auth.signInWithPassword.mockResolvedValue({
+      error: { message: 'Invalid login credentials' },
     });
 
-    const result = await verifyOtp({ type: 'email', value: 'ana@example.com' }, '000000');
+    const result = await signInWithPassword('no-registrado@example.com', 'algo12345');
 
-    expect(result.error).toBe('Token has expired or is invalid');
+    expect(result.error).toBe('Correo o contraseña incorrectos.');
+  });
+
+  it('un correo sin confirmar da el MISMO mensaje genérico — no revela que el correo existe', async () => {
+    mockedSupabase.auth.signInWithPassword.mockResolvedValue({
+      error: { message: 'Email not confirmed' },
+    });
+
+    const result = await signInWithPassword('ana@example.com', 'contraseñaLarga1');
+
+    expect(result.error).toBe('Correo o contraseña incorrectos.');
+  });
+});
+
+describe('requestPasswordReset', () => {
+  it('responde éxito aunque el correo no exista — nunca revela qué correos están registrados', async () => {
+    mockedSupabase.auth.resetPasswordForEmail.mockResolvedValue({
+      data: {},
+      error: { message: 'User not found' },
+    });
+
+    const result = await requestPasswordReset('no-registrado@example.com');
+
+    expect(result.error).toBeNull();
+  });
+
+  it('responde éxito con un correo que sí existe', async () => {
+    mockedSupabase.auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+
+    const result = await requestPasswordReset('ana@example.com');
+
+    expect(result.error).toBeNull();
+    expect(mockedSupabase.auth.resetPasswordForEmail).toHaveBeenCalled();
+  });
+
+  it('rechaza un correo con formato inválido sin llamar a Supabase', async () => {
+    const result = await requestPasswordReset('no-es-un-correo');
+
+    expect(result.error).toBe('Correo inválido.');
+    expect(mockedSupabase.auth.resetPasswordForEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe('updatePassword', () => {
+  it('rechaza una contraseña de menos de 8 caracteres sin llamar a Supabase', async () => {
+    const result = await updatePassword('corta1');
+
+    expect(result.error).toMatch(/8/);
+    expect(mockedSupabase.auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('fija la nueva contraseña de la sesión activa', async () => {
+    mockedSupabase.auth.updateUser.mockResolvedValue({ error: null });
+
+    const result = await updatePassword('contraseñaNuevaLarga1');
+
+    expect(result.error).toBeNull();
+    expect(mockedSupabase.auth.updateUser).toHaveBeenCalledWith({
+      password: 'contraseñaNuevaLarga1',
+    });
+  });
+
+  it('surfaces the provider error message', async () => {
+    mockedSupabase.auth.updateUser.mockResolvedValue({
+      error: { message: 'New password should be different from the old password' },
+    });
+
+    const result = await updatePassword('contraseñaNuevaLarga1');
+
+    expect(result.error).toBe('New password should be different from the old password');
   });
 });
 
@@ -184,6 +250,49 @@ describe('completeGoogleSignIn', () => {
     const result = await completeGoogleSignIn(
       'rentafriendperu://redirect#access_token=tok123&refresh_token=ref456',
     );
+
+    expect(result.error).toBe('token inválido');
+  });
+});
+
+describe('completePasswordRecovery', () => {
+  it('establece la sesión a partir del fragmento del enlace de recuperación (con # inicial, como window.location.hash)', async () => {
+    mockedSetSession.mockResolvedValue({ error: null });
+
+    const result = await completePasswordRecovery(
+      '#access_token=tok123&refresh_token=ref456&type=recovery',
+    );
+
+    expect(mockedSetSession).toHaveBeenCalledWith({
+      access_token: 'tok123',
+      refresh_token: 'ref456',
+    });
+    expect(result.error).toBeNull();
+  });
+
+  it('funciona igual sin el # inicial', async () => {
+    mockedSetSession.mockResolvedValue({ error: null });
+
+    const result = await completePasswordRecovery('access_token=tok123&refresh_token=ref456');
+
+    expect(mockedSetSession).toHaveBeenCalledWith({
+      access_token: 'tok123',
+      refresh_token: 'ref456',
+    });
+    expect(result.error).toBeNull();
+  });
+
+  it('devuelve error si el fragmento no trae access_token — enlace vencido o inválido', async () => {
+    const result = await completePasswordRecovery('#error=access_denied');
+
+    expect(result.error).toBeTruthy();
+    expect(mockedSetSession).not.toHaveBeenCalled();
+  });
+
+  it('propaga el error de setSession', async () => {
+    mockedSetSession.mockResolvedValue({ error: { message: 'token inválido' } });
+
+    const result = await completePasswordRecovery('#access_token=tok123&refresh_token=ref456');
 
     expect(result.error).toBe('token inválido');
   });
@@ -281,26 +390,41 @@ describe('en web (origin + baseUrl del build, no el origin pelado)', () => {
     expect(result.error).toBeNull();
   });
 
-  it('requestOtp por correo pasa emailRedirectTo con origin + baseUrl', async () => {
-    mockedSupabase.auth.signInWithOtp.mockResolvedValue({ error: null });
+  it('signUpWithPassword pasa emailRedirectTo con origin + baseUrl', async () => {
+    mockedSupabase.auth.signUp.mockResolvedValue({
+      data: { user: { id: 'u1' }, session: null },
+      error: null,
+    });
 
-    const result = await requestOtp({ type: 'email', value: 'ana@example.com' });
+    await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
 
-    expect(result.error).toBeNull();
-    expect(mockedSupabase.auth.signInWithOtp).toHaveBeenCalledWith({
+    expect(mockedSupabase.auth.signUp).toHaveBeenCalledWith({
       email: 'ana@example.com',
+      password: 'contraseñaLarga1',
       options: { emailRedirectTo: 'https://csf156.github.io/good-company-peru/' },
     });
   });
 
-  it('requestOtp por celular no manda emailRedirectTo (no aplica a SMS)', async () => {
-    mockedSupabase.auth.signInWithOtp.mockResolvedValue({ error: null });
+  it('requestPasswordReset pasa redirectTo con origin + baseUrl', async () => {
+    mockedSupabase.auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
 
-    const result = await requestOtp({ type: 'phone', value: '987654321' });
+    await requestPasswordReset('ana@example.com');
 
-    expect(result.error).toBeNull();
-    expect(mockedSupabase.auth.signInWithOtp).toHaveBeenCalledWith({
-      phone: '+51987654321',
+    expect(mockedSupabase.auth.resetPasswordForEmail).toHaveBeenCalledWith('ana@example.com', {
+      redirectTo: 'https://csf156.github.io/good-company-peru/',
     });
+  });
+});
+
+// Criterio de cierre de D.5: el OTP no puede quedar como camino de entrada
+// ni por descuido — `grep -rn "signInWithOtp|verifyOtp|requestOtp" app/ lib/
+// tests/` tiene que dar cero resultados. Este test lo afirma desde dentro de
+// la suite, no solo desde un grep manual.
+describe('D.5 — el OTP salió del login', () => {
+  it('requestOtp y verifyOtp ya no existen en lib/auth', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const authModule = require('@/lib/auth');
+    expect(authModule.requestOtp).toBeUndefined();
+    expect(authModule.verifyOtp).toBeUndefined();
   });
 });
