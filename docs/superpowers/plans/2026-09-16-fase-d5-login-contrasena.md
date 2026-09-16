@@ -82,6 +82,12 @@ select u.email, u.email_confirmed_at is not null as confirmado
 
 ## Task 2: Los cambios de configuración de la nube
 
+> **Corrección del 2026-09-16, tras la Tarea 1.** La confirmación de correo **ya estaba activa en la nube**. BUILDER lo leyó de la API de gestión: `mailer_autoconfirm = false`. **Ojo con el nombre, que engaña:** en GoTrue, `autoconfirm = true` es la que **salta** la confirmación, así que `false` la **exige**. Las 10 cuentas del proyecto tienen además `email_confirmed_at` puesto, así que **nadie queda fuera** pase lo que pase.
+>
+> **El plan partía de una premisa falsa**: construí esta tarea sobre `config.toml`, que dice `enable_confirmations = false` — justo lo que la sección de Global Constraints advertía no hacer. El hueco de seguridad descrito arriba **no existe en la nube**; existía solo en el archivo local.
+>
+> Consecuencia: **el punto 1 no se cambia en la nube, solo se sincroniza `config.toml`**. Lo único que requiere aprobación del usuario es el punto 2.
+
 **Requiere aprobación del usuario.** Afecta a todas las cuentas del proyecto en vivo.
 
 Propónle al usuario, con los valores actuales al lado:
