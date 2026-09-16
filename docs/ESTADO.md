@@ -72,6 +72,17 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 > **E.3 tiene el código terminado y verificado por BRAIN; falta la revisión del usuario.** Se interrumpe con D.5 porque el login actual no permite entrar por contraseña a las cuentas demo que esa revisión necesita. Decisión del usuario, 2026-09-16.
 | E.4 | UI del amigo ("Por cobrar") + barrido de vocabulario | ⬜ |
 
+### La propuesta negociada (serie F)
+
+Nace del recorrido del usuario sobre E.3 (2026-09-16). Spec: `docs/superpowers/specs/2026-09-16-propuesta-negociada-design.md`.
+
+| Fase | Descripción | Estado |
+|------|-------------|--------|
+| F.1 | Esquema y datos: estados de negociación, intención de cada bebida, momento propuesto, resolución de duplicados y una relación activa por par | ⬜ |
+| F.2 | Funciones del flujo: solicitud con bebida, contrapropuesta, retiro, y el dinero de cada camino | ⬜ |
+| F.3 | Vencimiento a 48 h: primera tarea programada del proyecto | ⬜ |
+| F.4 | Interfaz: proponer con momento y lugar, contraproponer, retirar, e intención visible de cada bebida | ⬜ |
+
 ### Escalamiento (`2026-07-01-plan-escalamiento.md`)
 
 | Fase | Descripción | Estado |

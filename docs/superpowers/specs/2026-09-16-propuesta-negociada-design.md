@@ -19,7 +19,19 @@
 
 **Consecuencia de diseño que sale de esa decisión:** la lectura solo existe para el usuario si **la pantalla la comunica**. Hoy el selector muestra nombre y precio, así que visualmente parece que se elige un importe. El usuario lo señaló en su primer recorrido. Cada bebida necesita **su intención escrita y visible**.
 
-> **Dependencia de contenido, no de código.** Qué intención significa cada bebida lo decide el usuario. El catálogo tiene hoy cinco bebidas activas y ninguna descripción. **Sin ese texto no se puede cerrar la interfaz de esta serie.**
+> **Textos aprobados por el usuario el 2026-09-16** (borrador de BRAIN, sin correcciones):
+>
+> | Bebida | Precio | Intención |
+> |---|---|---|
+> | Chicha Morada de la Casa | S/15 | **Solo compañía.** Un café, una conversación, sin plan fijo. |
+> | Pisco Sour Clásico | S/25 | **Para pasarla bien.** Un bar, un juego, un rato de risas. |
+> | Maracuyá Sour | S/35 | **Salida casual.** Pasear, comer algo, conocer un lugar. |
+> | Algarrobina Especial | S/45 | **Algo distinto.** Un plan que no harías solo. |
+> | Cóctel de Autor | S/60 | **Evento especial.** Un concierto, una exposición, una celebración. |
+>
+> **Jerarquía aprobada:** **nombre** como título; **intención** como línea principal de lectura, porque es lo que de verdad se elige; **precio** con tipografía de cifras y más discreto.
+>
+> **"Cóctel de Autor Ayni" pasa a "Cóctel de Autor".** Era un resto del nombre anterior de la app (Ayni → Martini, D.4) que vivía en la migración `20260904120000_catalogo_bebidas.sql`. No se usa "Cóctel de Autor Martini": el martini es además un cóctel, y el nombre se leería como la bebida, no como la marca.
 >
 > **No usar `tipo_invitacion` para esto.** Describe la bebida, no la salida, y su enum incluye `romantica`, categoría que el usuario vetó (spec `2026-08-25-onboarding-premium-design.md` §7). Ya está anotado en backlog.
 
@@ -175,7 +187,21 @@ create unique index invitaciones_una_relacion_activa_por_par
 - **Las órdenes capturadas no se pueden borrar** (hallazgo de E.2b: son tan inmutables como el ledger que escribieron), y arrastran a su invitación.
 - **Uno de los pares es de la cuenta real del usuario** (`chris → Vale`).
 
-**La resolución requiere aprobación del usuario** y va en un paso propio y visible, antes de crear el índice. Las duplicadas se pasan a un estado terminal; **el dinero capturado se queda como está** y la conciliación tiene que seguir en cero.
+**Resolución aprobada por el usuario el 2026-09-16.** Medido por par sin importar el sentido:
+
+| Par | Activas | Qué se hace |
+|---|---|---|
+| chris ↔ Vale | 2 | **Se borra** la `pendiente`: su orden está solo `preautorizada`, sin movimientos contables ni cita. |
+| Rodri ↔ Vale | **3** | Las **dos** sobrantes pasan a `concluida`. Todas están cobradas. |
+| Fer ↔ Seba | **3** | Las **dos** sobrantes pasan a `concluida`. Todas están cobradas. |
+
+**Hay tres por par y no dos** porque la regla también bloquea el sentido contrario: Vale le hizo una solicitud a Rodri además de sus dos invitaciones, y Seba a Fer igual.
+
+**Por qué las cobradas no se borran:** cada una dejó tres movimientos en el `ledger`, que **no admite borrados para ningún rol**. Borrar la propuesta los dejaría huérfanos para siempre y la conciliación quedaría en rojo permanente — lo que ya obligó a un reset destructivo en E.2b.
+
+**Cuál se conserva:** la **más antigua** de cada par por `created_at`, desempatando por `id`. Las demás, `concluida`.
+
+> **`concluida` no es verdad para esas cuatro**: sus encuentros no ocurrieron. Se elige igual porque es el único estado terminal que no finge otra cosa peor (`retirada` o `rechazada` inventarían una acción que nadie tomó) y porque **son datos demo de la base de desarrollo, que no llegará a producción** si se lanza sobre un proyecto limpio, como está recomendado. **Cualquier invariante futura del tipo "`concluida` implica cita finalizada" tiene que contar con estas cuatro**, y queda anotado en backlog.
 
 ---
 
@@ -216,8 +242,8 @@ Tras aceptar, **la conversación sirve para pactar el encuentro**, partiendo del
 
 | Bloque | Alcance |
 |---|---|
-| **F.1** | Esquema: estados nuevos, `momento_propuesto`, bebida en la solicitud, visibilidad, **resolución de duplicados (aprobación del usuario)** e índice por par. |
-| **F.2** | Funciones del flujo: contraproponer, aceptar y rechazar la contrapropuesta, decidir sobre la original, retirar. El dinero de §4, con la regla de que las retenciones solo nacen de una acción del rentador. |
+| **F.1** | Esquema y datos: estados nuevos, `momento_propuesto`, intención de cada bebida y corrección de "Ayni", visibilidad, **resolución de duplicados** e índice por par. |
+| **F.2** | Funciones del flujo: **la solicitud pasa a llevar bebida**, contraproponer, aceptar y rechazar la contrapropuesta, decidir sobre la original, retirar. El dinero de §4, con la regla de que las retenciones solo nacen de una acción del rentador. |
 | **F.3** | Vencimiento: la Edge Function programada, idempotente. |
 | **F.4** | Interfaz: proponer con momento y lugar, contraproponer, retirar, estados, y **la intención de cada bebida visible**. Bloqueado hasta tener el texto de las intenciones. |
 
@@ -227,6 +253,6 @@ Tras aceptar, **la conversación sirve para pactar el encuentro**, partiendo del
 
 ## 11. Preguntas abiertas
 
-1. **El texto de la intención de cada bebida.** Lo escribe el usuario. Bloquea F.4.
+1. ~~El texto de la intención de cada bebida.~~ **Resuelto el 2026-09-16** (§2).
 2. **Red Pontis:** cuánto dura una autorización antes de caducar. Se suma a las dos preguntas pendientes (titularidad y auth/capture/void).
 3. **Orden respecto a E.4.** E.4 cierra la serie E y deja la app publicable; esta serie reescribe pantallas que E.4 barrería de vocabulario.
