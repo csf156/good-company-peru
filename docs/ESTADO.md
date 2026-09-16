@@ -67,9 +67,7 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 | E.1 | Esquema: matar `bar`, invariantes de crédito/débito en Postgres, `por_cobrar` | ✅ |
 | E.2a | `PaymentProvider` (hold/captura/anulación) + las cinco funciones SQL del flujo de dinero | ✅ |
 | E.2b | Edge Functions del ciclo hold, seed de demo y árbol verde | ✅ |
-| E.3 | UI del rentador (muerte de Tienda y Bar) | 🟨 |
-
-> **E.3 tiene el código terminado y verificado por BRAIN; falta la revisión del usuario.** Se interrumpe con D.5 porque el login actual no permite entrar por contraseña a las cuentas demo que esa revisión necesita. Decisión del usuario, 2026-09-16.
+| E.3 | UI del rentador (muerte de Tienda y Bar) | ✅ |
 | E.4 | UI del amigo ("Por cobrar") + barrido de vocabulario | ⬜ |
 
 ### La propuesta negociada (serie F)
@@ -129,6 +127,20 @@ Nace del recorrido del usuario sobre E.3 (2026-09-16). Spec: `docs/superpowers/s
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase E.3 — La propuesta, de punta a punta — 2026-09-17
+
+- **Qué se construyó:** por primera vez, un usuario puede **proponer un encuentro y el otro responderle** desde la app. El flujo de invitar **nunca había tenido interfaz**: el botón "Invitar una bebida" no tenía `onPress`, y el cliente jamás había llamado a `crear-invitacion` ni a `responder-invitacion` — la fase 4.2 entregó solo el backend. Se construyó el flujo de proponer (elegir bebida, ver el desglose y confirmar), una pantalla única donde los dos roles responden, y se eliminaron las tres pantallas huérfanas del modelo de stock.
+- **Archivos/pantallas clave:** `app/invitar/[receptorId].tsx`, `app/propuestas.tsx`, `app/index.tsx` (el CTA por fin navega), `lib/invitaciones.ts`, `lib/citas.ts`, `components/SelectionGrid.tsx`. **Eliminados:** `app/store.tsx`, `app/bar.tsx`, `app/wallet.tsx`, `lib/bar.ts` y sus tests.
+- **Tablas / Edge Functions / migraciones:** `20260915120000_calcular_desglose.sql` — `calcular_desglose()`, de solo lectura con `execute` para `authenticated`; `crear_invitacion` y `responder_invitacion` pasan a llamarla. Es **la primera función del flujo de dinero que el cliente llama directo**.
+- **Decisiones tomadas en la fase:** (1) **E.3 y E.4 se repartieron por flujo, no por rol**: la pantalla de responder la necesitan los dos roles. (2) **El rentador ve el total antes de pagar, y el cliente no lo calcula**: `calcular_desglose()` lo expone desde el servidor y deja la fórmula del fee en una sola copia SQL. En Perú el precio total antes de contratar no es opcional. (3) **La clave de idempotencia se genera una vez por intento** — regenerarla en cada toque crearía un hold nuevo sobre la tarjeta. (4) **`preautorizando` y `pendiente` salen de la misma tabla de estados**, no de dos ramas: pintarlos distinto le revelaría al amigo que a la otra parte le falló la tarjeta. (5) **Aceptar una solicitud exige ver el desglose antes de confirmar**: es un cobro real. (6) **El aviso de retención dice cuatro cosas**: se retiene; si acepta, se cobra y queda en custodia; la otra parte lo recibe solo cuando el encuentro se verifica; si no acepta, se libera. La versión inicial se comía la custodia y **el usuario la corrigió en su recorrido**. (7) **No se expuso `tipo_invitacion`**: describe la bebida y no la salida, y su enum incluye `romantica`, categoría vetada.
+- **Tests:** 344 → **358 aserciones pgTAP**, 403 → **431 jest** al cerrar la fase (460 hoy, tras D.5), **cero suites en `.skip`** por primera vez desde E.1. Verificación real en el navegador con tres rondas completas de punta a punta, y **recorrido del usuario**. Verificado por BRAIN.
+- **Deuda / notas para fases futuras:**
+  - **Propuestas repetidas entre el mismo par, cada una con dinero retenido** — hallazgo del usuario. Nada en el esquema lo impedía. Lo resuelve **F.1** con un índice por par.
+  - **La contrapropuesta, el retiro, el vencimiento a 48 h y el momento/lugar en la propuesta** nacieron de su recorrido: **serie F**.
+  - **Bugs reales que destapó la construcción**, todos corregidos: el panel de la cita **llevaba roto en silencio desde E.1** (consultaba la tabla `bar`); `SelectionGrid` con `max=1` **nunca dejaba cambiar la elección**; un **`<button>` dentro de otro** en la pantalla de propuestas; y un color de error que **no llegaba a contraste AA**.
+  - **Ningún test del proyecto valida que una consulta del cliente case con el esquema real** — todos mockean Supabase. Es por lo que el panel de la cita sobrevivió roto varias fases. En backlog.
+  - El panel de la cita muestra la hora en formato crudo: problema de zona horaria, lo resuelve la serie F.
 
 ### Fase E.2b — Edge Functions del ciclo hold — 2026-09-14
 
