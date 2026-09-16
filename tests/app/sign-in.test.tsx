@@ -141,15 +141,30 @@ describe('SignInScreen — crear cuenta', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('muestra el error del proveedor si el correo ya está registrado', async () => {
-    mockedSignUpWithPassword.mockResolvedValue({ error: 'User already registered' });
+  it('un correo ya registrado se ve IGUAL que uno nuevo — "revisa tu correo", nunca un aviso de que ya existe', async () => {
+    // lib/auth.ts (fix del hallazgo de enumeración de BRAIN, D.5) ya
+    // neutraliza esto antes de que llegue a la pantalla — este test prueba
+    // que la pantalla no vuelve a introducir la fuga mostrando otra cosa.
+    mockedSignUpWithPassword.mockResolvedValue({ error: null, needsEmailConfirmation: true });
     await irACrearCuenta();
 
     await fireEvent.changeText(screen.getByPlaceholderText('tu@correo.com'), 'ana@example.com');
     await fireEvent.changeText(screen.getByPlaceholderText('Contraseña'), 'contraseñaLarga1');
     await fireEvent.press(screen.getByText('Crear cuenta'));
 
-    expect(await screen.findByText('User already registered')).toBeTruthy();
+    expect(await screen.findByText(/revisa tu correo/i)).toBeTruthy();
+    expect(screen.queryByText(/ya.*registrad|already/i)).toBeNull();
+  });
+
+  it('muestra el error del proveedor para errores que NO revelan si la cuenta existe (ej. límite de envío)', async () => {
+    mockedSignUpWithPassword.mockResolvedValue({ error: 'Email rate limit exceeded' });
+    await irACrearCuenta();
+
+    await fireEvent.changeText(screen.getByPlaceholderText('tu@correo.com'), 'ana@example.com');
+    await fireEvent.changeText(screen.getByPlaceholderText('Contraseña'), 'contraseñaLarga1');
+    await fireEvent.press(screen.getByText('Crear cuenta'));
+
+    expect(await screen.findByText('Email rate limit exceeded')).toBeTruthy();
   });
 
   it('"¿Ya tienes cuenta? Entra" vuelve al modo de entrar', async () => {

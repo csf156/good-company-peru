@@ -84,7 +84,41 @@ describe('signUpWithPassword', () => {
     expect(result.needsEmailConfirmation).toBe(true);
   });
 
-  it('surfaces the provider error message', async () => {
+  // D.5, hallazgo de BRAIN: un correo ya registrado es el vector clásico de
+  // enumeración — más que entrar o recuperar, porque no exige contraseña.
+  // Antes esto devolvía el mensaje crudo de Supabase ("User already
+  // registered"), confirmando al que pregunta que ese correo existe. Hoy la
+  // confirmación de correo está activa y Supabase lo ofusca por su cuenta —
+  // pero esa protección vive en una config de la nube, no en el código: si
+  // algún día se desactiva (o alguien sincroniza config.toml al revés, como
+  // ya pasó en esta misma fase), el mensaje crudo vuelve a salir. La
+  // respuesta neutra tiene que venir del código, no de que el mundo se
+  // quede como está.
+  it('un correo ya registrado da la MISMA respuesta que uno nuevo (código user_already_exists) — nunca el mensaje crudo de Supabase', async () => {
+    mockedSupabase.auth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'User already registered', code: 'user_already_exists' },
+    });
+
+    const result = await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
+
+    expect(result.error).toBeNull();
+    expect(result.needsEmailConfirmation).toBe(true);
+  });
+
+  it('lo mismo si Supabase manda el código email_exists en vez de user_already_exists', async () => {
+    mockedSupabase.auth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'A user with this email address has already been registered', code: 'email_exists' },
+    });
+
+    const result = await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
+
+    expect(result.error).toBeNull();
+    expect(result.needsEmailConfirmation).toBe(true);
+  });
+
+  it('lo mismo si el mensaje es "User already registered" SIN código — el caso real cuando la confirmación de correo está desactivada', async () => {
     mockedSupabase.auth.signUp.mockResolvedValue({
       data: { user: null, session: null },
       error: { message: 'User already registered' },
@@ -92,7 +126,40 @@ describe('signUpWithPassword', () => {
 
     const result = await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
 
-    expect(result.error).toBe('User already registered');
+    expect(result.error).toBeNull();
+    expect(result.needsEmailConfirmation).toBe(true);
+  });
+
+  it('correo NUEVO y correo YA REGISTRADO producen exactamente el mismo resultado — la propiedad que importa, no solo el caso suelto', async () => {
+    mockedSupabase.auth.signUp.mockResolvedValueOnce({
+      data: { user: { id: 'u1' }, session: null },
+      error: null,
+    });
+    const resultadoNuevo = await signUpWithPassword('nueva@example.com', 'contraseñaLarga1');
+
+    mockedSupabase.auth.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: { message: 'User already registered', code: 'user_already_exists' },
+    });
+    const resultadoExistente = await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
+
+    expect(resultadoNuevo).toEqual(resultadoExistente);
+    expect(resultadoNuevo).toEqual({ error: null, needsEmailConfirmation: true });
+  });
+
+  // La regla es "ningún error que dependa de si la cuenta existe llega al
+  // usuario" — no "ningún error llega". Un límite de envío no revela nada
+  // sobre qué correos están registrados, así que SÍ debe mostrarse.
+  it('un error que NO revela existencia (rate limit) sigue mostrándose tal cual', async () => {
+    mockedSupabase.auth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Email rate limit exceeded', code: 'over_email_send_rate_limit' },
+    });
+
+    const result = await signUpWithPassword('ana@example.com', 'contraseñaLarga1');
+
+    expect(result.error).toBe('Email rate limit exceeded');
+    expect(result.needsEmailConfirmation).toBeUndefined();
   });
 });
 

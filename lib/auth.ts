@@ -44,6 +44,26 @@ function passwordError(password: string): string | null {
     : null;
 }
 
+// D.5, hallazgo de BRAIN: un correo ya registrado es el vector clásico de
+// enumeración en "crear cuenta" — no exige contraseña, a diferencia de
+// entrar. `user_already_exists`/`email_exists` son los códigos estables de
+// GoTrue para esto; el mensaje "User already registered" es el que devuelve
+// cuando la confirmación de correo está DESACTIVADA (hoy está activa, pero
+// esa es una config de la nube — la protección tiene que vivir acá, no
+// depender de que esa config nunca cambie ni de que nadie la desincronice
+// como ya pasó una vez en esta misma fase). Deliberadamente angosto: NO
+// silencia cualquier error, solo los que revelan si la cuenta existe — un
+// límite de envío, por ejemplo, no dice nada sobre qué correos están
+// registrados y sí debe mostrarse.
+const EXISTENCE_REVEALING_CODES = new Set(['user_already_exists', 'email_exists', 'identity_already_exists']);
+
+function revealsAccountExistence(error: { code?: string; message: string }): boolean {
+  if (error.code && EXISTENCE_REVEALING_CODES.has(error.code)) {
+    return true;
+  }
+  return /already registered|already exists|already been registered/i.test(error.message);
+}
+
 /**
  * Crea una cuenta con correo y contraseña. Con la confirmación de correo
  * activa (D.5, requisito de seguridad de esta fase), Supabase no deja sesión
@@ -65,6 +85,9 @@ export async function signUpWithPassword(email: string, password: string): Promi
   );
 
   if (error) {
+    if (revealsAccountExistence(error)) {
+      return { error: null, needsEmailConfirmation: true };
+    }
     return { error: error.message };
   }
 
