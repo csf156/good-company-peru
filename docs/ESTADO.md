@@ -53,6 +53,8 @@ Fases fuera de los dos planes originales, nacidas de specs propios en `docs/supe
 | D.2 | Login con Google | ✅ |
 | D.3 | Onboarding paso a paso (wizard de perfil + KYC en pantallas) | ✅ |
 | D.4 | Carrusel "Cómo funciona" + ToS + costura de referidos | ✅ |
+| D.5 | Login con correo y contraseña (el OTP deja de ser método de entrada) | 🟨 |
+| D.6 | Segundo factor opcional por correo, con verificación en el servidor | ⬜ |
 
 > **Nota:** D.1 se cerró el 2026-07-25 sin entrada en esta bitácora ni fila en esta tabla — se reconstruye aquí la fila, pero su entrada de bitácora nunca se escribió. Lo que hizo está documentado en `docs/superpowers/specs/2026-07-24-design-system-lovable-design.md` y en los commits entre `723ae3a` y `f0bf0ba`.
 
@@ -65,7 +67,9 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 | E.1 | Esquema: matar `bar`, invariantes de crédito/débito en Postgres, `por_cobrar` | ✅ |
 | E.2a | `PaymentProvider` (hold/captura/anulación) + las cinco funciones SQL del flujo de dinero | ✅ |
 | E.2b | Edge Functions del ciclo hold, seed de demo y árbol verde | ✅ |
-| E.3 | UI del rentador (muerte de Tienda y Bar) | ⬜ |
+| E.3 | UI del rentador (muerte de Tienda y Bar) | 🟨 |
+
+> **E.3 tiene el código terminado y verificado por BRAIN; falta la revisión del usuario.** Se interrumpe con D.5 porque el login actual no permite entrar por contraseña a las cuentas demo que esa revisión necesita. Decisión del usuario, 2026-09-16.
 | E.4 | UI del amigo ("Por cobrar") + barrido de vocabulario | ⬜ |
 
 ### Escalamiento (`2026-07-01-plan-escalamiento.md`)
