@@ -57,12 +57,22 @@ export default function PorCobrarScreen() {
       <Text style={styles.eyebrow}>Martini</Text>
       <Text style={styles.title}>Por cobrar</Text>
 
+      {/* Tres niveles, no tres párrafos iguales (Fase E.4, Tarea 4): el
+          importe manda, la explicación lo define, el destino es la letra
+          chica. Cada nivel cambia de familia, tamaño, color y peso — no solo
+          de tamaño — y el filete separa el tercero para que se lea como pie
+          de tarjeta y no como una segunda explicación. */}
       <View style={styles.card}>
         <Text style={styles.monto}>S/ {monto.toFixed(2)}</Text>
-        <Text style={styles.texto}>
+        <Text style={styles.explicacion}>
           Lo que ganaste por encuentros verificados y aún no se ha depositado.
         </Text>
-        <Text style={styles.texto}>Se deposita automáticamente en una cuenta bancaria a tu nombre.</Text>
+        <View style={styles.destinoFila}>
+          <Icon name="bank-outline" size="sm" tone="muted" />
+          <Text style={styles.destino}>
+            Se deposita automáticamente en una cuenta bancaria a tu nombre.
+          </Text>
+        </View>
       </View>
 
       {!cargandoMonto && monto === 0 && (
@@ -99,28 +109,61 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing[5],
     marginTop: spacing[3],
-    gap: spacing[2],
+    // Un solo paso de 12 entre niveles; el filete del destino aporta su
+    // propio paddingTop de 12, así que queda simétrico (12 · filete · 12)
+    // sin sumar márgenes a mano.
+    gap: spacing[3],
   },
+  // Nivel 1 — importe. Mono medium para que el trazo aguante a 36px sobre
+  // fondo oscuro, y el único elemento cromático de la tarjeta.
   monto: {
-    ...textStyles.label,
+    ...textStyles.labelMedium,
     ...tabularNums,
     fontSize: fontSize.displayLg,
+    // El 1.6 de `textStyles.label` está calibrado para versalitas de 10–12px,
+    // donde el tracking ayuda a leer. A 36px la misma cifra se desparrama: el
+    // tracking no escala con el cuerpo. Lo único que se pisa del token.
+    letterSpacing: 0,
     color: colors.primary,
   },
-  texto: {
+  // Nivel 2 — explicación. Es la frase que dice QUÉ es ese número, así que va
+  // en texto de lectura (16/24) y a color pleno, no en el gris de la letra
+  // chica con el que se confundía con el destino.
+  explicacion: {
     ...textStyles.body,
-    fontSize: fontSize.body,
+    fontSize: fontSize.bodyLg,
+    lineHeight: 24,
+    color: colors.foreground,
+  },
+  // Nivel 3 — destino. Pie de tarjeta: filete arriba, cuerpo chico, gris
+  // apagado e icono que lo marca como dato de otra naturaleza. Mismo patrón
+  // que la fila de retención de `app/invitar/[receptorId].tsx`.
+  // `mutedForeground` sobre `surface` da 6.1:1 — AA de sobra aun a 12px.
+  destinoFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing[2],
+    paddingTop: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  destino: {
+    ...textStyles.body,
+    flex: 1,
+    fontSize: fontSize.small,
+    lineHeight: 18,
     color: colors.mutedForeground,
   },
   vacio: {
     alignItems: 'center',
-    gap: spacing[2],
+    gap: spacing[3],
     marginTop: spacing[6],
     paddingHorizontal: spacing[4],
   },
   vacioTexto: {
     ...textStyles.body,
     fontSize: fontSize.body,
+    lineHeight: 21,
     color: colors.mutedForeground,
     textAlign: 'center',
   },
