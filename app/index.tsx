@@ -78,7 +78,7 @@ export default function DiscoverScreen() {
               onPress={() => router.push('/por-cobrar')}
               style={styles.propuestasButton}
             >
-              <Icon name="wallet-outline" size="md" />
+              <Icon name="receipt-text-outline" size="md" />
             </Pressable>
           )}
           <Pressable

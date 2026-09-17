@@ -67,7 +67,7 @@ export default function PorCobrarScreen() {
 
       {!cargandoMonto && monto === 0 && (
         <View style={styles.vacio}>
-          <Icon name="wallet-outline" size="lg" tone="muted" />
+          <Icon name="receipt-text-outline" size="lg" tone="muted" />
           <Text style={styles.vacioTexto}>
             Aún no tienes nada por cobrar. Aparecerá aquí cuando completes un encuentro verificado.
           </Text>
