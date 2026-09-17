@@ -70,14 +70,26 @@ export default function DiscoverScreen() {
           <Text style={styles.eyebrow}>Martini</Text>
           <Text style={styles.title}>Descubre</Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ver propuestas"
-          onPress={() => router.push('/propuestas')}
-          style={styles.propuestasButton}
-        >
-          <Icon name="email-outline" size="md" />
-        </Pressable>
+        <View style={styles.headerActions}>
+          {data?.rolPropio === 'amigo' && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ver por cobrar"
+              onPress={() => router.push('/por-cobrar')}
+              style={styles.propuestasButton}
+            >
+              <Icon name="wallet-outline" size="md" />
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ver propuestas"
+            onPress={() => router.push('/propuestas')}
+            style={styles.propuestasButton}
+          >
+            <Icon name="email-outline" size="md" />
+          </Pressable>
+        </View>
       </View>
 
       {!cargando && total === 0 && (
@@ -147,6 +159,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   propuestasButton: {
     ...touchTarget,

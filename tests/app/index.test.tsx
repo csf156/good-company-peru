@@ -114,6 +114,23 @@ describe('DiscoverScreen', () => {
     expect(await screen.findByText('Solicitar encuentro')).toBeTruthy();
   });
 
+  describe('acceso a "Por cobrar" (solo rol amigo)', () => {
+    it('el rol amigo ve el acceso a "Por cobrar"', async () => {
+      mockedGetPerfilesDescubrir.mockResolvedValue({ rolPropio: 'amigo', perfiles: [] });
+      await render(<DiscoverScreen />);
+
+      expect(await screen.findByLabelText('Ver por cobrar')).toBeTruthy();
+    });
+
+    it('el rol rentador NO ve el acceso a "Por cobrar"', async () => {
+      mockedGetPerfilesDescubrir.mockResolvedValue({ rolPropio: 'rentador', perfiles: [] });
+      await render(<DiscoverScreen />);
+
+      await screen.findByText('No hay perfiles disponibles por ahora.');
+      expect(screen.queryByLabelText('Ver por cobrar')).toBeNull();
+    });
+  });
+
   describe('foto del perfil', () => {
     it('pide la URL firmada con la ruta guardada en foto_url', async () => {
       mockedGetPerfilesDescubrir.mockResolvedValue({
