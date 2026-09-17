@@ -1,7 +1,13 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 
-const ROOTS = ['app', 'components', 'lib', 'public'];
+// Anclado a este checkout exacto vía `__dirname`, no a `process.cwd()`: el
+// mismo motivo que documenta jest.config.js para `testMatch` — corriendo
+// desde un worktree anidado, `cwd` puede no ser la raíz de este repo, y un
+// ROOTS relativo se pondría a escanear el árbol equivocado y reportar verde
+// aunque el checkout real tenga una violación.
+const REPO = join(__dirname, '..');
+const ROOTS = ['app', 'components', 'lib', 'public'].map((r) => join(REPO, r));
 const EXTENSIONS = ['.ts', '.tsx', '.html'];
 
 // lib/tos.ts usa "saldo", "monedero" y "billeteras" A PROPÓSITO: la cláusula
@@ -12,7 +18,9 @@ const EXTENSIONS = ['.ts', '.tsx', '.html'];
 // (decir qué NO es requiere decir la palabra). Si este test falla en
 // lib/tos.ts, la solución NO es editar el ToS — es dejar esta exclusión
 // como está. Ver docs/2026-07-01-modelo-negocio-design.md y CLAUDE.md.
-const EXCLUDED = new Set([join('lib', 'tos.ts')]);
+// Construida con el mismo REPO absoluto que ROOTS, para que siga
+// comparando igual a igual contra los paths que produce sourceFiles().
+const EXCLUDED = new Set([join(REPO, 'lib', 'tos.ts')]);
 
 // Vocabulario vetado: la app es custodia orquestada sobre Red Pontis, no una
 // billetera/wallet de propósito general — eso es requisito de licenciamiento

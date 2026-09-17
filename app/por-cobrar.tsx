@@ -21,9 +21,12 @@ import { Icon } from '@/components/Icon';
 // realmente lo cumple, porque también corta un deep link directo a la ruta.
 export default function PorCobrarScreen() {
   const router = useRouter();
-  const [monto, setMonto] = useState(0);
+  // null = todavía no sabemos el monto real (ni siquiera si es cero). No es
+  // lo mismo que "es cero" — confundir ambos es lo que hacía parpadear
+  // "S/ 0.00" antes de que llegara el valor real (Hallazgo 1, review final
+  // Fase E.4).
+  const [monto, setMonto] = useState<number | null>(null);
   const [permitido, setPermitido] = useState(false);
-  const [cargandoMonto, setCargandoMonto] = useState(true);
 
   useEffect(() => {
     let cancelado = false;
@@ -37,7 +40,6 @@ export default function PorCobrarScreen() {
       getPorCobrar().then((valor) => {
         if (cancelado) return;
         setMonto(valor);
-        setCargandoMonto(false);
       });
     });
     return () => {
@@ -57,25 +59,34 @@ export default function PorCobrarScreen() {
       <Text style={styles.eyebrow}>Martini</Text>
       <Text style={styles.title}>Por cobrar</Text>
 
-      {/* Tres niveles, no tres párrafos iguales (Fase E.4, Tarea 4): el
-          importe manda, la explicación lo define, el destino es la letra
-          chica. Cada nivel cambia de familia, tamaño, color y peso — no solo
-          de tamaño — y el filete separa el tercero para que se lea como pie
-          de tarjeta y no como una segunda explicación. */}
-      <View style={styles.card}>
-        <Text style={styles.monto}>S/ {monto.toFixed(2)}</Text>
-        <Text style={styles.explicacion}>
-          Lo que ganaste por encuentros verificados y aún no se ha depositado.
-        </Text>
-        <View style={styles.destinoFila}>
-          <Icon name="bank-outline" size="sm" tone="muted" />
-          <Text style={styles.destino}>
-            Se deposita automáticamente en una cuenta bancaria a tu nombre.
+      {/* Tres estados, no dos: mientras `monto` es `null` (Hallazgo 1) no se
+          sabe todavía si hay algo por cobrar o no, así que no se muestra ni
+          la tarjeta ni el vacío — cualquiera de los dos sería una
+          afirmación que todavía no se puede hacer. Una vez que se sabe,
+          `monto > 0` y `monto === 0` son mutuamente excluyentes: la tarjeta
+          y el estado vacío nunca se muestran juntos (Hallazgo 2, confirmado
+          por el usuario en el review final de Fase E.4). */}
+      {monto !== null && monto > 0 && (
+        // Tres niveles, no tres párrafos iguales (Fase E.4, Tarea 4): el
+        // importe manda, la explicación lo define, el destino es la letra
+        // chica. Cada nivel cambia de familia, tamaño, color y peso — no
+        // solo de tamaño — y el filete separa el tercero para que se lea
+        // como pie de tarjeta y no como una segunda explicación.
+        <View style={styles.card}>
+          <Text style={styles.monto}>S/ {monto.toFixed(2)}</Text>
+          <Text style={styles.explicacion}>
+            Lo que ganaste por encuentros verificados y aún no se ha depositado.
           </Text>
+          <View style={styles.destinoFila}>
+            <Icon name="bank-outline" size="sm" tone="muted" />
+            <Text style={styles.destino}>
+              Se deposita automáticamente en una cuenta bancaria a tu nombre.
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
 
-      {!cargandoMonto && monto === 0 && (
+      {monto === 0 && (
         <View style={styles.vacio}>
           <Icon name="receipt-text-outline" size="lg" tone="muted" />
           <Text style={styles.vacioTexto}>

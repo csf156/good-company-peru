@@ -41,13 +41,47 @@ describe('PorCobrarScreen', () => {
     expect(screen.queryByText(/aún no tienes nada por cobrar/i)).toBeNull();
   });
 
-  it('con 0, muestra el estado vacío', async () => {
+  it('con 0, muestra solo el estado vacío — nunca la tarjeta', async () => {
     mockedGetPorCobrar.mockResolvedValue(0);
     await render(<PorCobrarScreen />);
 
-    expect(await screen.findByText('S/ 0.00')).toBeTruthy();
     expect(
-      screen.getByText('Aún no tienes nada por cobrar. Aparecerá aquí cuando completes un encuentro verificado.'),
+      await screen.findByText(
+        'Aún no tienes nada por cobrar. Aparecerá aquí cuando completes un encuentro verificado.',
+      ),
+    ).toBeTruthy();
+    // La tarjeta (importe/explicación/destino) es del estado "hay monto > 0";
+    // con 0 no debe aparecer, para no decir dos veces lo mismo (Hallazgo 2
+    // del review final de Fase E.4).
+    expect(screen.queryByText('S/ 0.00')).toBeNull();
+    expect(screen.queryByText(/lo que ganaste/i)).toBeNull();
+    expect(screen.queryByText(/se deposita automáticamente/i)).toBeNull();
+  });
+
+  it('mientras se resuelve el monto, no muestra ni la tarjeta ni el estado vacío', async () => {
+    let resolverMonto: (valor: number) => void = () => {};
+    mockedGetPorCobrar.mockReturnValue(
+      new Promise<number>((resolve) => {
+        resolverMonto = resolve;
+      }),
+    );
+    await render(<PorCobrarScreen />);
+
+    // Espera a que la guarda de rol deje pasar y se pida el monto, sin que
+    // la promesa se haya resuelto todavía — el momento exacto que el
+    // Hallazgo 1 del review final identificó como el flash de "S/ 0.00".
+    await waitFor(() => expect(mockedGetPorCobrar).toHaveBeenCalled());
+
+    expect(screen.queryByText(/^S\//)).toBeNull();
+    expect(screen.queryByText(/lo que ganaste/i)).toBeNull();
+    expect(screen.queryByText(/aún no tienes nada por cobrar/i)).toBeNull();
+
+    resolverMonto(0);
+
+    expect(
+      await screen.findByText(
+        'Aún no tienes nada por cobrar. Aparecerá aquí cuando completes un encuentro verificado.',
+      ),
     ).toBeTruthy();
   });
 
