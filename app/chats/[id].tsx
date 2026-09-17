@@ -137,7 +137,7 @@ export default function ChatDetailScreen() {
             )}
             <View style={styles.resumenFila}>
               {cita.valorV !== null && (
-                <Text style={styles.resumenDato}>{cita.valorV} V</Text>
+                <Text style={styles.resumenDato}>S/ {cita.valorV.toFixed(2)}</Text>
               )}
               {cita.tiempoEstimadoMin !== null && (
                 <Text style={styles.resumenDato}>~{cita.tiempoEstimadoMin} min</Text>

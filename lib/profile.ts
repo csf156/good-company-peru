@@ -44,7 +44,7 @@ export type PublicProfile = {
  * Reads another user's SAFE public fields via the `perfiles_publicos` view
  * (Fase 1.5 migration) — never the `profiles` table directly, whose RLS
  * only allows reading your own row. The view's column allowlist (not this
- * function) is what keeps nombre, saldo/nivel and other sensitive fields
+ * function) is what keeps nombre, importe por cobrar/nivel and other sensitive fields
  * out of reach.
  */
 export async function getPublicProfile(id: string): Promise<PublicProfile | null> {

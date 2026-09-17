@@ -186,7 +186,7 @@ describe('ChatDetailScreen', () => {
 
       expect(await screen.findByText('Cita confirmada')).toBeTruthy();
       expect(screen.getByText('Pisco Sour')).toBeTruthy();
-      expect(screen.getByText('30 V')).toBeTruthy();
+      expect(screen.getByText('S/ 30.00')).toBeTruthy();
       expect(screen.getByText('~60 min')).toBeTruthy();
       expect(screen.getByText('Ayahuasca Bar, Barranco')).toBeTruthy();
     });
@@ -208,6 +208,27 @@ describe('ChatDetailScreen', () => {
 
       expect(await screen.findByText('Cita confirmada')).toBeTruthy();
       expect(screen.queryByText('Confirmar cita')).toBeNull();
+    });
+
+    it('muestra el valor en soles con dos decimales (S/ X.XX), no en V', async () => {
+      mockedGetMensajes.mockResolvedValue([]);
+      mockedGetCitaDetalle.mockResolvedValue({
+        estado: 'confirmada',
+        esAmigo: true,
+        zona: 'Ayahuasca Bar, Barranco',
+        hora: '2026-07-25T21:30:00-05:00',
+        mensaje: null,
+        bebidaNombre: 'Pisco Sour',
+        valorV: 30,
+        tiempoEstimadoMin: 60,
+      });
+
+      await render(<ChatDetailScreen />);
+
+      // El valor debe mostrarse como S/ 30.00, no como "30 V"
+      expect(await screen.findByText('S/ 30.00')).toBeTruthy();
+      expect(screen.queryByText(/30 V/)).toBeNull();
+      expect(screen.queryByText(/\s+V(?:\s|$)/)).toBeNull();
     });
   });
 });
