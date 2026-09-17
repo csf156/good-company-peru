@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getPorCobrar } from '@/lib/por-cobrar';
+import { getOwnProfile } from '@/lib/profile';
 import { colors, spacing, fontSize, radius, textStyles, tabularNums } from '@/lib/theme';
 import { Screen } from '@/components/Screen';
 import { Icon } from '@/components/Icon';
@@ -11,16 +13,44 @@ import { Icon } from '@/components/Icon';
 // adelanto a demanda son la fase 6.3, que no existe. Hoy `getPorCobrar`
 // siempre da 0 — es correcto, no un placeholder a medio hacer (la liberación
 // de escrow que produce un `payout` es la fase 5.4).
+//
+// "El rentador no tiene vista de dinero agregado. Nunca ve 'Por cobrar'"
+// (constraint global del plan, repetida en la migración de la vista E.1).
+// app/index.tsx ya esconde el botón de entrada para quien no es amigo, pero
+// eso solo cubre la navegación normal — esta guarda de acá es la que
+// realmente lo cumple, porque también corta un deep link directo a la ruta.
 export default function PorCobrarScreen() {
+  const router = useRouter();
   const [monto, setMonto] = useState(0);
-  const [cargando, setCargando] = useState(true);
+  const [permitido, setPermitido] = useState(false);
+  const [cargandoMonto, setCargandoMonto] = useState(true);
 
   useEffect(() => {
-    getPorCobrar().then((valor) => {
-      setMonto(valor);
-      setCargando(false);
+    let cancelado = false;
+    getOwnProfile().then((perfil) => {
+      if (cancelado) return;
+      if (perfil?.rol !== 'amigo') {
+        router.replace('/');
+        return;
+      }
+      setPermitido(true);
+      getPorCobrar().then((valor) => {
+        if (cancelado) return;
+        setMonto(valor);
+        setCargandoMonto(false);
+      });
     });
-  }, []);
+    return () => {
+      cancelado = true;
+    };
+  }, [router]);
+
+  // Ni contenido ni placeholder mientras se confirma el rol o si no es
+  // amigo: nada que ver hasta que la guarda de arriba lo deje pasar (o lo
+  // mande de vuelta a '/').
+  if (!permitido) {
+    return null;
+  }
 
   return (
     <Screen background={colors.background} scroll contentStyle={styles.content}>
@@ -35,7 +65,7 @@ export default function PorCobrarScreen() {
         <Text style={styles.texto}>Se deposita automáticamente en una cuenta bancaria a tu nombre.</Text>
       </View>
 
-      {!cargando && monto === 0 && (
+      {!cargandoMonto && monto === 0 && (
         <View style={styles.vacio}>
           <Icon name="wallet-outline" size="lg" tone="muted" />
           <Text style={styles.vacioTexto}>

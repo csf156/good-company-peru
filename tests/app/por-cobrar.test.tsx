@@ -1,15 +1,28 @@
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import PorCobrarScreen from '@/app/por-cobrar';
 import { getPorCobrar } from '@/lib/por-cobrar';
+import { getOwnProfile } from '@/lib/profile';
 
 jest.mock('@/lib/por-cobrar', () => ({
   getPorCobrar: jest.fn(),
 }));
+jest.mock('@/lib/profile', () => ({
+  getOwnProfile: jest.fn(),
+}));
+
+const mockReplace = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}));
 
 const mockedGetPorCobrar = getPorCobrar as jest.Mock;
+const mockedGetOwnProfile = getOwnProfile as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Default: rol amigo, la audiencia normal de esta pantalla. Los tests de
+  // la guarda de rol lo pisan explícitamente.
+  mockedGetOwnProfile.mockResolvedValue({ rol: 'amigo' });
 });
 
 describe('PorCobrarScreen', () => {
@@ -46,5 +59,29 @@ describe('PorCobrarScreen', () => {
     expect(screen.queryAllByRole('button')).toHaveLength(0);
     expect(screen.queryByText(/retirar/i)).toBeNull();
     expect(screen.queryByText(/usar/i)).toBeNull();
+  });
+
+  describe('guarda de rol — "el rentador no tiene vista de dinero agregado, nunca ve Por cobrar"', () => {
+    it('un rentador que llega directo a la ruta (deep link) no ve el importe, la explicación ni el destino', async () => {
+      mockedGetOwnProfile.mockResolvedValue({ rol: 'rentador' });
+      mockedGetPorCobrar.mockResolvedValue(15);
+      await render(<PorCobrarScreen />);
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+
+      expect(screen.queryByText('S/ 15.00')).toBeNull();
+      expect(screen.queryByText(/lo que ganaste/i)).toBeNull();
+      expect(screen.queryByText(/se deposita automáticamente/i)).toBeNull();
+      // Defensa en profundidad: para un no-amigo, ni siquiera se pide el monto.
+      expect(mockedGetPorCobrar).not.toHaveBeenCalled();
+    });
+
+    it('un perfil sin fila (defensivo) tampoco se trata como amigo', async () => {
+      mockedGetOwnProfile.mockResolvedValue(null);
+      await render(<PorCobrarScreen />);
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+      expect(screen.queryByText(/lo que ganaste/i)).toBeNull();
+    });
   });
 });
