@@ -122,6 +122,12 @@ Tres cambios en una migración:
 - [ ] **Step 2: Rojo → Step 3: migración → Step 4: ALTO de BRAIN → Step 5: aplicar e introspección → Step 6: verde y commit.**
 
 > **Las invitaciones existentes tienen `cantidad` nula.** Es correcto para las solicitudes, pero una invitación ya retenida o capturada **tenía cantidad 1 de hecho**. Rellénalas a 1 en la misma migración — solo las de tipo `invitacion` con orden asociada —, o F.2 se encontrará órdenes cuyo importe no coincide con `valor × cantidad`.
+>
+> **Corregido (2026-09-18):** el relleno cubre **toda fila con orden asociada, de cualquier tipo** (14 filas en dev), no solo las invitaciones. Cuatro solicitudes aceptadas tenían una orden capturada por valor × 1, y ahí el rentador ya había actuado. Las solicitudes sin orden siguen con `cantidad` NULL.
+>
+> **Notas para F.2** (el check de F.1 no las cubre):
+> - El check deja pasar `contra_bebida_catalogo_id = bebida_catalogo_id` si la duración sí cambia. La función de contraproponer tiene que guardar **NULL en lo que no cambia**.
+> - La FK de `contra_bebida_catalogo_id` no exige que la bebida esté `activo`. Lo tiene que validar la función.
 
 ---
 
