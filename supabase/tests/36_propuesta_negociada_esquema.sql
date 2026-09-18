@@ -19,7 +19,12 @@
 -- Sección 2 (Tarea 2): la intención de cada bebida (`intencion_titulo` +
 -- `intencion_detalle`, spec §2), la desaparición de "Ayni" del catálogo, y la
 -- columna `invitaciones.momento_propuesto` con su contrato de zona horaria.
-select plan(29);
+--
+-- Sección 3 (Tarea 2b): `invitaciones.cantidad` (spec §8b, sin tope de negocio y
+-- no contraproponible) y las dos columnas donde se guarda la contrapropuesta
+-- (`contra_bebida_catalogo_id`, `contra_tiempo_estimado_min`), con el check de
+-- que una contrapropuesta tiene que cambiar algo respecto a la original.
+select plan(61);
 
 -- ============================================================================
 -- 1. Estados nuevos de estado_invitacion
@@ -272,6 +277,342 @@ select results_eq(
       where id = 'a0000001-0000-0000-0000-000000000001' $$,
   $$ values ('Título fixture.', 'Detalle fixture.') $$,
   'el intento de Ana no cambió nada: la intención sigue intacta');
+
+-- ============================================================================
+-- 3. Cantidad y columnas de la contrapropuesta (Tarea 2b)
+-- ============================================================================
+-- Fixtures propios de esta sección (ids con prefijo a0000002 / c0000002; nada
+-- global). Reutiliza a Ana (11..) y Beto (22..) de la sección 2. TODAS las
+-- filas nacen en estado 'rechazada': ni la cantidad ni la contrapropuesta ni
+-- sus checks dependen del estado, y un estado terminal no ocupa la "relación
+-- activa" del par (spec §6), así que estas filas no chocarán con el índice
+-- único por par que llega después. 'rechazada' además es visible para el
+-- receptor (lista blanca de la política), lo que permite probar la lectura de
+-- Beto en 3f sin depender de la visibilidad de los estados nuevos.
+insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v, activo)
+values
+  ('a0000002-0000-0000-0000-00000000000a', 'Bebida F1T2b A', 'autor', 10, true),
+  ('a0000002-0000-0000-0000-00000000000b', 'Bebida F1T2b B', 'autor', 20, true);
+
+-- --- 3a. Las tres columnas: existen, con su tipo, nullables; contra_cantidad NO
+select has_column('public', 'invitaciones', 'cantidad',
+  'invitaciones tiene cantidad');
+select col_type_is('public', 'invitaciones', 'cantidad', 'integer',
+  'cantidad es integer');
+select col_is_null('public', 'invitaciones', 'cantidad',
+  'cantidad es nullable (una solicitud no la trae hasta que el rentador actúa)');
+
+select has_column('public', 'invitaciones', 'contra_bebida_catalogo_id',
+  'invitaciones tiene contra_bebida_catalogo_id');
+select col_type_is('public', 'invitaciones', 'contra_bebida_catalogo_id', 'uuid',
+  'contra_bebida_catalogo_id es uuid');
+select col_is_null('public', 'invitaciones', 'contra_bebida_catalogo_id',
+  'contra_bebida_catalogo_id es nullable (nula hasta que hay contrapropuesta)');
+
+select has_column('public', 'invitaciones', 'contra_tiempo_estimado_min',
+  'invitaciones tiene contra_tiempo_estimado_min');
+select col_type_is('public', 'invitaciones', 'contra_tiempo_estimado_min', 'integer',
+  'contra_tiempo_estimado_min es integer');
+select col_is_null('public', 'invitaciones', 'contra_tiempo_estimado_min',
+  'contra_tiempo_estimado_min es nullable (nula hasta que hay contrapropuesta)');
+
+-- La cantidad no es contraproponible (decisión del usuario, spec §8b): no hay
+-- columna para contraproponerla.
+select hasnt_column('public', 'invitaciones', 'contra_cantidad',
+  'NO existe contra_cantidad: la cantidad no se contrapropone');
+
+select fk_ok('public', 'invitaciones', 'contra_bebida_catalogo_id',
+             'public', 'bebidas_catalogo', 'id',
+  'contra_bebida_catalogo_id referencia a bebidas_catalogo(id)');
+
+-- --- 3b. cantidad >= 1, sin tope --------------------------------------------
+-- La cantidad NULL pasa a propósito (solicitud sin cantidad). Sin tope de
+-- negocio (decisión del usuario): 1000 entra. El límite técnico de numeric(12,2)
+-- del importe lo maneja F.2 en calcular_desglose, no esta columna.
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, cantidad)
+     values ('c0000002-0000-0000-0000-000000000001',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 0) $$,
+  '23514',
+  'new row for relation "invitaciones" violates check constraint "invitaciones_cantidad_check"',
+  'cantidad = 0 se RECHAZA');
+
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, cantidad)
+     values ('c0000002-0000-0000-0000-000000000002',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, -1) $$,
+  '23514',
+  'new row for relation "invitaciones" violates check constraint "invitaciones_cantidad_check"',
+  'cantidad = -1 se RECHAZA');
+
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, cantidad)
+     values ('c0000002-0000-0000-0000-000000000003',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 1) $$,
+  'cantidad = 1 se ACEPTA');
+
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, cantidad)
+     values ('c0000002-0000-0000-0000-000000000004',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 1000) $$,
+  'cantidad = 1000 se ACEPTA (sin tope de negocio)');
+
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, cantidad)
+     values ('c0000002-0000-0000-0000-000000000005',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'solicitud', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, null) $$,
+  'cantidad NULL se ACEPTA (una solicitud no la trae hasta que el rentador actúa)');
+
+-- --- 3c. contra_tiempo_estimado_min > 0 (espejo de tiempo_estimado_min) -------
+-- La original ya tiene `tiempo_estimado_min is null or > 0` desde la fase 4.2;
+-- la contrapropuesta de duración tiene la misma regla. Solo esta condición
+-- falla en estas filas (0 y -1 SÍ difieren de la original, así que el check
+-- de "cambia algo" pasa y la violación es inequívoca).
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000006',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 0) $$,
+  '23514',
+  'new row for relation "invitaciones" violates check constraint "invitaciones_contra_tiempo_estimado_min_check"',
+  'contra_tiempo_estimado_min = 0 se RECHAZA');
+
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000007',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, -1) $$,
+  '23514',
+  'new row for relation "invitaciones" violates check constraint "invitaciones_contra_tiempo_estimado_min_check"',
+  'contra_tiempo_estimado_min = -1 se RECHAZA');
+
+-- --- 3d. Una contrapropuesta tiene que cambiar algo -------------------------
+-- "Hay contrapropuesta" = al menos UNA columna contra no nula; una columna
+-- contra NULL significa "ese campo no se contrapropone". Original de estas
+-- filas: bebida A, 60 min. Los casos con UNA sola columna puesta e IGUAL a la
+-- original atrapan un CHECK escrito sin `is not null` (deja pasar NULL) o con
+-- `<>` en vez de `is distinct from`.
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_bebida_catalogo_id, contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000008',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60,
+             'a0000002-0000-0000-0000-00000000000a', 60) $$,
+  '23514',
+  'new row for relation "invitaciones" violates check constraint "invitaciones_contrapropuesta_cambia_algo"',
+  'una contrapropuesta IDÉNTICA a la original (misma bebida y misma duración) se RECHAZA');
+
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_bebida_catalogo_id)
+     values ('c0000002-0000-0000-0000-000000000009',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60,
+             'a0000002-0000-0000-0000-00000000000a') $$,
+  '23514',
+  'new row for relation "invitaciones" violates check constraint "invitaciones_contrapropuesta_cambia_algo"',
+  'contra_bebida igual a la original y contra_tiempo NULL se RECHAZA (no cambia nada)');
+
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000010',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 60) $$,
+  '23514',
+  'new row for relation "invitaciones" violates check constraint "invitaciones_contrapropuesta_cambia_algo"',
+  'contra_tiempo igual a la original y contra_bebida NULL se RECHAZA (no cambia nada)');
+
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_bebida_catalogo_id)
+     values ('c0000002-0000-0000-0000-000000000011',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60,
+             'a0000002-0000-0000-0000-00000000000b') $$,
+  'una contrapropuesta que cambia SOLO la bebida (contra_tiempo NULL) se ACEPTA');
+
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000012',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 45) $$,
+  'una contrapropuesta que cambia SOLO la duración (contra_bebida NULL) se ACEPTA');
+
+-- Esta fila (las dos cambian) es la que 3f lee como Ana y como Beto.
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, cantidad,
+        contra_bebida_catalogo_id, contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000013',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 3,
+             'a0000002-0000-0000-0000-00000000000b', 45) $$,
+  'una contrapropuesta que cambia la bebida Y la duración se ACEPTA');
+
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min, cantidad)
+     values ('c0000002-0000-0000-0000-000000000014',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60, 2) $$,
+  'sin contrapropuesta (las dos columnas contra NULL) se ACEPTA');
+
+-- Decisión de diseño fijada aquí para que no cambie sin querer: el check pide
+-- que AL MENOS UNA columna contra difiera de la original (spec §8b). Una
+-- columna contra puesta con el valor original NO invalida la fila mientras la
+-- otra sí cambie (el cliente puede enviar las dos columnas aunque solo una
+-- cambie).
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_bebida_catalogo_id, contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000015',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60,
+             'a0000002-0000-0000-0000-00000000000a', 45) $$,
+  'contra_bebida igual a la original pero contra_tiempo distinto se ACEPTA (basta que una difiera)');
+
+-- --- 3e. contra_bebida_catalogo_id apunta a una bebida que existe -------------
+select throws_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_bebida_catalogo_id)
+     values ('c0000002-0000-0000-0000-000000000016',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60,
+             'a0000002-0000-0000-0000-0000000000ff') $$,
+  '23503',
+  'insert or update on table "invitaciones" violates foreign key constraint "invitaciones_contra_bebida_catalogo_id_fkey"',
+  'una contra_bebida_catalogo_id que no existe en el catálogo se RECHAZA');
+
+-- --- 3f. Lectura y escritura desde el cliente ---------------------------------
+-- `authenticated` lee `invitaciones` con SELECT a nivel de TABLA (ninguna
+-- columna tiene ACL propia), así que las tres columnas nuevas heredan la
+-- lectura para las partes; y no tiene INSERT/UPDATE/DELETE sobre la tabla
+-- (fase 4.0), así que tampoco puede escribirlas. Este bloque lo comprueba.
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text,
+  true);
+set local role authenticated;
+
+select results_eq(
+  $$ select cantidad, contra_bebida_catalogo_id, contra_tiempo_estimado_min
+       from public.invitaciones
+      where id = 'c0000002-0000-0000-0000-000000000013' $$,
+  $$ values (3, 'a0000002-0000-0000-0000-00000000000b'::uuid, 45) $$,
+  'Ana (emisor) LEE cantidad y las dos columnas de la contrapropuesta de su invitación');
+
+select throws_ok(
+  $$ insert into public.invitaciones
+       (emisor_id, receptor_id, tipo, alcance, estado, cantidad,
+        contra_bebida_catalogo_id, contra_tiempo_estimado_min)
+     values ('11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada', 5,
+             'a0000002-0000-0000-0000-00000000000b', 30) $$,
+  '42501', null,
+  'Ana NO puede insertar una invitación con cantidad ni contrapropuesta');
+
+select throws_ok(
+  $$ update public.invitaciones
+        set cantidad = 99,
+            contra_bebida_catalogo_id = 'a0000002-0000-0000-0000-00000000000a',
+            contra_tiempo_estimado_min = 5
+      where id = 'c0000002-0000-0000-0000-000000000013' $$,
+  '42501', null,
+  'Ana NO puede modificar cantidad ni la contrapropuesta de su invitación');
+
+select results_eq(
+  $$ select cantidad, contra_bebida_catalogo_id, contra_tiempo_estimado_min
+       from public.invitaciones
+      where id = 'c0000002-0000-0000-0000-000000000013' $$,
+  $$ values (3, 'a0000002-0000-0000-0000-00000000000b'::uuid, 45) $$,
+  'el intento de Ana no cambió nada: cantidad y contrapropuesta siguen intactas');
+
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text,
+  true);
+set local role authenticated;
+
+select results_eq(
+  $$ select cantidad, contra_bebida_catalogo_id, contra_tiempo_estimado_min
+       from public.invitaciones
+      where id = 'c0000002-0000-0000-0000-000000000013' $$,
+  $$ values (3, 'a0000002-0000-0000-0000-00000000000b'::uuid, 45) $$,
+  'Beto (receptor) LEE cantidad y las dos columnas de la contrapropuesta de la invitación');
+
+reset role;
+select set_config('request.jwt.claims', null, true);
 
 select * from finish();
 rollback;
