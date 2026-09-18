@@ -11,6 +11,8 @@
 
 ## Pendiente
 
+- [ ] `npm run test:db` a secas falla con "falta la variable de entorno DATABASE_URL": el script de `package.json` (`node tests/db/run-pgtap.mjs`) no carga `.env`, y hoy hay que correr `node --env-file=.env tests/db/run-pgtap.mjs`. No es un bug de la base, solo una fricción de tooling (mismo caso para `demo:seed`/migraciones si se lanzan sin `--env-file`) — detectado en F.1 Tarea 1, 2026-09-18 — ¿pertenece a? higiene de tooling de testing/DB, cualquier momento; no arreglar dentro de F.1.
+
 - [ ] **Sin tope en la cantidad de bebidas por propuesta — decisión del usuario del 2026-09-18.** BRAIN había recomendado un tope por importe total por antilavado. Queda registrado el riesgo: sin tope, **dos cuentas pueden mover importes grandes entre sí** con una sola propuesta aceptada; es la vía que vigila el veto 22. Hoy el límite práctico lo pone la autorización de la tarjeta, que fallará antes que la base. **Revisar antes de lanzar**, junto con la conversación sobre obligaciones de reporte con el abogado y con Red Pontis — detectado por BRAIN al diseñar la cantidad en la serie F.
 - [ ] `lib/theme.ts` no tiene una escala de `lineHeight` — cada pantalla que necesita interlineado explícito (ej. `app/por-cobrar.tsx:135,154,166`) usa un literal (1.5×, etc.) en vez de un token. Bajo riesgo hoy, pero si crece el número de pantallas con esto, conviene una escala propia en el theme — detectado en E.4 Tarea 4 (pasada de diseño), 2026-09-17 — ¿pertenece a? mantenimiento de `lib/theme.ts` cuando haga falta de verdad.
 
