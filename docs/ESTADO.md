@@ -68,7 +68,7 @@ Fuera de los dos planes originales, nacidas de `docs/superpowers/specs/2026-09-0
 | E.2a | `PaymentProvider` (hold/captura/anulación) + las cinco funciones SQL del flujo de dinero | ✅ |
 | E.2b | Edge Functions del ciclo hold, seed de demo y árbol verde | ✅ |
 | E.3 | UI del rentador (muerte de Tienda y Bar) | ✅ |
-| E.4 | UI del amigo ("Por cobrar") + barrido de vocabulario | ⬜ |
+| E.4 | UI del amigo ("Por cobrar") + barrido de vocabulario | ✅ |
 
 ### La propuesta negociada (serie F)
 
@@ -127,6 +127,20 @@ Nace del recorrido del usuario sobre E.3 (2026-09-16). Spec: `docs/superpowers/s
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase E.4 — "Por cobrar" y vocabulario — 2026-09-18
+
+- **Qué se construyó:** el amigo ve lo que tiene **por cobrar**, sin que nada lo presente como un saldo, y la app queda sin vocabulario de monedero, con un test que impide que vuelva. **Cierra la serie E.**
+- **Archivos/pantallas clave:** `app/por-cobrar.tsx` y `lib/por-cobrar.ts` (nuevos), `app/index.tsx` (acceso solo para el amigo), `app/chats/[id].tsx` (importe en soles), `public/privacidad.html`, `lib/profile.ts`, `tests/vocabulario-vetado.test.ts`. `.claude/launch.json` gana `autoPort`.
+- **Tablas / Edge Functions / migraciones:** ninguna. Lee la vista `por_cobrar` de E.1.
+- **Decisiones tomadas en la fase:** (1) **"Por cobrar" no promete lo que no existe**: sin fecha, sin "próximo lunes", sin botón de retirar — la liquidación es la fase 6.3. Solo afirma el destino que ya compromete la cláusula 13 del ToS. (2) **La guarda de rol vive en la ruta, no solo en el botón**: esconder el acceso no impide llegar escribiendo la dirección. (3) **`lib/tos.ts` queda excluido del barrido, con la razón escrita**: usa "saldo" y "monedero" para **negarlos**, y eso es lo que da fuerza al texto legal. (4) **El importe no se dibuja hasta conocerse**: mostrar un S/ 0.00 provisional en una pantalla de dinero es peor que no mostrar nada. (5) Tarjeta y estado vacío **excluyentes**, decisión del usuario.
+- **Tests:** 460 → **475 jest** (52 suites), **358 pgTAP** sin cambios, **cero discrepancias**. Verificación real en el navegador: el amigo ve el estado vacío; el rentador no llega **ni escribiendo la dirección**; el chat muestra soles. Ejecutada con subagentes y revisión final de rama. Verificado por BRAIN.
+- **Deuda / notas para fases futuras:**
+  - **El test de regresión cazó una violación que el veto no nombra**: un **icono de billetera** junto a "Por cobrar". El veto prohíbe escribir la palabra, pero el dibujo comunicaba lo mismo. Se sustituyó por un recibo (lo que te deben) y un banco (dónde va). El test escanea código fuente, así que los nombres de icono caen en su red sin haberlo planeado.
+  - **El barrido encontró dos violaciones publicadas**, fuera de la app: el panel de la cita mostraba el precio como **"15 V"** desde la fase 4.5 (veto 20), y **la política de privacidad pública hablaba de "saldos"** (veto 18), que además ya era falso.
+  - `formatSoles` está duplicado en 11 sitios, y `lib/theme.ts` no tiene escala de `lineHeight`. En backlog.
+  - El panel de la cita todavía pone la duración junto al importe ("~30 min"), que el usuario señaló como una tarifa. Lo resuelve **F.4**.
+  - **La serie E queda terminada.** Sin stock; reglas críticas como invariantes de Postgres; ciclo de retener, capturar y liberar probado por HTTP; el amigo con una cuenta por cobrar y no un monedero; y el motor de propuestas por fin conectado a una interfaz.
 
 ### Fase E.3 — La propuesta, de punta a punta — 2026-09-17
 
