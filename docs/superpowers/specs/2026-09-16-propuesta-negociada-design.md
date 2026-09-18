@@ -230,6 +230,40 @@ Tras aceptar, **la conversación sirve para pactar el encuentro**, partiendo del
 
 ---
 
+## 8b. Duración y cantidad (decisiones del usuario, 2026-09-18)
+
+### Duración
+
+**Ya existe desde la fase 4.2** (`invitaciones.tiempo_estimado_min`), pero **el flujo de invitar nunca la ha pedido**: la envía vacía. El "~30 min" que el usuario vio en el panel de la cita venía de los datos demo.
+
+- **Se expresa en minutos libres.** (Decisión del usuario; BRAIN había sugerido rangos con nombre.)
+- **Forma parte de la propuesta y es contraproponible**, igual que la bebida.
+- **Nunca se muestra junto al importe.** Es la observación que la originó: "S/ 15 · ~30 min" en la misma línea invita a dividir, y el resultado es una tarifa. **La duración va en el bloque del plan** (cuándo, dónde, cuánto dura) **y el importe en un bloque aparte.** Tampoco se calcula ni se muestra ninguna relación entre ambos.
+
+### Cantidad
+
+**El usuario puede invitar una chicha o diez**, con un selector de más y menos.
+
+- **La fija solo quien paga**, y **no es contraproponible**. (Decisión del usuario.) En una invitación, el rentador la elige al proponer. En una solicitud, el amigo propone intención, momento, lugar y duración, **pero no cantidad**: la fija el rentador al aceptar o al contraproponer.
+- **Por qué**: la bebida es la intención, pero **la cantidad no cambia la intención** — diez chichas siguen siendo "solo compañía". Es la única variable que mueve el importe sin mover la intención; si fuera negociable, sería negociar cuánto vale el tiempo de alguien. Que solo la fije quien paga conserva el gesto de generosidad sin abrir esa lectura.
+- **Es un solo cobro.** Diez chichas son **una** retención y **una** captura, consumidas en **un** encuentro. Nunca "usar tres ahora y siete después": eso sería valor almacenado, lo que la serie E eliminó.
+- **Sin tope de negocio.** (Decisión del usuario; BRAIN había recomendado uno por importe total, por antilavado.) **Lo que sí hay es un límite técnico**: la columna del importe es `numeric(12,2)`, y la base tiene que rechazar con un error claro un total que no quepa, en vez de desbordarse. En la práctica la autorización de la tarjeta fallará mucho antes, y eso cae en el camino de fallo ya diseñado (§4.4).
+
+> **Riesgo que queda abierto, anotado en backlog:** sin tope, dos cuentas pueden mover importes grandes entre sí. El veto 22 del backlog vigila precisamente esa vía.
+
+### Qué se puede contraproponer
+
+**Bebida y/o duración.** Una contrapropuesta puede cambiar una, la otra o las dos. **No** la cantidad, **ni** el momento ni el lugar, que se pactan en la conversación tras aceptar.
+
+### Dónde se guarda la contrapropuesta
+
+**Hueco del plan de F.1 original**, detectado al integrar esto: definía los estados de la contrapropuesta pero no **dónde se guarda lo que propone**. Como solo hay **una** contrapropuesta por propuesta, van como columnas de `invitaciones` — la unicidad queda garantizada por la forma del esquema, sin índice:
+
+- `contra_bebida_catalogo_id` y `contra_tiempo_estimado_min`, nulas hasta que haya contrapropuesta.
+- **Una contrapropuesta tiene que cambiar algo**: `check` de que al menos una de las dos difiere de la original.
+
+---
+
 ## 9. Lo que esta serie NO hace
 
 - **Cerrar encuentros** (`concluida`, `no_show`, devoluciones): sub-proyecto 5.
@@ -242,10 +276,10 @@ Tras aceptar, **la conversación sirve para pactar el encuentro**, partiendo del
 
 | Bloque | Alcance |
 |---|---|
-| **F.1** | Esquema y datos: estados nuevos, `momento_propuesto`, intención de cada bebida y corrección de "Ayni", visibilidad, **resolución de duplicados** e índice por par. |
-| **F.2** | Funciones del flujo: **la solicitud pasa a llevar bebida**, contraproponer, aceptar y rechazar la contrapropuesta, decidir sobre la original, retirar. El dinero de §4, con la regla de que las retenciones solo nacen de una acción del rentador. |
+| **F.1** | Esquema y datos: estados nuevos, `momento_propuesto`, **`cantidad` y las columnas de la contrapropuesta**, intención de cada bebida y corrección de "Ayni", visibilidad, **resolución de duplicados** e índice por par. |
+| **F.2** | Funciones del flujo: **la solicitud pasa a llevar bebida y duración**, contraproponer bebida y/o duración, aceptar y rechazar la contrapropuesta, decidir sobre la original, retirar. **`calcular_desglose` gana la cantidad.** El dinero de §4, con la regla de que las retenciones solo nacen de una acción del rentador. |
 | **F.3** | Vencimiento: la Edge Function programada, idempotente. |
-| **F.4** | Interfaz: proponer con momento y lugar, contraproponer, retirar, estados, y **la intención de cada bebida visible**. Bloqueado hasta tener el texto de las intenciones. |
+| **F.4** | Interfaz: proponer con momento, lugar y duración; **cantidad con selector de más y menos** (solo quien paga); contraproponer, retirar, estados; la intención de cada bebida visible; y **separar duración e importe** también en el panel de la cita del chat. |
 
 **Orden:** F.1 → F.2 → F.3 y F.4 (independientes entre sí).
 

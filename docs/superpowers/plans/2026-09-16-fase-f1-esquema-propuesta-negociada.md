@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** dejar la base lista para negociar propuestas: los estados nuevos, la intención de cada bebida, el momento propuesto, y **una sola relación activa por par, garantizada por la base**.
+**Goal:** dejar la base lista para negociar propuestas: los estados nuevos, la intención de cada bebida, el momento propuesto, **la cantidad y lo que guarda una contrapropuesta**, y **una sola relación activa por par, garantizada por la base**.
 
 **Architecture:** solo esquema y datos. **Ninguna función del flujo cambia en esta fase** — eso es F.2. Lo único que F.1 añade de comportamiento es la visibilidad de los estados nuevos y el índice que prohíbe la segunda relación activa.
 
@@ -92,6 +92,34 @@ Tres cambios en una migración:
 
 - [ ] **Step 1: Tests que fallan:** las cinco intenciones presentes y **no vacías**; **ninguna bebida contiene "Ayni"**; la columna `momento_propuesto` existe; el ida y vuelta de la zona horaria; y **el cliente no puede escribir `intencion`** — reprodúcelo como `authenticated`.
 - [ ] **Step 2: Rojo → Step 3: migración → Step 4: ALTO de BRAIN → Step 5: aplicar e introspección → Step 6: verde y commit.**
+
+---
+
+## Task 2b: Cantidad y las columnas de la contrapropuesta
+
+> **Añadida el 2026-09-18**, tras dos decisiones nuevas del usuario (spec §8b). Y **tapa un hueco de este mismo plan**: la versión original definía los estados de la contrapropuesta pero **no dónde se guarda lo que la contrapropuesta propone**.
+
+**Files:**
+- Create: `supabase/migrations/…_cantidad_y_contrapropuesta.sql`
+- Modify: `supabase/tests/36_propuesta_negociada_esquema.sql`
+
+**1. `invitaciones.cantidad integer`**, `check (cantidad >= 1)`.
+
+- **Nula en una solicitud hasta que el rentador actúa**: el amigo no fija cantidad (decisión del usuario). En una invitación la fija el rentador al proponer.
+- **Sin tope de negocio** (decisión del usuario). **Pero sí un límite técnico:** el importe vive en `numeric(12,2)`, y `valor × cantidad` puede no caber. Eso **no** se resuelve con un tope en esta columna —sería meter por la puerta de atrás un tope que el usuario rechazó—, sino en F.2, donde `calcular_desglose` tendrá que rechazar con un error claro un total que no quepa. **En esta tarea solo `cantidad >= 1`.**
+
+**2. `invitaciones.contra_bebida_catalogo_id uuid`** (FK al catálogo) y **`invitaciones.contra_tiempo_estimado_min integer`**, las dos nulas hasta que haya contrapropuesta.
+
+- **Van como columnas y no como tabla aparte** porque solo hay **una** contrapropuesta por propuesta: la forma del esquema garantiza la unicidad, sin índice.
+- **La cantidad no es contraproponible** (decisión del usuario), así que **no** hay `contra_cantidad`.
+- **Una contrapropuesta tiene que cambiar algo:** `check` de que, si hay contrapropuesta, **al menos una** de las dos columnas difiere de la original.
+
+**3. `tiempo_estimado_min` ya existe** desde la fase 4.2. No se toca. Queda en **minutos libres** (decisión del usuario).
+
+- [ ] **Step 1: Tests que fallan:** las tres columnas existen; `cantidad = 0` y `cantidad = -1` se rechazan; una contrapropuesta **idéntica** a la original se rechaza; una que cambia **solo** la bebida pasa; una que cambia **solo** la duración pasa.
+- [ ] **Step 2: Rojo → Step 3: migración → Step 4: ALTO de BRAIN → Step 5: aplicar e introspección → Step 6: verde y commit.**
+
+> **Las invitaciones existentes tienen `cantidad` nula.** Es correcto para las solicitudes, pero una invitación ya retenida o capturada **tenía cantidad 1 de hecho**. Rellénalas a 1 en la misma migración — solo las de tipo `invitacion` con orden asociada —, o F.2 se encontrará órdenes cuyo importe no coincide con `valor × cantidad`.
 
 ---
 

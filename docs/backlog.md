@@ -11,6 +11,7 @@
 
 ## Pendiente
 
+- [ ] **Sin tope en la cantidad de bebidas por propuesta — decisión del usuario del 2026-09-18.** BRAIN había recomendado un tope por importe total por antilavado. Queda registrado el riesgo: sin tope, **dos cuentas pueden mover importes grandes entre sí** con una sola propuesta aceptada; es la vía que vigila el veto 22. Hoy el límite práctico lo pone la autorización de la tarjeta, que fallará antes que la base. **Revisar antes de lanzar**, junto con la conversación sobre obligaciones de reporte con el abogado y con Red Pontis — detectado por BRAIN al diseñar la cantidad en la serie F.
 - [ ] `lib/theme.ts` no tiene una escala de `lineHeight` — cada pantalla que necesita interlineado explícito (ej. `app/por-cobrar.tsx:135,154,166`) usa un literal (1.5×, etc.) en vez de un token. Bajo riesgo hoy, pero si crece el número de pantallas con esto, conviene una escala propia en el theme — detectado en E.4 Tarea 4 (pasada de diseño), 2026-09-17 — ¿pertenece a? mantenimiento de `lib/theme.ts` cuando haga falta de verdad.
 
 - [ ] `hooks/useResendCooldown.ts` quedó sin ningún consumidor tras D.5: solo lo usaba `app/(auth)/verify-otp.tsx`, eliminada al sacar el OTP del login. El hook en sí es genérico y reutilizable (cooldown con segundos restantes), así que no se borró por si D.6 (segundo factor opcional por correo) lo necesita — pero si D.6 termina sin necesitarlo, hay que borrarlo junto con `tests/hooks/useResendCooldown.test.ts` — detectado en D.5, 2026-09-16 — ¿pertenece a? limpieza tras D.6, o antes si se confirma que no hace falta.
