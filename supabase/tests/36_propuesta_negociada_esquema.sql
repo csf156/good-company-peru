@@ -1,9 +1,11 @@
 -- pgTAP: esquema de la propuesta negociada (Fase F.1) — spec
 -- docs/superpowers/specs/2026-09-16-propuesta-negociada-design.md.
 --
--- F.1 solo prepara la base de datos para el flujo de contrapropuesta, retiro y
--- expiración: estados nuevos, columnas y funciones auxiliares. NO cambia el
--- comportamiento de crear_invitacion ni responder_invitacion (eso es F.2).
+-- F.1 solo prepara el esquema y los datos: estados nuevos, columnas, la
+-- visibilidad de los estados nuevos, la resolución de duplicados y el índice
+-- de una sola relación activa por par. NO añade funciones ni ningún mecanismo
+-- de vencimiento, y NO cambia el comportamiento de crear_invitacion ni
+-- responder_invitacion (eso es F.2; el vencimiento es F.3).
 --
 -- Este archivo crece por tareas: cada tarea de F.1 añade su sección aquí y sube
 -- el `plan(N)` en la misma cantidad. Una sección por tema, en el orden de las
