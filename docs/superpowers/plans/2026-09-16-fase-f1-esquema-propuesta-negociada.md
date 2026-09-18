@@ -84,6 +84,8 @@ Tres cambios en una migración:
 
 > **Cómo se guarda la parte en negrita queda a tu criterio** — un solo campo con las dos frases, o `intencion_titulo` + `intencion_detalle`. Si eliges dos campos, facilitas la jerarquía de F.4; si eliges uno, dime por qué.
 
+> **Implementado (2026-09-18):** dos campos, `intencion_titulo` + `intencion_detalle`, **nullable** con check de coherencia (los dos null o los dos con texto no vacío). No van NOT NULL porque romperían los fixtures de 9 suites pgTAP de fases cerradas. **Consecuencia para F.4:** la UI tiene que tolerar una bebida sin intención; en ese caso no muestra la línea, y tampoco deja un hueco.
+
 2. **"Cóctel de Autor Ayni" → "Cóctel de Autor"** con un `update`. **No edites la migración `20260904120000_catalogo_bebidas.sql`**: ya está aplicada, y una migración aplicada no se reescribe.
 
 3. **`invitaciones.momento_propuesto timestamptz`**, nullable.
