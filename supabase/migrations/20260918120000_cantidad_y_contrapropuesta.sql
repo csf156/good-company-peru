@@ -54,15 +54,21 @@
 -- 3. `tiempo_estimado_min` NO se toca. Ya existe desde la fase 4.2 y queda en
 --    minutos libres (decisión del usuario; no hay rangos con nombre).
 --
--- Backfill: las invitaciones que ya tienen orden asociada —retenidas o
--- capturadas— tenían cantidad 1 DE HECHO (el importe de su orden es
--- `valor_v × 1`); sin rellenarlas, F.2 se encontraría órdenes cuyo importe no
--- coincide con `valor × cantidad`. Se rellenan a 1 SOLO las de tipo
--- `invitacion` con orden asociada (`ordenes_pago.invitacion_id`, NOT NULL,
--- FK a `invitaciones`). Las solicitudes y las invitaciones sin orden quedan
--- en NULL. El trigger `invitaciones_set_updated_at` sube `updated_at` de las
--- filas rellenadas: es un efecto colateral menor, sin consumidor (ninguna
--- función lee `updated_at` de `invitaciones`).
+-- Backfill: TODA fila de `invitaciones` que ya tiene una orden asociada
+-- (`ordenes_pago.invitacion_id`, NOT NULL, FK a `invitaciones`) se rellena a
+-- `cantidad = 1`, sea invitación o solicitud y en cualquier estado de la
+-- orden (preautorizada, capturada, anulada…). Toda orden que existe hoy se
+-- creó por `valor_v × 1` —la cantidad no existía—, así que `cantidad = 1` es
+-- un DATO, no una suposición; sin rellenarla, F.2 se encontraría órdenes cuyo
+-- importe no coincide con `valor × cantidad`. En una solicitud la orden solo
+-- nace cuando el rentador actúa (la acepta) y ese es justo el momento en que
+-- la cantidad deja de ser NULL según el spec §8b, así que rellenar las
+-- solicitudes con orden es aplicar esa misma regla a los datos anteriores.
+-- Quedan en NULL las filas SIN orden: las solicitudes pendientes o cerradas
+-- sin que el rentador llegara a pagar, y cualquier invitación sin orden. El
+-- trigger `invitaciones_set_updated_at` sube `updated_at` de las filas
+-- rellenadas: es un efecto colateral menor, sin consumidor (ninguna función
+-- lee `updated_at` de `invitaciones`).
 --
 -- Permisos, sin cambios: `authenticated` lee `invitaciones` con SELECT a nivel
 -- de TABLA (ninguna columna tiene ACL propia) y la política
@@ -92,10 +98,9 @@ alter table public.invitaciones
         and contra_tiempo_estimado_min is distinct from tiempo_estimado_min)
   );
 
--- Backfill: cantidad 1 de hecho en las invitaciones que ya tienen orden.
+-- Backfill: cantidad 1 de hecho en toda fila que ya tiene orden.
 update public.invitaciones i
    set cantidad = 1
- where i.tipo = 'invitacion'
-   and exists (select 1
+ where exists (select 1
                  from public.ordenes_pago o
                 where o.invitacion_id = i.id);

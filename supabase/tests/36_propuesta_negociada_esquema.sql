@@ -23,8 +23,10 @@
 -- Sección 3 (Tarea 2b): `invitaciones.cantidad` (spec §8b, sin tope de negocio y
 -- no contraproponible) y las dos columnas donde se guarda la contrapropuesta
 -- (`contra_bebida_catalogo_id`, `contra_tiempo_estimado_min`), con el check de
--- que una contrapropuesta tiene que cambiar algo respecto a la original.
-select plan(61);
+-- que una contrapropuesta tiene que cambiar algo respecto a la original; y el
+-- resultado del backfill de `cantidad` sobre los datos anteriores (3g, acotado
+-- por un corte fijo para que datos futuros no lo pongan en rojo).
+select plan(66);
 
 -- ============================================================================
 -- 1. Estados nuevos de estado_invitacion
@@ -537,6 +539,46 @@ select lives_ok(
              'a0000002-0000-0000-0000-00000000000a', 45) $$,
   'contra_bebida igual a la original pero contra_tiempo distinto se ACEPTA (basta que una difiera)');
 
+-- El espejo del caso anterior: bebida distinta y duración igual a la original.
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, tiempo_estimado_min,
+        contra_bebida_catalogo_id, contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000017',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'invitacion', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 60,
+             'a0000002-0000-0000-0000-00000000000b', 60) $$,
+  'contra_bebida distinta y contra_tiempo igual a la original se ACEPTA (basta que una difiera)');
+
+-- Por qué el check usa `is distinct from` y no `<>`: la original puede ser
+-- NULL (las solicitudes nacen sin bebida ni duración). Contraproponer un valor
+-- frente a "ninguno" SÍ es un cambio y se ACEPTA. Un check escrito como
+-- "original no nula Y distinta" rechazaría estas filas.
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        tiempo_estimado_min, contra_bebida_catalogo_id)
+     values ('c0000002-0000-0000-0000-000000000018',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'solicitud', 'especifica', 'rechazada',
+             60, 'a0000002-0000-0000-0000-00000000000b') $$,
+  'original SIN bebida (NULL) y contra_bebida con valor se ACEPTA (NULL frente a algo es un cambio)');
+
+select lives_ok(
+  $$ insert into public.invitaciones
+       (id, emisor_id, receptor_id, tipo, alcance, estado,
+        bebida_catalogo_id, contra_tiempo_estimado_min)
+     values ('c0000002-0000-0000-0000-000000000019',
+             '11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'solicitud', 'especifica', 'rechazada',
+             'a0000002-0000-0000-0000-00000000000a', 45) $$,
+  'original SIN duración (NULL) y contra_tiempo con valor se ACEPTA (NULL frente a algo es un cambio)');
+
 -- --- 3e. contra_bebida_catalogo_id apunta a una bebida que existe -------------
 select throws_ok(
   $$ insert into public.invitaciones
@@ -613,6 +655,62 @@ select results_eq(
 
 reset role;
 select set_config('request.jwt.claims', null, true);
+
+-- --- 3g. El backfill de la migración, sobre los datos anteriores ---------------
+-- La migración rellena `cantidad = 1` en toda fila que YA tenía orden, y deja
+-- NULL las que no (spec §8b). Estas dos aserciones comprueban ese resultado
+-- sobre los datos demo que existían al escribirla. Son aserciones sobre datos
+-- reales, así que están ACOTADAS a la población previa con un corte FIJO:
+-- 2026-09-16 21:03:18.795356+00 = el mayor `created_at` entre TODAS las filas
+-- de `invitaciones` y de `ordenes_pago` cuando se escribió la migración (medido
+-- por introspección). Nada con `created_at` posterior al corte cuenta, y ninguna
+-- fila nueva puede nacer con un `created_at` anterior (las crea el flujo real
+-- —también la siembra `scripts/seed-demo.mjs`, que pasa por crear_invitacion—,
+-- con `now()`), así que el conjunto de ids evaluado está congelado: solo puede
+-- encogerse (si se borran filas), nunca crecer. Ni `count(*)` global ni ids
+-- fijos: `is_empty` sobre los infractores, que además los muestra si falla.
+--
+-- (a) Ninguna invitación previa que tuviera una orden previa quedó con cantidad
+--     NULL. La orden también tiene que ser anterior al corte: una solicitud
+--     pendiente de ayer que se acepte mañana recibe su orden DESPUÉS y no debe
+--     contar. Solo se pondría en rojo si alguien vuelve a poner en NULL la
+--     cantidad de una fila que ya tenía orden; ningún camino legítimo lo hace
+--     (F.2 fija la cantidad, no la borra). Si se borran filas, el conjunto solo
+--     se achica y el test sigue verde (vacuo si la base se resembrara entera).
+select is_empty(
+  $$ select i.id
+       from public.invitaciones i
+      where i.created_at <= timestamptz '2026-09-16 21:03:18.795356+00'
+        and i.cantidad is null
+        and exists (select 1
+                      from public.ordenes_pago o
+                     where o.invitacion_id = i.id
+                       and o.created_at <= timestamptz '2026-09-16 21:03:18.795356+00') $$,
+  'toda fila previa con orden previa quedó con cantidad (backfill: cantidad = 1)');
+
+-- (b) Las solicitudes previas SIN ninguna orden siguen con cantidad NULL: el
+--     rentador nunca llegó a pagar, así que no hay cantidad que rellenar. Sin
+--     filtro de estado a propósito: hoy no hay ninguna solicitud previa
+--     `pendiente` sin orden (habría sido un test vacuo); la población real es
+--     la solicitud rechazada sin orden. No puede ponerse en rojo por datos
+--     legítimos: una solicitud previa solo deja de estar "sin orden" cuando el
+--     rentador actúa, y entonces sale del conjunto (la condición es "no existe
+--     NINGUNA orden", de cualquier fecha); y la única fila hoy en el conjunto
+--     es terminal, así que F.2 no la toca. Residual: si F.2 dejara una
+--     cantidad puesta en una solicitud previa tras una acción fallida
+--     (revertiendo el estado pero no la cantidad), este test lo señalaría, y
+--     sería un hallazgo legítimo (spec: cantidad NULL hasta que el rentador
+--     actúa).
+select is_empty(
+  $$ select i.id
+       from public.invitaciones i
+      where i.tipo = 'solicitud'
+        and i.created_at <= timestamptz '2026-09-16 21:03:18.795356+00'
+        and i.cantidad is not null
+        and not exists (select 1
+                          from public.ordenes_pago o
+                         where o.invitacion_id = i.id) $$,
+  'toda solicitud previa sin ninguna orden sigue con cantidad NULL (el backfill no la tocó)');
 
 select * from finish();
 rollback;
