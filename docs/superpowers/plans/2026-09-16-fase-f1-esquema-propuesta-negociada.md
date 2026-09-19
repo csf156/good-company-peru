@@ -148,6 +148,8 @@ La lista blanca de E.2a hace que **los cuatro estados nuevos nazcan invisibles p
 - [ ] **Step 2: Rojo → Step 3: migración** — `drop policy` + `create policy`, conservando la forma de lista blanca y **añadiendo** los cuatro, no convirtiéndola en lista negra.
 - [ ] **Step 4: ALTO de BRAIN → Step 5: aplicar e introspección → Step 6: verde y commit.**
 
+> **Nota para F.2 y F.4 (2026-09-18):** con esta política, una propuesta que pasa a `retirada` o `expirada` **directamente desde `preautorizando`** se vuelve visible para un receptor que nunca la vio. F.2 decide si se puede retirar desde `preautorizando`. F.4 no debe mostrarle al receptor una propuesta cerrada que nunca le llegó.
+
 ---
 
 ## Task 4: Resolver los duplicados — APROBACIÓN DEL USUARIO
@@ -191,6 +193,11 @@ create unique index invitaciones_una_relacion_activa_por_par
 ```
 
 **Va después de la Tarea 4**: con los duplicados vivos, el índice no se puede crear.
+
+> **Fixtures de fases cerradas (añadido 2026-09-18):** algunos tests pgTAP crean dos relaciones activas en el mismo par; por ejemplo, `15_invitaciones_rls.sql` crea dos de Ana a Beto. El índice los hará fallar. Aquí **sí** se tocan fixtures de fases cerradas, porque el índice es el requisito:
+> 1. En la Fase A, **primero medir**: lista de cada archivo cuyo fixture crea dos relaciones activas en el par (sin ordenar). Se enseña a BRAIN antes de tocar nada.
+> 2. Cambio mínimo: usar otro par (un tercer usuario) o pasar la primera a estado terminal. **Ninguna aserción cambia su expectativa**; si alguna tuviera que cambiar, se para y se consulta.
+> 3. El commit de fixtures va separado del de la migración.
 
 - [ ] **Step 1: Tests que fallan**, reproduciendo el intento real de crear la segunda relación:
   1. Segunda propuesta **en el mismo sentido** mientras la primera está `pendiente` → **falla**.
