@@ -128,6 +128,8 @@ Tres cambios en una migración:
 > **Notas para F.2** (el check de F.1 no las cubre):
 > - El check deja pasar `contra_bebida_catalogo_id = bebida_catalogo_id` si la duración sí cambia. La función de contraproponer tiene que guardar **NULL en lo que no cambia**.
 > - La FK de `contra_bebida_catalogo_id` no exige que la bebida esté `activo`. Lo tiene que validar la función.
+> - **Hueco entre F.1 y F.2:** `crear_invitacion` todavía inserta sin `cantidad`, así que una invitación creada después de F.1 y antes de F.2 tendrá orden y `cantidad` NULL. La migración de F.2 tiene que **repetir el relleno** (`cantidad = 1` donde es NULL y hay orden) **antes** de que `calcular_desglose` use la cantidad, y `crear_invitacion` tiene que empezar a escribirla. Un test lo verifica: ninguna fila con orden y `cantidad` NULL.
+> - **Para F.3:** el relleno de F.1 tocó `updated_at` en 14 filas (trigger `invitaciones_set_updated_at`). El vencimiento de 48 h / 96 h **no puede basarse en `updated_at`**, que cambia con cualquier escritura. Tiene que usar un timestamp propio de cada espera.
 
 ---
 
