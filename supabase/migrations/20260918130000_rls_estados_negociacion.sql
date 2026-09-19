@@ -31,11 +31,25 @@
 -- alguien recordara volver aquí. Con esta lista, el próximo valor del enum
 -- vuelve a nacer oculto.
 --
--- Solo cambia esta política de SELECT. Ni grants, ni otras políticas, ni
--- funciones, ni tablas: las políticas de `citas` y `chat_mensajes` que miran
--- `invitaciones` solo comprueban pertenencia (emisor/receptor), no estado, y
--- no hay vistas sobre la tabla. `crear_invitacion` y `responder_invitacion`
--- (F.2) tampoco se tocan.
+-- Esta política de SELECT es el ÚNICO objeto que CAMBIA: ni grants, ni otras
+-- políticas, ni funciones, ni tablas. `crear_invitacion` y
+-- `responder_invitacion` (F.2) tampoco se tocan, y no hay vistas sobre la
+-- tabla. Pero su visibilidad SE PROPAGA a otras dos tablas. Las políticas
+-- `citas_select_parte` (SELECT), `chat_select_parte` (SELECT) y
+-- `chat_insert_propio` (INSERT, with check) de `citas` y `chat_mensajes`
+-- consultan `invitaciones` con `exists (select … from invitaciones i …)` y
+-- solo comprueban pertenencia (emisor o receptor), no estado; pero esas
+-- subconsultas corren bajo el RLS de quien llama, así que HEREDAN lo que la
+-- política de `invitaciones` deje ver. Consecuencia: para una invitación en
+-- uno de los cuatro estados que se abren aquí, el acceso propio del receptor a
+-- la cita y al chat relacionados sigue a la invitación. Por ejemplo, hasta
+-- ahora el receptor no podía ver la cita ni el chat de una invitación en
+-- `concluida` (la invitación misma quedaba oculta para él), y ahora sí;
+-- `chat_insert_propio` pasa a ser posible para el receptor allí, como ya lo
+-- era para el emisor (a quien la política nunca le ocultó nada). Es coherente
+-- con la spec §5.1 (los cuatro estados son de una conversación entre las dos
+-- partes). Si el chat debe seguir abierto o cerrarse después de `concluida`
+-- es una decisión de una fase posterior; esta migración no la toma.
 
 drop policy invitaciones_select_parte on public.invitaciones;
 

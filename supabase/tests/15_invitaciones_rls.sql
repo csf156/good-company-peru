@@ -180,9 +180,9 @@ select set_config('request.jwt.claims', null, true);
 --
 -- Fixtures propios (ids exclusivos de este bloque, como postgres: simula al
 -- service_role y bypassa RLS). Usuarios nuevos en lugar de Ana/Beto/Carla:
--- la Tarea 5 creará un índice único de UNA relación activa por par (sin
--- ordenar) que ignora `rechazada`, `expirada`, `retirada` y `concluida`, pero
--- NO `contrapropuesta`, `contrapropuesta_rechazada` ni `preautorizando`. Por
+-- el índice de una relación activa por par (spec §6) es único sobre el par
+-- (sin ordenar) e ignora `rechazada`, `expirada`, `retirada` y `concluida`,
+-- pero NO `contrapropuesta`, `contrapropuesta_rechazada` ni `preautorizando`. Por
 -- eso esas tres filas van en pares distintos (d1→d2, d1→d3, d1→d4, ninguno
 -- es el par Ana↔Beto que ya ocupan los fixtures de arriba). `retirada` y
 -- `concluida` sí pueden compartir par con una activa porque el índice las
@@ -351,6 +351,14 @@ select set_config('request.jwt.claims', null, true);
 -- 'preautorizando' (o nada) y esta aserción fallaría. Si un valor futuro del
 -- enum debe abrirse al receptor, este arreglo se actualiza a propósito junto
 -- con la política.
+--
+-- Límites de la extracción (a tener presentes al tocar este test): la regex
+-- `[a-z_]+` se saltaría EN SILENCIO una etiqueta futura con dígitos o
+-- mayúsculas (no la extraería y la aserción no la vería); y se apoya en que
+-- `pg_get_expr` imprima el cast SIN calificar (`'x'::estado_invitacion`, con
+-- `public` en el search_path, como en el runner). Con el cast calificado
+-- (`'x'::public.estado_invitacion`) la regex no casa nada y la aserción falla
+-- RUIDOSAMENTE (arreglo NULL contra el esperado), no en silencio.
 select is(
   (select array_agg(lbl[1] order by lbl[1] collate "C")
      from pg_policy p,
