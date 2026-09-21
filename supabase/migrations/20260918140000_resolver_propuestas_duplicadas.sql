@@ -30,7 +30,9 @@
 --   → concluida  c61fcb12  Seba → Fer     solicitud   aceptada
 --   → concluida  0c1fbc73  Seba → Fer     solicitud   aceptada
 --
--- "La más antigua" es por `created_at`, desempatando por `id` (spec §6.1).
+-- "La más antigua" (por `created_at`, desempatando por `id`; spec §6.1) es la
+-- regla de Rodri ↔ Vale y Fer ↔ Seba. En chris ↔ Vale la regla es otra: se
+-- borra la pendiente y se conserva la aceptada.
 -- Queda exactamente UNA relación no terminal por par.
 --
 -- POR IDS Y NO POR UNA REGLA. Esto es un cambio de datos sobre filas medidas
