@@ -32,17 +32,20 @@
 with par as (
   select i.*, least(i.emisor_id, i.receptor_id) a, greatest(i.emisor_id, i.receptor_id) b
     from public.invitaciones i
-   where i.estado not in ('rechazada', 'expirada')
+   where i.receptor_id is not null
+     and i.estado not in ('rechazada', 'expirada', 'retirada', 'concluida')
 )
 select p.id, pe.alias emisor, pr.alias receptor, p.tipo, p.estado, p.created_at,
        (select string_agg(o.estado::text, ',') from public.ordenes_pago o where o.invitacion_id = p.id) ordenes,
        exists (select 1 from public.citas c where c.invitacion_id = p.id) tiene_cita
   from par p
-  join public.profiles pe on pe.id = p.emisor_id
-  join public.profiles pr on pr.id = p.receptor_id
+  join public.perfiles_publicos pe on pe.id = p.emisor_id
+  join public.perfiles_publicos pr on pr.id = p.receptor_id
  where (p.a, p.b) in (select a, b from par group by a, b having count(*) > 1)
  order by p.a, p.b, p.created_at, p.id;
 ```
+
+> **Corregido 2026-09-22:** el conjunto terminal es el mismo del índice de la Tarea 5 (`rechazada, expirada, retirada, concluida`) y se excluyen las invitaciones sin receptor. Es la consulta que tiene que devolver **0 filas** después de la Tarea 4. La tabla de perfiles es `perfiles_publicos`, no `profiles`.
 
 Lo que BRAIN midió el 2026-09-16: **chris ↔ Vale 2** (una pendiente sin cobrar, una cobrada), **Rodri ↔ Vale 3** (todas cobradas), **Fer ↔ Seba 3** (todas cobradas).
 
@@ -129,6 +132,7 @@ Tres cambios en una migración:
 > - El check deja pasar `contra_bebida_catalogo_id = bebida_catalogo_id` si la duración sí cambia. La función de contraproponer tiene que guardar **NULL en lo que no cambia**.
 > - La FK de `contra_bebida_catalogo_id` no exige que la bebida esté `activo`. Lo tiene que validar la función.
 > - **Hueco entre F.1 y F.2:** `crear_invitacion` todavía inserta sin `cantidad`, así que una invitación creada después de F.1 y antes de F.2 tendrá orden y `cantidad` NULL. La migración de F.2 tiene que **repetir el relleno** (`cantidad = 1` donde es NULL y hay orden) **antes** de que `calcular_desglose` use la cantidad, y `crear_invitacion` tiene que empezar a escribirla. Un test lo verifica: ninguna fila con orden y `cantidad` NULL.
+> - **`hold_huerfano` se queda corto con los estados nuevos.** Hoy `detectar_discrepancias_sp3` solo marca una orden `preautorizada` si su invitación está en `aceptada`, `rechazada` o `expirada`. Una retención viva bajo una propuesta `retirada`, `concluida` o `contrapropuesta_rechazada` no la ve nadie. F.2 —donde retirar libera la retención— tiene que ampliar el check y probarlo. Detectado por el reviewer de F.1 T4 (2026-09-22).
 > - **Para F.3:** el relleno de F.1 tocó `updated_at` en 14 filas (trigger `invitaciones_set_updated_at`). El vencimiento de 48 h / 96 h **no puede basarse en `updated_at`**, que cambia con cualquier escritura. Tiene que usar un timestamp propio de cada espera.
 
 ---
@@ -189,8 +193,11 @@ La lista blanca de E.2a hace que **los cuatro estados nuevos nazcan invisibles p
 ```sql
 create unique index invitaciones_una_relacion_activa_por_par
   on public.invitaciones (least(emisor_id, receptor_id), greatest(emisor_id, receptor_id))
-  where estado not in ('rechazada', 'expirada', 'retirada', 'concluida');
+  where receptor_id is not null
+    and estado not in ('rechazada', 'expirada', 'retirada', 'concluida');
 ```
+
+> **`where receptor_id is not null` (corregido 2026-09-22).** `receptor_id` es nullable y `alcance_invitacion` tiene el valor `global`: una invitación sin receptor es un caso previsto del diseño (hoy no hay ninguna). Sin ese filtro, `least`/`greatest` ignoran el NULL, la clave colapsa a `(emisor, emisor)` y dos invitaciones globales del mismo emisor chocarían entre sí. **Nada de `coalesce`:** la regla es una relación activa **por par**, y sin receptor no hay par. Dos tests más: dos `global` activas del mismo emisor conviven, y una `global` activa no impide una específica activa de ese emisor.
 
 **Va después de la Tarea 4**: con los duplicados vivos, el índice no se puede crear.
 
