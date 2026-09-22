@@ -133,6 +133,8 @@ Tres cambios en una migración:
 > - La FK de `contra_bebida_catalogo_id` no exige que la bebida esté `activo`. Lo tiene que validar la función.
 > - **Hueco entre F.1 y F.2:** `crear_invitacion` todavía inserta sin `cantidad`, así que una invitación creada después de F.1 y antes de F.2 tendrá orden y `cantidad` NULL. La migración de F.2 tiene que **repetir el relleno** (`cantidad = 1` donde es NULL y hay orden) **antes** de que `calcular_desglose` use la cantidad, y `crear_invitacion` tiene que empezar a escribirla. Un test lo verifica: ninguna fila con orden y `cantidad` NULL.
 > - **`hold_huerfano` se queda corto con los estados nuevos.** Hoy `detectar_discrepancias_sp3` solo marca una orden `preautorizada` si su invitación está en `aceptada`, `rechazada` o `expirada`. Una retención viva bajo una propuesta `retirada`, `concluida` o `contrapropuesta_rechazada` no la ve nadie. F.2 —donde retirar libera la retención— tiene que ampliar el check y probarlo. Detectado por el reviewer de F.1 T4 (2026-09-22).
+> - **El índice de T5 salta como unique violation cruda (23505).** F.2 tiene que mapearlo a un error propio, con código y mensaje del dominio ("ya tienen una propuesta activa"), en `crear_invitacion` y en la Edge Function. T5 solo deja fijado el comportamiento de hoy.
+> - **`emisor_id = receptor_id` es posible hoy** (un fixture de `14_conciliacion_sp3.sql` lo usaba). Decidir en F.2 si se prohíbe por check.
 > - **Para F.3:** el relleno de F.1 tocó `updated_at` en 14 filas (trigger `invitaciones_set_updated_at`). El vencimiento de 48 h / 96 h **no puede basarse en `updated_at`**, que cambia con cualquier escritura. Tiene que usar un timestamp propio de cada espera.
 
 ---
@@ -203,8 +205,12 @@ create unique index invitaciones_una_relacion_activa_por_par
 
 > **Fixtures de fases cerradas (añadido 2026-09-18):** algunos tests pgTAP crean dos relaciones activas en el mismo par; por ejemplo, `15_invitaciones_rls.sql` crea dos de Ana a Beto. El índice los hará fallar. Aquí **sí** se tocan fixtures de fases cerradas, porque el índice es el requisito:
 > 1. En la Fase A, **primero medir**: lista de cada archivo cuyo fixture crea dos relaciones activas en el par (sin ordenar). Se enseña a BRAIN antes de tocar nada.
-> 2. Cambio mínimo: usar otro par (un tercer usuario) o pasar la primera a estado terminal. **Ninguna aserción cambia su expectativa**; si alguna tuviera que cambiar, se para y se consulta.
-> 3. El commit de fixtures va separado del de la migración.
+> 2. Cambio mínimo: **un par por escenario**. Se crean los perfiles fixture que hagan falta y cada fila no-terminal que deba convivir con otra va a su propio par. Nada de pasar filas a estado terminal para esquivar el índice. **Ninguna aserción cambia su expectativa**; si alguna tuviera que cambiar, se para y se consulta.
+> 3. El commit de fixtures va separado del de la migración, y va primero, en verde.
+>
+> **Medición del 2026-09-22 (8 archivos):** `15_invitaciones_rls`, `34_confirmar_preautorizacion`, `14_conciliacion_sp3` (par degenerado emisor=receptor), `20_responder_invitacion` (12 filas del mismo par), `22_confirmar_cita`, `31_invariante_credito_amigo`, `12_ordenes_pago_rls` y `19_crear_invitacion`.
+>
+> **`19_crear_invitacion` es distinto:** no es un fixture insertado, es una llamada real a `crear_invitacion`. Su Llamada 3 creaba una solicitud en **sentido inverso** al mismo par para probar que la idempotencia se escopa por emisor. **Se cambia el receptor, no el sentido:** la Llamada 3 pasa a `Beto → Carla` con la misma `idempotency_key` que la Llamada 1. Lo que el test prueba —misma key, emisor distinto, fila nueva— no necesita el par inverso, y así ninguna aserción cambia. El sentido inverso conviviendo **era el bug**, no una garantía; su cobertura correcta es el test de T5 que exige que falle.
 
 - [ ] **Step 1: Tests que fallan**, reproduciendo el intento real de crear la segunda relación:
   1. Segunda propuesta **en el mismo sentido** mientras la primera está `pendiente` → **falla**.
