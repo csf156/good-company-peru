@@ -76,7 +76,7 @@ Nace del recorrido del usuario sobre E.3 (2026-09-16). Spec: `docs/superpowers/s
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
-| F.1 | Esquema y datos: estados de negociación, intención de cada bebida, momento propuesto, resolución de duplicados y una relación activa por par | ⬜ |
+| F.1 | Esquema y datos: estados de negociación, intención de cada bebida, momento propuesto, resolución de duplicados y una relación activa por par | ✅ |
 | F.2 | Funciones del flujo: solicitud con bebida, contrapropuesta, retiro, y el dinero de cada camino | ⬜ |
 | F.3 | Vencimiento a 48 h: primera tarea programada del proyecto | ⬜ |
 | F.4 | Interfaz: proponer con momento y lugar, contraproponer, retirar, e intención visible de cada bebida | ⬜ |
@@ -127,6 +127,20 @@ Nace del recorrido del usuario sobre E.3 (2026-09-16). Spec: `docs/superpowers/s
 ```
 
 <!-- Las entradas reales van debajo de esta línea. -->
+
+### Fase F.1 — Esquema y datos de la propuesta negociada — 2026-09-22
+
+- **Qué se construyó:** la base queda lista para negociar una propuesta — cuatro estados nuevos, la intención de cada bebida, el momento propuesto, la cantidad y lo que guarda una contrapropuesta —, se resolvieron los duplicados de los datos demo y **la base garantiza una sola relación activa por par**. Ninguna función del flujo cambió: eso es F.2.
+- **Archivos/pantallas clave:** ninguno de app. `supabase/tests/36_propuesta_negociada_esquema.sql` (nuevo, plan(80)), `supabase/tests/15_invitaciones_rls.sql` (plan(23)), fixtures reorganizados en 9 archivos pgTAP más, `scripts/seed-demo.mjs` (dos perfiles demo nuevos, Bruno y Nina).
+- **Tablas / Edge Functions / migraciones:** seis migraciones, aplicadas **por el usuario** una a una: `20260918100000_estados_propuesta_negociada.sql` (enum `estado_invitacion` gana `contrapropuesta`, `contrapropuesta_rechazada`, `retirada`, `concluida`), `20260918110000_intencion_y_momento.sql` (`bebidas_catalogo.intencion_titulo`/`intencion_detalle` + check `bebidas_catalogo_intencion_coherente`, "Cóctel de Autor Ayni" → "Cóctel de Autor", `invitaciones.momento_propuesto timestamptz`), `20260918120000_cantidad_y_contrapropuesta.sql` (`invitaciones.cantidad`, `contra_bebida_catalogo_id`, `contra_tiempo_estimado_min` + tres checks, backfill de `cantidad = 1` a las 14 filas con orden), `20260918130000_rls_estados_negociacion.sql` (`invitaciones_select_parte` pasa de 4 a 8 etiquetas visibles al receptor; `preautorizando` sigue oculto), `20260918140000_resolver_propuestas_duplicadas.sql` (destructiva, aprobada por el usuario fila por fila), `20260918150000_una_relacion_activa_por_par.sql` (índice único `invitaciones_una_relacion_activa_por_par`).
+- **Decisiones tomadas en la fase:** (1) **La intención se guarda en dos campos nullable con check de coherencia**, no NOT NULL: exigirlo rompía fixtures de 9 fases cerradas. La base garantiza que nunca hay media intención; **F.4 debe tolerar una bebida sin intención**. (2) **El relleno de `cantidad` cubre toda fila con orden, no solo las invitaciones** — cuatro solicitudes aceptadas ya se habían cobrado como valor × 1, así que el 1 es un dato, no una suposición. (3) **`where receptor_id is not null` en el índice**: `alcance_invitacion` tiene `global`, y sin ese filtro dos invitaciones abiertas del mismo emisor colisionarían entre sí. Sin receptor no hay par. (4) **Los fixtures se adaptaron con un par por escenario**, nunca cambiando lo que una aserción afirma; 10 archivos tocados. (5) **En `19_crear_invitacion.sql` se cambió el receptor, no el sentido**: lo que ese test prueba es la idempotencia **por emisor**, y no necesita el par inverso — que era justo el comportamiento que el índice prohíbe. (6) **Las cuatro invitaciones demo pasan a `concluida` sin que su encuentro ocurriera**, excepción declarada en la cabecera de la migración. (7) **La migración de duplicados aborta si los datos no son los medidos**, y es no-op con NOTICE en un proyecto limpio, porque el lanzamiento va sobre una base Supabase nueva.
+- **Tests:** 424 → **449 aserciones pgTAP** (35 archivos), **475 jest** (52 suites) sin cambios, lint y `tsc --noEmit` limpios. Cero discrepancias antes y después. Verificado por BRAIN contra la base, no por reporte: índice por `pg_indexes`, política por `pg_policies`, catálogo y filas por consulta directa.
+- **Deuda / notas para fases futuras:**
+  - **F.2, primera tarea: `crear_invitacion` se traga la violación del índice.** Su `exception when unique_violation` (pensado para la idempotencia por key) no distingue qué índice falló: una segunda propuesta activa en el par devuelve **éxito con un registro de puros NULL y nada creado** — ni invitación ni orden ni retención. Hay que acotar el manejador por nombre de constraint y dar vuelta el test de fijación de F.1 (36:912-925), que hoy pinea el comportamiento roto a propósito.
+  - **Resto de F.2:** repetir el relleno de `cantidad` (la función todavía no la escribe), validar que la contra-bebida esté `activo` (la FK no lo exige), guardar NULL en lo que la contrapropuesta no cambia (el check deja pasar el eco de la bebida original), y ampliar `hold_huerfano` a los estados terminales nuevos — hoy una retención viva bajo una propuesta `retirada` no la ve nadie. Decidir también si se prohíbe `emisor_id = receptor_id`.
+  - **F.3:** el vencimiento no puede medirse por `updated_at` — el backfill de esta fase lo movió en 14 filas. Cada espera necesita su propia fecha.
+  - **Backlog:** el chat sigue escribible tras `concluida` (decisión del sub-proyecto 5); la marca vieja "Rent a Friend Perú" sigue en `app.config.js` y es el título del sitio público.
+  - **Consecuencia aceptada por el usuario:** hoy nada lleva una invitación a `concluida`, así que un par que acepta queda bloqueado hasta el sub-proyecto 5.
 
 ### Fase E.4 — "Por cobrar" y vocabulario — 2026-09-18
 
