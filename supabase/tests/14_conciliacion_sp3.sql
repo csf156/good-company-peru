@@ -133,6 +133,10 @@ select is(
 -- hold_huerfano: una orden preautorizada cuya invitación ya se resolvió —
 -- dinero retenido sin motivo. La discrepancia más cara para el usuario.
 -- ============================================================================
+-- F.1 Tarea 5, BRAIN: se queda emisor=receptor=Ana a propósito (no se
+-- reasigna como las demás) — es 'rechazada' (terminal), el índice único por
+-- par la ignora, así que no colisiona; queda igual para no tocar más de lo
+-- necesario.
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
 values ('a0000000-0000-0000-0000-00000000000d', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'rechazada');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
@@ -147,6 +151,8 @@ select is(
 -- ledger propia — sería un cobro por algo que se rechazó. Overlap legítimo
 -- con orden_no_capturada_con_ledger (anulada también es "no capturada").
 -- ============================================================================
+-- F.1 Tarea 5, BRAIN: mismo caso que la de arriba — emisor=receptor=Ana a
+-- propósito, 'rechazada' (terminal) queda fuera del índice por par.
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
 values ('a0000000-0000-0000-0000-00000000000b', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'rechazada');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
