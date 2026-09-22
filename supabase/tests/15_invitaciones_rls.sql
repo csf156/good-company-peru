@@ -115,27 +115,44 @@ select set_config('request.jwt.claims', null, true);
 -- --- Tarea 2b: la visibilidad depende del estado, no solo de identidad ---
 -- Segunda invitación, en preautorizando — mientras la preautorización no
 -- responde, no existe todavía para el amigo (si el hold falla, nunca existió).
+--
+-- F.1 Tarea 5: NO puede compartir el par (Ana, Beto) con `bbbbbbbb…` de
+-- arriba — mientras esta fila está en preautorizando/pendiente, ambas serían
+-- no-terminales a la vez y el índice único por par (spec §6) las rechazaría.
+-- Va a un par propio (Ana, Elena), receptora nueva y exclusiva de este bloque.
+insert into auth.users
+  (instance_id, id, aud, role, email, encrypted_password,
+   email_confirmed_at, created_at, updated_at,
+   confirmation_token, email_change, email_change_token_new, recovery_token)
+values
+  ('00000000-0000-0000-0000-000000000000',
+   '44444444-4444-4444-4444-444444444444', 'authenticated', 'authenticated',
+   'elena.f15t5@test.dev', '', now(), now(), now(), '', '', '', '');
+
+insert into public.profiles (id, rol, alias)
+values ('44444444-4444-4444-4444-444444444444', 'amigo', 'ElenaAlias');
+
 insert into public.invitaciones
   (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id,
    tiempo_estimado_min, zona_aproximada, estado)
 values
   ('cccccccc-cccc-cccc-cccc-cccccccccccc',
    '11111111-1111-1111-1111-111111111111',
-   '22222222-2222-2222-2222-222222222222',
+   '44444444-4444-4444-4444-444444444444',
    'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999',
    60, 'Miraflores', 'preautorizando');
 
--- --- impersonar a Beto (receptor) ---
+-- --- impersonar a Elena (receptora) ---
 select set_config(
   'request.jwt.claims',
-  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text,
+  json_build_object('sub', '44444444-4444-4444-4444-444444444444', 'role', 'authenticated')::text,
   true);
 set local role authenticated;
 
 select is(
   (select count(*) from public.invitaciones
     where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc')::int,
-  0, 'Beto (receptor) NO ve la invitación mientras está en preautorizando');
+  0, 'Elena (receptora) NO ve la invitación mientras está en preautorizando');
 
 -- --- impersonar a Ana (emisor) ---
 select set_config(
@@ -159,14 +176,14 @@ update public.invitaciones set estado = 'pendiente'
 
 select set_config(
   'request.jwt.claims',
-  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text,
+  json_build_object('sub', '44444444-4444-4444-4444-444444444444', 'role', 'authenticated')::text,
   true);
 set local role authenticated;
 
 select is(
   (select count(*) from public.invitaciones
     where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc')::int,
-  1, 'Beto (receptor) SÍ ve la invitación una vez en pendiente');
+  1, 'Elena (receptora) SÍ ve la invitación una vez en pendiente');
 
 reset role;
 select set_config('request.jwt.claims', null, true);

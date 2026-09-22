@@ -19,6 +19,19 @@
 -- `solicitud` aceptada queda en `preautorizando` — el emisor (amigo) la ve
 -- siempre (RLS no filtra por estado al emisor), y `confirmar_preautorizacion`
 -- (Tarea 3b) ya existe para sacarla de ahí. Sin hueco.
+--
+-- F.1 Tarea 5: el fixture original ponía las 10 invitaciones `invitacion`
+-- (Ana→X) y las 4 `solicitud` (X→Ana) sobre el MISMO par (Ana, Beto) —
+-- 12 filas simultáneamente `pendiente` (no-terminal) sobre un solo par,
+-- colisión con el índice único de la Tarea 5 (spec §6) desde el propio
+-- INSERT. Igual las dos filas de Elmo (INV_UNVER / INV_UNVER_ACC): ambas
+-- sobre (Ana, Elmo) a la vez. Cada escenario que antes compartía par pasa a
+-- un par propio con una contraparte nueva; NINGUNA aserción cambia lo que
+-- comprueba, solo la identidad de la contraparte donde esa identidad no era
+-- parte de lo que se probaba. Se quedan igual: INV1 (Beto) — es la única
+-- fila que se queda en (Ana, Beto) —, INV_UNVER (Elmo) — necesita seguir
+-- SIN verificar para lo que prueba — y SOL_UNVER (Beto→Fabi, un par propio
+-- que ya no colisionaba con nadie).
 select plan(44);
 
 insert into auth.users
@@ -40,17 +53,71 @@ values
    'elmo@test.dev', '', now(), now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000',
    '66666666-6666-6666-6666-666666666666', 'authenticated', 'authenticated',
-   'fabi@test.dev', '', now(), now(), now(), '', '', '', '');
+   'fabi@test.dev', '', now(), now(), now(), '', '', '', ''),
+  -- F.1 Tarea 5 — contrapartes nuevas, una por escenario que antes compartía
+  -- el par (Ana, Beto) o (Ana, Elmo). Ver comentario de cabecera.
+  ('00000000-0000-0000-0000-000000000000',
+   '33333333-3333-3333-3333-333333333333', 'authenticated', 'authenticated',
+   'gaby.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '77777777-7777-7777-7777-777777777777', 'authenticated', 'authenticated',
+   'hugo.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '88888888-8888-8888-8888-888888888887', 'authenticated', 'authenticated',
+   'ines.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '99999999-9999-9999-9999-999999999998', 'authenticated', 'authenticated',
+   'javi.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'authenticated', 'authenticated',
+   'kiko.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', 'authenticated', 'authenticated',
+   'lola.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', 'authenticated', 'authenticated',
+   'mateo.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   'd4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4', 'authenticated', 'authenticated',
+   'nilo.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   'e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5', 'authenticated', 'authenticated',
+   'oscar.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   'f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6', 'authenticated', 'authenticated',
+   'pia.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '01010101-0101-0101-0101-010101010101', 'authenticated', 'authenticated',
+   'quique.f20t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '02020202-0202-0202-0202-020202020202', 'authenticated', 'authenticated',
+   'rita.f20t5@test.dev', '', now(), now(), now(), '', '', '', '');
 
 -- Ana (rentador) verificada; Beto y Dani (amigos) verificados; Elmo (amigo)
 -- SIN verificar; Fabi (rentador) SIN verificar — receptor de una solicitud.
+-- Gaby/Hugo/Ines/Javi/Kiko/Lola/Mateo/Oscar/Pia/Quique/Rita (F.1 Tarea 5):
+-- amigos verificados, cada uno contraparte de UN solo escenario. Nilo (F.1
+-- Tarea 5): amigo SIN verificar, igual que Elmo — releva a Elmo en
+-- INV_UNVER_ACC para que las dos filas no compartan par.
 insert into public.profiles (id, rol, alias, kyc_estado)
 values
   ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias', 'verificado'),
   ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias', 'verificado'),
   ('44444444-4444-4444-4444-444444444444', 'amigo', 'DaniAlias', 'verificado'),
   ('55555555-5555-5555-5555-555555555555', 'amigo', 'ElmoAlias', 'pendiente'),
-  ('66666666-6666-6666-6666-666666666666', 'rentador', 'FabiAlias', 'pendiente');
+  ('66666666-6666-6666-6666-666666666666', 'rentador', 'FabiAlias', 'pendiente'),
+  ('33333333-3333-3333-3333-333333333333', 'amigo', 'GabyAlias', 'verificado'),
+  ('77777777-7777-7777-7777-777777777777', 'amigo', 'HugoAlias', 'verificado'),
+  ('88888888-8888-8888-8888-888888888887', 'amigo', 'InesAlias', 'verificado'),
+  ('99999999-9999-9999-9999-999999999998', 'amigo', 'JaviAlias', 'verificado'),
+  ('a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'amigo', 'KikoAlias', 'verificado'),
+  ('b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', 'amigo', 'LolaAlias', 'verificado'),
+  ('c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', 'amigo', 'MateoAlias', 'verificado'),
+  ('d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4', 'amigo', 'NiloAlias', 'pendiente'),
+  ('e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5', 'amigo', 'OscarAlias', 'verificado'),
+  ('f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6', 'amigo', 'PiaAlias', 'verificado'),
+  ('01010101-0101-0101-0101-010101010101', 'amigo', 'QuiqueAlias', 'verificado'),
+  ('02020202-0202-0202-0202-020202020202', 'amigo', 'RitaAlias', 'verificado');
 
 insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v, activo)
 values
@@ -59,29 +126,33 @@ values
 
 -- Invitaciones tipo `invitacion` (Ana→X), ya en pendiente con su orden
 -- preautorizada — simula el estado que deja confirmar_preautorizacion
--- (Tarea 3b) tras un hold exitoso.
+-- (Tarea 3b) tras un hold exitoso. F.1 Tarea 5: cada fila (salvo INV1 y
+-- INV_UNVER) tiene su propia contraparte para no colisionar con el índice
+-- único por par.
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
 values
-  ('11110001-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV1: reject
-  ('11110002-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV2: accept
-  ('11110006-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_YARES
-  ('11110007-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_ACCBEB
-  ('11110008-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_REJBEB
-  ('11110009-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_EMIS
-  ('11110005-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_UNVER (Elmo)
-  ('11110010-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_UNVER_ACC (Elmo)
-  ('11110011-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_NOHOLD: su orden NO queda preautorizada
-  ('11110012-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'); -- INV_REJCAP: su orden ya está capturada (inconsistencia a propósito)
+  ('11110001-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV1: reject — par (Ana, Beto)
+  ('11110002-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV2: accept — par (Ana, Gaby)
+  ('11110006-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '77777777-7777-7777-7777-777777777777', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_YARES — par (Ana, Hugo)
+  ('11110007-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '88888888-8888-8888-8888-888888888887', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_ACCBEB — par (Ana, Ines)
+  ('11110008-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '99999999-9999-9999-9999-999999999998', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_REJBEB — par (Ana, Javi)
+  ('11110009-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_EMIS — par (Ana, Kiko)
+  ('11110005-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_UNVER (Elmo) — par (Ana, Elmo)
+  ('11110010-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', 'd4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_UNVER_ACC (Nilo, SIN verificar) — par (Ana, Nilo)
+  ('11110011-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'), -- INV_NOHOLD: su orden NO queda preautorizada — par (Ana, Lola)
+  ('11110012-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111', 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'); -- INV_REJCAP: su orden ya está capturada (inconsistencia a propósito) — par (Ana, Mateo)
 
 -- Solicitudes (X→Ana / X→Fabi), en pendiente y SIN orden (Tarea 3c: nace ahí
--- de una, no tiene nada que preautorizar hasta que el rentador acepte).
+-- de una, no tiene nada que preautorizar hasta que el rentador acepte). F.1
+-- Tarea 5: cada una con su propio emisor (salvo SOL_UNVER, que ya tenía un
+-- par propio con Fabi).
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
 values
-  ('22220001-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_ACC
-  ('22220003-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_REJ
-  ('22220004-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_NOBEB
-  ('22220005-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_INACTIVA
-  ('22220006-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '66666666-6666-6666-6666-666666666666', 'solicitud', 'especifica', null, 'pendiente'); -- SOL_UNVER (Fabi receptor)
+  ('22220001-0000-0000-0000-000000000000', 'e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_ACC — par (Ana, Oscar)
+  ('22220003-0000-0000-0000-000000000000', 'f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_REJ — par (Ana, Pia)
+  ('22220004-0000-0000-0000-000000000000', '01010101-0101-0101-0101-010101010101', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_NOBEB — par (Ana, Quique)
+  ('22220005-0000-0000-0000-000000000000', '02020202-0202-0202-0202-020202020202', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', null, 'pendiente'), -- SOL_INACTIVA — par (Ana, Rita)
+  ('22220006-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222', '66666666-6666-6666-6666-666666666666', 'solicitud', 'especifica', null, 'pendiente'); -- SOL_UNVER (Fabi receptor) — par (Beto, Fabi)
 
 -- Órdenes preautorizadas para las invitaciones que sí tienen hold (todas
 -- excepto INV_NOHOLD, sin orden viva, e INV_REJCAP, ya capturada).
@@ -128,7 +199,7 @@ select is(
 -- ACEPTAR una `invitacion`: captura el hold, invitación aceptada, crea cita.
 -- ============================================================================
 select is(
-  public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110002-0000-0000-0000-000000000000', 'aceptar', null),
+  public.responder_invitacion('33333333-3333-3333-3333-333333333333', '11110002-0000-0000-0000-000000000000', 'aceptar', null),
   'aceptada', 'aceptar una invitación devuelve aceptada');
 select is(
   (select estado::text from public.invitaciones where id = '11110002-0000-0000-0000-000000000000'),
@@ -176,16 +247,16 @@ select is(
 -- emisor (amigo), siempre — RLS no filtra por estado al emisor. ---
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5', 'role', 'authenticated')::text, true);
 select is(
   (select count(*) from public.invitaciones where id = '22220001-0000-0000-0000-000000000000')::int,
-  1, 'el emisor (Beto, amigo) SÍ ve su solicitud en preautorizando — es la suya');
+  1, 'el emisor (Oscar, amigo) SÍ ve su solicitud en preautorizando — es la suya');
 reset role;
 select set_config('request.jwt.claims', null, true);
 
 -- ============================================================================
 -- Tras aceptar una `invitacion`, la cita la ven SOLO las dos partes (INV2:
--- emisor Ana, receptor Beto; Dani es tercero).
+-- emisor Ana, receptor Gaby; Dani es tercero).
 -- ============================================================================
 set local role authenticated;
 
@@ -196,7 +267,7 @@ select is(
   1, 'el emisor (parte) ve la cita');
 
 select set_config('request.jwt.claims',
-  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
+  json_build_object('sub', '33333333-3333-3333-3333-333333333333', 'role', 'authenticated')::text, true);
 select is(
   (select count(*) from public.citas where invitacion_id = '11110002-0000-0000-0000-000000000000')::int,
   1, 'el receptor (parte) ve la cita');
@@ -219,6 +290,8 @@ select throws_ok(
 
 -- ============================================================================
 -- KYC gatea SOLO aceptar. Elmo (no verificado) SÍ puede rechazar, NO aceptar.
+-- INV_UNVER_ACC pasa a Nilo (también sin verificar) para no compartir el par
+-- (Ana, Elmo) con INV_UNVER — ver comentario de cabecera.
 -- ============================================================================
 select is(
   public.responder_invitacion('55555555-5555-5555-5555-555555555555', '11110005-0000-0000-0000-000000000000', 'rechazar', null),
@@ -227,7 +300,7 @@ select is(
   (select estado::text from public.ordenes_pago where invitacion_id = '11110005-0000-0000-0000-000000000000'),
   'anulada', 'rechazar sin verificar igual anula el hold');
 select throws_ok(
-  $$ select public.responder_invitacion('55555555-5555-5555-5555-555555555555', '11110010-0000-0000-0000-000000000000', 'aceptar', null) $$,
+  $$ select public.responder_invitacion('d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4', '11110010-0000-0000-0000-000000000000', 'aceptar', null) $$,
   'AY403', null, 'un receptor no verificado (KYC) NO puede aceptar');
 select throws_ok(
   $$ select public.responder_invitacion('66666666-6666-6666-6666-666666666666', '22220006-0000-0000-0000-000000000000', 'aceptar', '99999999-9999-9999-9999-999999999999') $$,
@@ -237,10 +310,10 @@ select throws_ok(
 -- Idempotente-benigno: responder de nuevo no re-aplica ni re-captura.
 -- ============================================================================
 select is(
-  public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110006-0000-0000-0000-000000000000', 'aceptar', null),
+  public.responder_invitacion('77777777-7777-7777-7777-777777777777', '11110006-0000-0000-0000-000000000000', 'aceptar', null),
   'aceptada', 'primera aceptación de INV_YARES aplica');
 select is(
-  public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110006-0000-0000-0000-000000000000', 'aceptar', null),
+  public.responder_invitacion('77777777-7777-7777-7777-777777777777', '11110006-0000-0000-0000-000000000000', 'aceptar', null),
   'ya_resuelta', 'responder de nuevo es idempotente-benigno');
 select is(
   (select count(*) from public.citas where invitacion_id = '11110006-0000-0000-0000-000000000000')::int,
@@ -254,7 +327,7 @@ select is(
 -- abre chat — todo o nada, en la misma transacción.
 -- ============================================================================
 select throws_ok(
-  $$ select public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110011-0000-0000-0000-000000000000', 'aceptar', null) $$,
+  $$ select public.responder_invitacion('b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', '11110011-0000-0000-0000-000000000000', 'aceptar', null) $$,
   'AY409', null, 'aceptar sin un hold preautorizado falla');
 select is(
   (select estado::text from public.invitaciones where id = '11110011-0000-0000-0000-000000000000'),
@@ -268,7 +341,7 @@ select is(
 -- rechaza algo ya cobrado.
 -- ============================================================================
 select throws_ok(
-  $$ select public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110012-0000-0000-0000-000000000000', 'rechazar', null) $$,
+  $$ select public.responder_invitacion('c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', '11110012-0000-0000-0000-000000000000', 'rechazar', null) $$,
   'AY409', null, 'rechazar una invitación con orden ya capturada falla');
 
 -- ============================================================================
@@ -289,14 +362,14 @@ select throws_ok(
 -- Aceptar una `invitacion` mandando bebida (ya tiene la suya) → forma inválida.
 -- ============================================================================
 select throws_ok(
-  $$ select public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110007-0000-0000-0000-000000000000', 'aceptar', '99999999-9999-9999-9999-999999999999') $$,
+  $$ select public.responder_invitacion('88888888-8888-8888-8888-888888888887', '11110007-0000-0000-0000-000000000000', 'aceptar', '99999999-9999-9999-9999-999999999999') $$,
   'AY400', null, 'aceptar una invitación no admite mandar otra bebida');
 
 -- ============================================================================
 -- Rechazar mandando bebida (rechazar no toma bebida) → forma inválida.
 -- ============================================================================
 select throws_ok(
-  $$ select public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110008-0000-0000-0000-000000000000', 'rechazar', '99999999-9999-9999-9999-999999999999') $$,
+  $$ select public.responder_invitacion('99999999-9999-9999-9999-999999999998', '11110008-0000-0000-0000-000000000000', 'rechazar', '99999999-9999-9999-9999-999999999999') $$,
   'AY400', null, 'rechazar no admite mandar una bebida');
 
 -- ============================================================================
@@ -310,7 +383,7 @@ select throws_ok(
 -- Acción inválida.
 -- ============================================================================
 select throws_ok(
-  $$ select public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110007-0000-0000-0000-000000000000', 'saltar', null) $$,
+  $$ select public.responder_invitacion('88888888-8888-8888-8888-888888888887', '11110007-0000-0000-0000-000000000000', 'saltar', null) $$,
   'AY400', null, 'una acción que no es aceptar ni rechazar es inválida');
 
 -- ============================================================================
@@ -318,18 +391,18 @@ select throws_ok(
 -- ============================================================================
 select set_config(
   'request.jwt.claims',
-  json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text,
+  json_build_object('sub', '88888888-8888-8888-8888-888888888887', 'role', 'authenticated')::text,
   true);
 set local role authenticated;
 select throws_ok(
-  $$ select public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110007-0000-0000-0000-000000000000', 'rechazar', null) $$,
+  $$ select public.responder_invitacion('88888888-8888-8888-8888-888888888887', '11110007-0000-0000-0000-000000000000', 'rechazar', null) $$,
   '42501', null, 'un cliente autenticado NO puede ejecutar responder_invitacion');
 reset role;
 select set_config('request.jwt.claims', null, true);
 
 set local role anon;
 select throws_ok(
-  $$ select public.responder_invitacion('22222222-2222-2222-2222-222222222222', '11110007-0000-0000-0000-000000000000', 'rechazar', null) $$,
+  $$ select public.responder_invitacion('88888888-8888-8888-8888-888888888887', '11110007-0000-0000-0000-000000000000', 'rechazar', null) $$,
   '42501', null, 'anon tampoco puede ejecutar responder_invitacion');
 reset role;
 

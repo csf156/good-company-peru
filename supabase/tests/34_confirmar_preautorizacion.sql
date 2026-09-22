@@ -15,12 +15,32 @@ values
    'ana@test.dev', '', now(), now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000',
    '22222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
-   'beto@test.dev', '', now(), now(), now(), '', '', '', '');
+   'beto@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '33333333-3333-3333-3333-333333333333', 'authenticated', 'authenticated',
+   'carla.f34t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '44444444-4444-4444-4444-444444444444', 'authenticated', 'authenticated',
+   'dani.f34t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '55555555-5555-5555-5555-555555555555', 'authenticated', 'authenticated',
+   'ely.f34t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '66666666-6666-6666-6666-666666666666', 'authenticated', 'authenticated',
+   'fabi.f34t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '77777777-7777-7777-7777-777777777777', 'authenticated', 'authenticated',
+   'gia.f34t5@test.dev', '', now(), now(), now(), '', '', '', '');
 
 insert into public.profiles (id, rol, alias, kyc_estado)
 values
   ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias', 'verificado'),
-  ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias', 'verificado');
+  ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias', 'verificado'),
+  ('33333333-3333-3333-3333-333333333333', 'amigo', 'CarlaAlias', 'verificado'),
+  ('44444444-4444-4444-4444-444444444444', 'amigo', 'DaniAlias', 'verificado'),
+  ('55555555-5555-5555-5555-555555555555', 'amigo', 'ElyAlias', 'verificado'),
+  ('66666666-6666-6666-6666-666666666666', 'amigo', 'FabiAlias', 'verificado'),
+  ('77777777-7777-7777-7777-777777777777', 'amigo', 'GiaAlias', 'verificado');
 
 insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v, activo)
 values ('99999999-9999-9999-9999-999999999999', 'Pisco Sour', 'divertida', 30.00, true);
@@ -28,14 +48,23 @@ values ('99999999-9999-9999-9999-999999999999', 'Pisco Sour', 'divertida', 30.00
 -- Seis invitaciones, simulando el estado que deja crear_invitacion (Tarea 3)
 -- para `invitacion`, y el que dejaría responder_invitacion (Tarea 4, todavía
 -- no reescrita) para `solicitud` aceptada: preautorizando + orden pendiente.
+--
+-- F.1 Tarea 5: las seis nacían todas sobre el mismo par (Ana, Beto) —
+-- `preautorizando`/`pendiente` son no-terminales, así que las seis a la vez
+-- violarían el índice único por par (spec §6), incluso de forma transitoria
+-- dentro de este mismo INSERT. Cada fila (salvo INV_A, que se queda con
+-- Beto) pasa a un par propio con una contraparte nueva y exclusiva de este
+-- archivo — ninguna aserción cambia de expectativa, solo la identidad de la
+-- contraparte en las filas que no la impersonan (B, C, D, F, G no impersonan
+-- a nadie; solo INV_A lo hace, y se queda igual).
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
 values
-  ('a0000000-0000-0000-0000-00000000000a', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_A: invitacion, p_ok
-  ('a0000000-0000-0000-0000-00000000000b', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_B: solicitud, p_ok
-  ('a0000000-0000-0000-0000-00000000000c', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_C: invitacion, not p_ok
-  ('a0000000-0000-0000-0000-00000000000d', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_D: transición ilegal (orden)
-  ('a0000000-0000-0000-0000-00000000000f', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_F: solicitud, not p_ok (tarjeta del rentador falla)
-  ('a0000000-0000-0000-0000-00000000000e', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'); -- INV_G: YA no está en preautorizando
+  ('a0000000-0000-0000-0000-00000000000a', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_A: invitacion, p_ok — par (Ana, Beto)
+  ('a0000000-0000-0000-0000-00000000000b', '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_B: solicitud, p_ok — par (Ana, Carla)
+  ('a0000000-0000-0000-0000-00000000000c', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_C: invitacion, not p_ok — par (Ana, Dani)
+  ('a0000000-0000-0000-0000-00000000000d', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_D: transición ilegal (orden) — par (Ana, Ely)
+  ('a0000000-0000-0000-0000-00000000000f', '66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 'solicitud', 'especifica', '99999999-9999-9999-9999-999999999999', 'preautorizando'), -- INV_F: solicitud, not p_ok (tarjeta del rentador falla) — par (Ana, Fabi)
+  ('a0000000-0000-0000-0000-00000000000e', '11111111-1111-1111-1111-111111111111', '77777777-7777-7777-7777-777777777777', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente'); -- INV_G: YA no está en preautorizando — par (Ana, Gia)
 
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
 values

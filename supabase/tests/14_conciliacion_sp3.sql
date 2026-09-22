@@ -21,10 +21,47 @@ insert into auth.users
 values
   ('00000000-0000-0000-0000-000000000000',
    '11111111-1111-1111-1111-111111111111', 'authenticated', 'authenticated',
-   'ana@test.dev', '', now(), now(), now(), '', '', '', '');
+   'ana@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '22222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
+   'beto.f14t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '33333333-3333-3333-3333-333333333333', 'authenticated', 'authenticated',
+   'carla.f14t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '44444444-4444-4444-4444-444444444444', 'authenticated', 'authenticated',
+   'dani.f14t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '55555555-5555-5555-5555-555555555555', 'authenticated', 'authenticated',
+   'ely.f14t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '66666666-6666-6666-6666-666666666666', 'authenticated', 'authenticated',
+   'fabi.f14t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '77777777-7777-7777-7777-777777777777', 'authenticated', 'authenticated',
+   'gia.f14t5@test.dev', '', now(), now(), now(), '', '', '', '');
 
+-- F.1 Tarea 5: seis profiles nuevos, uno por escenario no-terminal de abajo.
+-- El fixture original usaba emisor_id = receptor_id = Ana en las ocho
+-- invitaciones (conveniencia: a la conciliación no le importa la identidad,
+-- solo ledger/ordenes_pago/estado). Pero `least`/`greatest` de un mismo id
+-- sigue siendo un "par" para el índice único de la Tarea 5 (spec §6): con
+-- receptor_id no nulo, el índice lo trata como (Ana, Ana) igual que
+-- cualquier otro par, y las seis filas cuyo estado NO es terminal
+-- (aceptada/pendiente) colisionarían entre sí. Cada una pasa a un par propio
+-- con un receptor nuevo y exclusivo — ninguna aserción cambia de expectativa,
+-- ninguna lee emisor_id/receptor_id ni depende de que sea Ana en ambos lados.
+-- Las dos filas en 'rechazada' (terminal) no colisionan y se quedan como
+-- estaban (Ana, Ana).
 insert into public.profiles (id, rol, alias, kyc_estado)
-values ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias', 'verificado');
+values
+  ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias', 'verificado'),
+  ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias', 'verificado'),
+  ('33333333-3333-3333-3333-333333333333', 'amigo', 'CarlaAlias', 'verificado'),
+  ('44444444-4444-4444-4444-444444444444', 'amigo', 'DaniAlias', 'verificado'),
+  ('55555555-5555-5555-5555-555555555555', 'amigo', 'ElyAlias', 'verificado'),
+  ('66666666-6666-6666-6666-666666666666', 'amigo', 'FabiAlias', 'verificado'),
+  ('77777777-7777-7777-7777-777777777777', 'amigo', 'GiaAlias', 'verificado');
 
 insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v)
 values ('99999999-9999-9999-9999-999999999999', 'Pisco Sour', 'divertida', 30.00);
@@ -38,7 +75,7 @@ values ('99999999-9999-9999-9999-999999999999', 'Pisco Sour', 'divertida', 30.00
 -- fixture: cada escenario usa su propia invitación/orden/ledger desde cero.
 -- ============================================================================
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
-values ('a0000000-0000-0000-0000-00000000000a', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
+values ('a0000000-0000-0000-0000-00000000000a', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
 values ('b0000000-0000-0000-0000-00000000000a', '11111111-1111-1111-1111-111111111111', 'a0000000-0000-0000-0000-00000000000a', 30.00, 4.50, 34.50, 'capturada', 'mock');
 insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
@@ -58,7 +95,7 @@ select is(
 -- atribuido el ledger de g2 a g1 y reportado "fallida pero con ledger".
 -- ============================================================================
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
-values ('a0000000-0000-0000-0000-000000000011', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
+values ('a0000000-0000-0000-0000-000000000011', '11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
 values
   ('b0000000-0000-0000-0000-000000000012', '11111111-1111-1111-1111-111111111111', 'a0000000-0000-0000-0000-000000000011', 30.00, 4.50, 34.50, 'fallida', 'mock'),
@@ -127,7 +164,7 @@ select is(
 -- preautorizada con ledger que no debería tener todavía.
 -- ============================================================================
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
-values ('a0000000-0000-0000-0000-00000000000c', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente');
+values ('a0000000-0000-0000-0000-00000000000c', '11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'pendiente');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
 values ('b0000000-0000-0000-0000-00000000000c', '11111111-1111-1111-1111-111111111111', 'a0000000-0000-0000-0000-00000000000c', 30.00, 4.50, 34.50, 'preautorizada', 'mock');
 insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
@@ -143,7 +180,7 @@ select is(
 -- propio (falta escrow_lock).
 -- ============================================================================
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
-values ('a0000000-0000-0000-0000-00000000000e', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
+values ('a0000000-0000-0000-0000-00000000000e', '11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
 values ('b0000000-0000-0000-0000-00000000000e', '11111111-1111-1111-1111-111111111111', 'a0000000-0000-0000-0000-00000000000e', 30.00, 4.50, 34.50, 'capturada', 'mock');
 insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
@@ -160,7 +197,7 @@ select is(
 -- compra_no_netea_a_cero: ledger que no suma cero (40 - 10 - 25 = 5).
 -- ============================================================================
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
-values ('a0000000-0000-0000-0000-00000000000f', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
+values ('a0000000-0000-0000-0000-00000000000f', '11111111-1111-1111-1111-111111111111', '66666666-6666-6666-6666-666666666666', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
 values ('b0000000-0000-0000-0000-00000000000f', '11111111-1111-1111-1111-111111111111', 'a0000000-0000-0000-0000-00000000000f', 30.00, 4.50, 34.50, 'capturada', 'mock');
 insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)
@@ -179,7 +216,7 @@ select is(
 -- preciado — lo que la invariante de arriba, sola, dejaría pasar.
 -- ============================================================================
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id, estado)
-values ('a0000000-0000-0000-0000-000000000010', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
+values ('a0000000-0000-0000-0000-000000000010', '11111111-1111-1111-1111-111111111111', '77777777-7777-7777-7777-777777777777', 'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 'aceptada');
 insert into public.ordenes_pago (id, perfil_id, invitacion_id, valor_v, buyer_fee, total, estado, provider)
 values ('b0000000-0000-0000-0000-000000000010', '11111111-1111-1111-1111-111111111111', 'a0000000-0000-0000-0000-000000000010', 30.00, 4.50, 34.50, 'capturada', 'mock');
 insert into public.ledger (perfil_id, tipo, monto, referencia_id, idempotency_key)

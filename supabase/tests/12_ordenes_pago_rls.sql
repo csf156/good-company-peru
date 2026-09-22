@@ -43,12 +43,21 @@ values
    'ana@test.dev', '', now(), now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000',
    '22222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
-   'beto@test.dev', '', now(), now(), now(), '', '', '', '');
+   'beto@test.dev', '', now(), now(), now(), '', '', '', ''),
+  -- F.1 Tarea 5: Ana↔Beto ya tiene una invitación no-terminal (33333…, más
+  -- abajo). La segunda invitación no puede volver a apuntar a Ana — mismo
+  -- par, colisión con el índice único (spec §6) — así que la de Beto va a
+  -- una tercera persona, Carla, ajena a lo que prueba este archivo (RLS de
+  -- ordenes_pago por perfil, no por par de invitación).
+  ('00000000-0000-0000-0000-000000000000',
+   '55555555-5555-5555-5555-555555555555', 'authenticated', 'authenticated',
+   'carla.f12t5@test.dev', '', now(), now(), now(), '', '', '', '');
 
 insert into public.profiles (id, rol, alias)
 values
   ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias'),
-  ('22222222-2222-2222-2222-222222222222', 'rentador', 'BetoAlias');
+  ('22222222-2222-2222-2222-222222222222', 'rentador', 'BetoAlias'),
+  ('55555555-5555-5555-5555-555555555555', 'amigo', 'CarlaAlias');
 
 insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v)
 values ('99999999-9999-9999-9999-999999999999', 'Cerveza', 'divertida', 40.00);
@@ -59,7 +68,7 @@ values
    '22222222-2222-2222-2222-222222222222', 'invitacion', 'especifica', 'pendiente',
    '99999999-9999-9999-9999-999999999999'),
   ('44444444-4444-4444-4444-444444444444', '22222222-2222-2222-2222-222222222222',
-   '11111111-1111-1111-1111-111111111111', 'invitacion', 'especifica', 'pendiente',
+   '55555555-5555-5555-5555-555555555555', 'invitacion', 'especifica', 'pendiente',
    '99999999-9999-9999-9999-999999999999');
 
 insert into public.ordenes_pago

@@ -122,16 +122,32 @@ select throws_ok(
 -- ATAQUE 6 (hueco 2): payout por encima de lo que se capturó para ese
 -- encuentro. Se usa una segunda cita finalizada, porque la ...a4 ya gastó su
 -- payout.
+--
+-- F.1 Tarea 5: esta invitación (...a5) NO puede compartir emisor con ...a3 —
+-- las dos son 'aceptada' (no-terminal) y ambas tendrían el par (a1, a2), lo
+-- que colisiona con el índice único por par (spec §6). El receptor se queda
+-- en a1 (es a quien se le intenta acreditar el payout — cambiarlo rompería
+-- el ataque, que depende de que a1 SÍ sea parte de la cita). El emisor pasa
+-- a un rentador nuevo (...a7), y la orden que respalda la captura lo sigue
+-- (es quien paga).
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('00000000-0000-0000-0000-0000000000a7'::uuid,
+        '00000000-0000-0000-0000-000000000000'::uuid,
+        'authenticated', 'authenticated', 'rentador-e1c@martini.test', '', now(), now(), now());
+insert into public.profiles (id, rol)
+values ('00000000-0000-0000-0000-0000000000a7'::uuid, 'rentador');
+
 insert into public.invitaciones (id, emisor_id, receptor_id, tipo, alcance, estado)
 values ('00000000-0000-0000-0000-0000000000a5'::uuid,
-        '00000000-0000-0000-0000-0000000000a2'::uuid,
+        '00000000-0000-0000-0000-0000000000a7'::uuid,
         '00000000-0000-0000-0000-0000000000a1'::uuid,
         'invitacion', 'especifica', 'aceptada');
 insert into public.citas (id, invitacion_id, estado)
 values ('00000000-0000-0000-0000-0000000000a6'::uuid,
         '00000000-0000-0000-0000-0000000000a5'::uuid, 'finalizada');
 insert into public.ordenes_pago (perfil_id, invitacion_id, valor_v, buyer_fee, total, provider, estado)
-values ('00000000-0000-0000-0000-0000000000a2'::uuid,
+values ('00000000-0000-0000-0000-0000000000a7'::uuid,
         '00000000-0000-0000-0000-0000000000a5'::uuid, 50, 7.5, 57.5, 'mock', 'capturada');
 
 select throws_ok(

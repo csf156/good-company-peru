@@ -113,11 +113,23 @@ select is(
 -- Idempotencia SCOPED por emisor (hallazgo real de la fase 4.2, endurecimiento
 -- 20260724130000): la MISMA idempotency_key desde OTRO emisor NO es una
 -- colisión ni filtra la invitación ajena — procede por sus propios méritos.
--- ============================================================================
+--
+-- F.1 Tarea 5: el receptor de esta llamada es Carla, NO Ana (como antes). Con
+-- Ana de receptor, esta era Beto→Ana — el sentido CONTRARIO de la llamada 1
+-- (Ana→Beto), y ambas quedan `pendiente`/`preautorizando` (no-terminales) a
+-- la vez sobre el mismo par (Ana, Beto): justo el choque que el índice único
+-- por par de esta misma tarea (spec §6) existe para impedir — "Rodri invita
+-- a Vale, Vale le manda una solicitud a Rodri, la segunda se bloquea" (spec
+-- §3.1). Ese comportamiento pasa a estar cubierto por el test 2 del Step 1 de
+-- esta tarea ("sentido contrario mientras la primera está pendiente → falla",
+-- 36_propuesta_negociada_esquema.sql), no por este archivo — crear_invitacion
+-- es de F.2 y no se toca aquí. Cambiar el RECEPTOR (no el sentido) a un
+-- tercero (Carla) prueba exactamente lo mismo — misma key, otro emisor, fila
+-- propia, sin filtrar la ajena — sin tocar el par (Ana, Beto).
 select is(
   (select (public.crear_invitacion(
      '22222222-2222-2222-2222-222222222222',
-     '11111111-1111-1111-1111-111111111111',
+     '33333333-3333-3333-3333-333333333333',
      'solicitud', null, null, 'Barranco', 'key-1')).emisor_id),
   '22222222-2222-2222-2222-222222222222'::uuid,
   'la misma key desde otro emisor NO devuelve la invitación ajena; crea la suya');
@@ -152,14 +164,16 @@ select is(
   (select estado::text from public.invitaciones where idempotency_key = 'key-1' and emisor_id = '22222222-2222-2222-2222-222222222222'),
   'pendiente', 'una solicitud nace en pendiente, no en preautorizando');
 
+-- F.1 Tarea 5: el receptor de esta solicitud es Carla (ver comentario más
+-- arriba), así que quien la ve es ella, no Ana.
 select set_config(
   'request.jwt.claims',
-  json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text,
+  json_build_object('sub', '33333333-3333-3333-3333-333333333333', 'role', 'authenticated')::text,
   true);
 set local role authenticated;
 select is(
   (select count(*) from public.invitaciones where idempotency_key = 'key-1' and emisor_id = '22222222-2222-2222-2222-222222222222')::int,
-  1, 'el receptor (Ana, rentador) SÍ ve la solicitud — es lo que habría cazado el bug');
+  1, 'el receptor (Carla, amigo) SÍ ve la solicitud — es lo que habría cazado el bug');
 reset role;
 select set_config('request.jwt.claims', null, true);
 
