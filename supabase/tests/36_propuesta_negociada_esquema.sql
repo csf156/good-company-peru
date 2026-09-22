@@ -26,7 +26,16 @@
 -- que una contrapropuesta tiene que cambiar algo respecto a la original; y el
 -- resultado del backfill de `cantidad` sobre los datos anteriores (3g, acotado
 -- por un corte fijo para que datos futuros no lo pongan en rojo).
-select plan(66);
+--
+-- Sección 4 (Tarea 5): el índice único parcial `invitaciones_una_relacion_
+-- activa_por_par` (spec §6) — una sola relación activa por par sin ordenar,
+-- ignora quién propuso. Reproduce el intento real de crear la segunda
+-- relación por INSERT directo (como postgres/service_role, igual que el resto
+-- del archivo), no a través de `crear_invitacion` — esa función no se toca en
+-- F.1. La excepción: 4h documenta a propósito qué le pasa HOY a
+-- `crear_invitacion` (sin tocarla) cuando el índice choca desde su propio
+-- camino, porque es información real que F.2 necesita.
+select plan(80);
 
 -- ============================================================================
 -- 1. Estados nuevos de estado_invitacion
@@ -711,6 +720,209 @@ select is_empty(
                           from public.ordenes_pago o
                          where o.invitacion_id = i.id) $$,
   'toda solicitud previa sin ninguna orden sigue con cantidad NULL (el backfill no la tocó)');
+
+-- ============================================================================
+-- 4. Una relación activa por par (Tarea 5, spec §6)
+-- ============================================================================
+-- Fixtures propios de esta sección — pares nuevos y exclusivos (prefijo
+-- f501../f50a../f50b..), sin tocar Ana/Beto (1111/2222) ni sus filas de las
+-- secciones 2/3 (c0000001 sigue `pendiente` en el par Ana↔Beto). Cada
+-- escenario usa SU PROPIO par: el índice es por par, así que mezclar
+-- escenarios en un mismo par invalidaría la prueba de que ESTE choque en
+-- particular es el que lo dispara.
+insert into auth.users
+  (instance_id, id, aud, role, email, encrypted_password,
+   email_confirmed_at, created_at, updated_at,
+   confirmation_token, email_change, email_change_token_new, recovery_token)
+values
+  ('00000000-0000-0000-0000-000000000000', 'f5010001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sofia.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5010002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'tomas.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5020001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'uma.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5020002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'victor.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5030001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'walter.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5030002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ximena.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5040001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'yara.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5040002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'zeus.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5050001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'alan.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5050002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bella.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5060001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'caleb.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5060002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'dana.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5070001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'efrain.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5070002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'fiona.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5080001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'gael.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5080002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'helena.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5090001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ivan.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f5090002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'julia.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f50a0001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'karla.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f50a0002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'leo.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f50b0001-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'mona.f1t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'f50b0002-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'nico.f1t5@test.dev', '', now(), now(), now(), '', '', '', '');
+
+insert into public.profiles (id, rol, alias, kyc_estado)
+values
+  ('f5010001-0000-0000-0000-000000000000', 'rentador', 'SofiaF1T5', 'verificado'),
+  ('f5010002-0000-0000-0000-000000000000', 'amigo', 'TomasF1T5', 'verificado'),
+  ('f5020001-0000-0000-0000-000000000000', 'rentador', 'UmaF1T5', 'verificado'),
+  ('f5020002-0000-0000-0000-000000000000', 'amigo', 'VictorF1T5', 'verificado'),
+  ('f5030001-0000-0000-0000-000000000000', 'rentador', 'WalterF1T5', 'verificado'),
+  ('f5030002-0000-0000-0000-000000000000', 'amigo', 'XimenaF1T5', 'verificado'),
+  ('f5040001-0000-0000-0000-000000000000', 'rentador', 'YaraF1T5', 'verificado'),
+  ('f5040002-0000-0000-0000-000000000000', 'amigo', 'ZeusF1T5', 'verificado'),
+  ('f5050001-0000-0000-0000-000000000000', 'rentador', 'AlanF1T5', 'verificado'),
+  ('f5050002-0000-0000-0000-000000000000', 'amigo', 'BellaF1T5', 'verificado'),
+  ('f5060001-0000-0000-0000-000000000000', 'rentador', 'CalebF1T5', 'verificado'),
+  ('f5060002-0000-0000-0000-000000000000', 'amigo', 'DanaF1T5', 'verificado'),
+  ('f5070001-0000-0000-0000-000000000000', 'rentador', 'EfrainF1T5', 'verificado'),
+  ('f5070002-0000-0000-0000-000000000000', 'amigo', 'FionaF1T5', 'verificado'),
+  ('f5080001-0000-0000-0000-000000000000', 'rentador', 'GaelF1T5', 'verificado'),
+  ('f5080002-0000-0000-0000-000000000000', 'amigo', 'HelenaF1T5', 'verificado'),
+  ('f5090001-0000-0000-0000-000000000000', 'rentador', 'IvanF1T5', 'verificado'),
+  ('f5090002-0000-0000-0000-000000000000', 'amigo', 'JuliaF1T5', 'verificado'),
+  ('f50a0001-0000-0000-0000-000000000000', 'rentador', 'KarlaF1T5', 'verificado'),
+  ('f50a0002-0000-0000-0000-000000000000', 'amigo', 'LeoF1T5', 'verificado'),
+  ('f50b0001-0000-0000-0000-000000000000', 'rentador', 'MonaF1T5', 'verificado'),
+  ('f50b0002-0000-0000-0000-000000000000', 'amigo', 'NicoF1T5', 'verificado');
+
+insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v, activo)
+values ('f50c0001-0000-0000-0000-000000000000', 'Bebida F1T5', 'autor', 10.00, true);
+
+-- --- 4a. Segunda propuesta EN EL MISMO SENTIDO mientras la primera está
+-- `pendiente` → falla (Step 1, punto 1 del brief). ---
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5010001-0000-0000-0000-000000000000', 'f5010002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente');
+
+select throws_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5010001-0000-0000-0000-000000000000', 'f5010002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  '23505', null,
+  'segunda propuesta en el MISMO sentido mientras la primera está pendiente falla (índice único por par)');
+
+-- --- 4b. Propuesta en SENTIDO CONTRARIO mientras la primera está `pendiente`
+-- → falla. Es la regla del usuario (spec §3.1: "Rodri invita a Vale, Vale le
+-- manda una solicitud a Rodri, la segunda se bloquea") y la más fácil de que
+-- no funcione, porque `least`/`greatest` tiene que ignorar quién propuso. ---
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5020001-0000-0000-0000-000000000000', 'f5020002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente');
+
+select throws_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5020002-0000-0000-0000-000000000000', 'f5020001-0000-0000-0000-000000000000', 'solicitud', 'especifica', 'pendiente') $$,
+  '23505', null,
+  'propuesta en sentido CONTRARIO mientras la primera está pendiente falla (mismo par, sin importar quién propuso)');
+
+-- --- 4c. Segunda propuesta mientras la primera está `aceptada` → falla. Es
+-- el "hasta que termine el encuentro" (spec §3.1). ---
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5030001-0000-0000-0000-000000000000', 'f5030002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'aceptada');
+
+select throws_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5030001-0000-0000-0000-000000000000', 'f5030002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  '23505', null,
+  'segunda propuesta mientras la primera está aceptada falla ("hasta que termine el encuentro")');
+
+-- --- 4d. Segunda propuesta mientras la primera está `preautorizando` →
+-- falla. ---
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5040001-0000-0000-0000-000000000000', 'f5040002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'preautorizando');
+
+select throws_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5040001-0000-0000-0000-000000000000', 'f5040002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  '23505', null,
+  'segunda propuesta mientras la primera está preautorizando falla');
+
+-- --- 4e. Nueva propuesta tras cada uno de los cuatro estados terminales →
+-- funciona. Un par (y un test) por estado, para que cada uno se pruebe solo. ---
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5050001-0000-0000-0000-000000000000', 'f5050002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'rechazada');
+select lives_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5050001-0000-0000-0000-000000000000', 'f5050002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  'nueva propuesta tras una rechazada funciona');
+
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5060001-0000-0000-0000-000000000000', 'f5060002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'expirada');
+select lives_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5060001-0000-0000-0000-000000000000', 'f5060002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  'nueva propuesta tras una expirada funciona');
+
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5070001-0000-0000-0000-000000000000', 'f5070002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'retirada');
+select lives_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5070001-0000-0000-0000-000000000000', 'f5070002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  'nueva propuesta tras una retirada funciona');
+
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f5080001-0000-0000-0000-000000000000', 'f5080002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'concluida');
+select lives_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5080001-0000-0000-0000-000000000000', 'f5080002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  'nueva propuesta tras una concluida funciona');
+
+-- --- 4f. Un par DISTINTO no se ve afectado — reusa el par de 4a (Sofia↔
+-- Tomas, que sigue `pendiente`: el intento de 4a falló y no lo tocó) para
+-- probar que tener un par activo en la base no bloquea a un par ajeno. ---
+select lives_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f5090001-0000-0000-0000-000000000000', 'f5090002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  'un par distinto no se ve afectado por un par ajeno activo');
+
+-- --- 4g. Dos `global` activas del mismo emisor conviven (receptor_id is
+-- null → el índice, con `where receptor_id is not null`, las ignora: sin
+-- receptor no hay par). ---
+insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+values ('f50b0001-0000-0000-0000-000000000000', null, 'invitacion', 'global', 'pendiente');
+select lives_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f50b0001-0000-0000-0000-000000000000', null, 'invitacion', 'global', 'pendiente') $$,
+  'dos invitaciones global activas del mismo emisor conviven (sin receptor no hay par)');
+
+-- --- Una `global` activa de un emisor NO impide una específica activa de
+-- ese emisor a otra persona. ---
+select lives_ok(
+  $$ insert into public.invitaciones (emisor_id, receptor_id, tipo, alcance, estado)
+     values ('f50b0001-0000-0000-0000-000000000000', 'f50b0002-0000-0000-0000-000000000000', 'invitacion', 'especifica', 'pendiente') $$,
+  'una global activa de un emisor no bloquea una específica activa de ese mismo emisor a otra persona');
+
+-- --- 4h. HALLAZGO (no se arregla en F.1 — crear_invitacion es F.2): qué le
+-- pasa HOY a crear_invitacion, sin tocarla, cuando el índice choca desde su
+-- propio camino. Medido por introspección/probe empírico (no supuesto): NO
+-- lanza una unique_violation cruda al caller. `crear_invitacion` ya trae su
+-- PROPIO manejador `exception when unique_violation` alrededor del INSERT,
+-- pensado para SU idempotencia (emisor_id + idempotency_key) — pero Postgres
+-- no distingue de QUÉ índice vino la violación, así que ese manejador
+-- atrapa TAMBIÉN la violación del índice de esta tarea. Al no encontrar
+-- ninguna fila con (emisor_id, idempotency_key) de la llamada que chocó
+-- (nunca la hubo — el choque fue por el PAR, no por esa key), el `select ...
+-- into v_inv` no encuentra nada y la función devuelve un registro con TODOS
+-- los campos NULL, sin lanzar nada. Un caller que solo mira si hubo
+-- excepción cree que la llamada "funcionó". Pinneado a propósito para que
+-- F.2 tenga un test rojo que poner en verde al arreglarlo (mapear este caso
+-- a un error explícito, o distinguir el índice de origen).
+select is(
+  (select (public.crear_invitacion(
+     'f50a0001-0000-0000-0000-000000000000', 'f50a0002-0000-0000-0000-000000000000',
+     'invitacion', 'f50c0001-0000-0000-0000-000000000000', 60, 'zona', 'f1t5-keyA')).estado::text),
+  'preautorizando',
+  'HALLAZGO 4h, paso 1: Karla invita a Leo normalmente — crea preautorizando en su par');
+
+select is(
+  (select (public.crear_invitacion(
+     'f50a0002-0000-0000-0000-000000000000', 'f50a0001-0000-0000-0000-000000000000',
+     'solicitud', null, null, 'zona', 'f1t5-keyB')).id),
+  null,
+  'HALLAZGO 4h, paso 2: la llamada en sentido contrario (Leo→Karla) NO lanza excepción — devuelve un registro con id NULL en vez de fallar (ver comentario arriba)');
+
+select is(
+  (select count(*)::int from public.invitaciones
+     where emisor_id in ('f50a0001-0000-0000-0000-000000000000', 'f50a0002-0000-0000-0000-000000000000')
+       and receptor_id in ('f50a0001-0000-0000-0000-000000000000', 'f50a0002-0000-0000-0000-000000000000')
+       and estado not in ('rechazada', 'expirada', 'retirada', 'concluida')),
+  1,
+  'HALLAZGO 4h, paso 3: y pese a "no fallar", el índice SÍ bloqueó el insert por dentro — sigue habiendo una sola fila activa en el par, no dos');
 
 select * from finish();
 rollback;
