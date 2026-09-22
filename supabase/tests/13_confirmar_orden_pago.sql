@@ -16,31 +16,56 @@ values
    'ana@test.dev', '', now(), now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000',
    '22222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
-   'beto@test.dev', '', now(), now(), now(), '', '', '', '');
+   'beto@test.dev', '', now(), now(), now(), '', '', '', ''),
+  -- F.1 Tarea 5 (hallazgo tardío, durante la validación con la migración
+  -- aplicada — no se detectó en la medición inicial de la Tarea 5): las 5
+  -- invitaciones de abajo nacían TODAS en (Ana, Beto), las 5 'preautorizando'
+  -- (no-terminal) a la vez, en un solo INSERT — el índice único por par
+  -- (spec §6) las rechaza. Cada una (salvo la primera) pasa a un par propio.
+  ('00000000-0000-0000-0000-000000000000',
+   '33333333-3333-3333-3333-333333333333', 'authenticated', 'authenticated',
+   'carla.f13t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '44444444-4444-4444-4444-444444444444', 'authenticated', 'authenticated',
+   'dani.f13t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '55555555-5555-5555-5555-555555555555', 'authenticated', 'authenticated',
+   'ely.f13t5@test.dev', '', now(), now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000',
+   '66666666-6666-6666-6666-666666666666', 'authenticated', 'authenticated',
+   'fabi.f13t5@test.dev', '', now(), now(), now(), '', '', '', '');
 
 insert into public.profiles (id, rol, alias)
 values
   ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias'),
-  ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias');
+  ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias'),
+  ('33333333-3333-3333-3333-333333333333', 'amigo', 'CarlaAlias'),
+  ('44444444-4444-4444-4444-444444444444', 'amigo', 'DaniAlias'),
+  ('55555555-5555-5555-5555-555555555555', 'amigo', 'ElyAlias'),
+  ('66666666-6666-6666-6666-666666666666', 'amigo', 'FabiAlias');
 
 insert into public.bebidas_catalogo (id, nombre, tipo_invitacion, valor_v)
 values ('99999999-9999-9999-9999-999999999999', 'Cerveza', 'divertida', 40.00);
 
 -- Cinco invitaciones, una por orden — el índice único parcial de E.1 permite
 -- solo UNA orden "viva" (preautorizada/capturada) por invitación, así que
--- cada estado de partida necesita la suya.
+-- cada estado de partida necesita la suya. F.1 Tarea 5: cada una con su
+-- propio receptor para no chocar con el índice de una relación activa por
+-- par (ninguna aserción de este archivo depende de que compartan receptor:
+-- todas se identifican por su propio id de invitación/orden, no por RLS de
+-- una identidad concreta).
 insert into public.invitaciones
   (id, emisor_id, receptor_id, tipo, alcance, bebida_catalogo_id,
    tiempo_estimado_min, zona_aproximada, estado)
-select id, '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222',
+select v.id, '11111111-1111-1111-1111-111111111111', v.receptor_id,
        'invitacion', 'especifica', '99999999-9999-9999-9999-999999999999', 60, 'Miraflores', 'preautorizando'
 from (values
-  ('a0000000-0000-0000-0000-00000000000a'::uuid),
-  ('a0000000-0000-0000-0000-00000000000b'::uuid),
-  ('a0000000-0000-0000-0000-00000000000c'::uuid),
-  ('a0000000-0000-0000-0000-00000000000d'::uuid),
-  ('a0000000-0000-0000-0000-00000000000e'::uuid)
-) as v(id);
+  ('a0000000-0000-0000-0000-00000000000a'::uuid, '22222222-2222-2222-2222-222222222222'::uuid),
+  ('a0000000-0000-0000-0000-00000000000b'::uuid, '33333333-3333-3333-3333-333333333333'::uuid),
+  ('a0000000-0000-0000-0000-00000000000c'::uuid, '44444444-4444-4444-4444-444444444444'::uuid),
+  ('a0000000-0000-0000-0000-00000000000d'::uuid, '55555555-5555-5555-5555-555555555555'::uuid),
+  ('a0000000-0000-0000-0000-00000000000e'::uuid, '66666666-6666-6666-6666-666666666666'::uuid)
+) as v(id, receptor_id);
 
 -- Órdenes: A preautorizada (a capturar), B preautorizada (a anular),
 -- C ya anulada, D pendiente (sin hold), E ya capturada.

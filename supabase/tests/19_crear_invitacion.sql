@@ -22,14 +22,31 @@ values
    'beto@test.dev', '', now(), now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000',
    '33333333-3333-3333-3333-333333333333', 'authenticated', 'authenticated',
-   'carla@test.dev', '', now(), now(), now(), '', '', '', '');
+   'carla@test.dev', '', now(), now(), now(), '', '', '', ''),
+  -- F.1 Tarea 5 (hallazgo tardío, durante la validación con la migración
+  -- aplicada): key-2 y key-8 reusaban a Beto como receptor. Ana→Beto ya tiene
+  -- una relación activa (la de key-1, 'preautorizando' toda la corrida de
+  -- este archivo), así que su INSERT dentro de crear_invitacion choca con el
+  -- índice de la Tarea 5 ANTES de llegar a la comprobación de bebida que
+  -- estas dos aserciones prueban — y por el mismo hallazgo de la Sección 4h
+  -- de 36_propuesta_negociada_esquema.sql (el manejador `exception when
+  -- unique_violation` de crear_invitacion atrapa esa colisión también), la
+  -- llamada deja de lanzar el AY409 esperado. Dani es un receptor propio,
+  -- ajeno a la relación de key-1, para que estas dos pruebas seguirse
+  -- probando lo que dicen probar (rechazo por bebida, no por par ocupado).
+  ('00000000-0000-0000-0000-000000000000',
+   '44444444-4444-4444-4444-444444444444', 'authenticated', 'authenticated',
+   'dani.f19t5@test.dev', '', now(), now(), now(), '', '', '', '');
 
 -- Ana (rentador) y Beto (amigo) verificados; Carla (amigo) SIN verificar.
+-- Dani (amigo, F.1 Tarea 5): receptor propio de key-2/key-8, ver comentario
+-- arriba.
 insert into public.profiles (id, rol, alias, kyc_estado)
 values
   ('11111111-1111-1111-1111-111111111111', 'rentador', 'AnaAlias', 'verificado'),
   ('22222222-2222-2222-2222-222222222222', 'amigo', 'BetoAlias', 'verificado'),
-  ('33333333-3333-3333-3333-333333333333', 'amigo', 'CarlaAlias', 'pendiente');
+  ('33333333-3333-3333-3333-333333333333', 'amigo', 'CarlaAlias', 'pendiente'),
+  ('44444444-4444-4444-4444-444444444444', 'amigo', 'DaniAlias', 'verificado');
 
 -- valor_v = 33.33 a propósito: mismo caso de redondeo que
 -- tests/functions/pagos.test.ts (calcularDesgloseCompra) — 15% de 33.33 =
@@ -188,7 +205,7 @@ select is(
 select throws_ok(
   $$ select public.crear_invitacion(
        '11111111-1111-1111-1111-111111111111',
-       '22222222-2222-2222-2222-222222222222',
+       '44444444-4444-4444-4444-444444444444',
        'invitacion', '88888888-8888-8888-8888-888888888888',
        60, 'Miraflores', 'key-2') $$,
   'AY409', null, 'una bebida inactiva es rechazada');
@@ -235,7 +252,7 @@ select throws_ok(
 select throws_ok(
   $$ select public.crear_invitacion(
        '11111111-1111-1111-1111-111111111111',
-       '22222222-2222-2222-2222-222222222222',
+       '44444444-4444-4444-4444-444444444444',
        'invitacion', '77777777-7777-7777-7777-777777777777', 60, 'z', 'key-8') $$,
   'AY409', null, 'una bebida que no existe en el catálogo es rechazada');
 
