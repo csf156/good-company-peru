@@ -195,6 +195,43 @@ const DEMO_PROFILES = [
     color: '#A9744F',
     distritos: [],
   },
+  // F.1 Tarea 5 — dos perfiles nuevos, consecuencia del índice único
+  // `invitaciones_una_relacion_activa_por_par` (spec §6). Antes de esta
+  // tarea, los escenarios E (Vale→Rodri) y F (Seba→Fer) reusaban el MISMO
+  // par que A (Rodri→Vale) y B (Fer→Seba) respectivamente — dos relaciones
+  // no-terminales a la vez sobre un par, exactamente lo que el índice
+  // rechaza. Bruno y Nina absorben la mitad de E y F que no es Rodri/Fer (ver
+  // el comentario del escenario E/F más abajo para por qué esa mitad y no la
+  // otra): así Rodri y Fer conservan su único papel de "el que paga" (A y B),
+  // y ninguna aserción/dato de A-D-G cambia.
+  {
+    id: 'd0000000-0000-0000-0000-000000000009',
+    email: 'demo9@ayni.test',
+    rol: 'rentador',
+    nombre: 'Bruno Salazar Ponce',
+    alias: 'Bruno',
+    ageYears: 33,
+    genero: 'Hombre',
+    profesion: 'Contador',
+    hobbies: ['musica', 'viajar', 'futbol'],
+    tipoSalida: ['comer', 'conciertos'],
+    color: '#5C4033',
+    distritos: [],
+  },
+  {
+    id: 'd0000000-0000-0000-0000-000000000010',
+    email: 'demo10@ayni.test',
+    rol: 'amigo',
+    nombre: 'Nina Vargas Ochoa',
+    alias: 'Nina',
+    ageYears: 25,
+    genero: 'Mujer',
+    profesion: 'Fotógrafa',
+    hobbies: ['fotografia', 'senderismo', 'cine'],
+    tipoSalida: ['turistear', 'conversar'],
+    color: '#C08552',
+    distritos: ['Miraflores', 'Barranco'],
+  },
 ];
 
 // ============================================================================
@@ -305,7 +342,9 @@ async function seedFotos() {
     throw new Error(`La foto de muestra (${muestra.alias}) no existe de verdad en el bucket: ${res.status}`);
   }
   const bytes = Number(res.headers.get('content-length') ?? 0);
-  console.log(`✓ Tarea 2 — 8 fotos subidas a 'fotos'. Muestra verificada: ${muestra.alias} (${bytes} bytes).`);
+  console.log(
+    `✓ Tarea 2 — ${DEMO_PROFILES.length} fotos subidas a 'fotos'. Muestra verificada: ${muestra.alias} (${bytes} bytes).`,
+  );
 }
 
 // crear_invitacion/responder_invitacion(aceptar) exigían KYC 'verificado'
@@ -433,7 +472,9 @@ async function tieneMensajes(client, citaId) {
 // alcanzable sin simular un fallo del proveedor, queda fuera a propósito).
 // Solo dos perfiles terminan con filas de ledger (Rodri y Fer, los que pagan
 // en A y F) — nunca emparejados entre sí, así que ninguna invitación queda
-// atrapada sin poder limpiarse (ver limpiar()).
+// atrapada sin poder limpiarse (ver limpiar()). Sigue siendo cierto tras F.1
+// Tarea 5 (ver los comentarios de E y F más abajo): Bruno y Nina absorben el
+// choque de par con A/B, Rodri y Fer no se tocan.
 async function seedInvitacionesCitasChat(client) {
   const catalogo = await getCatalogoIds(client);
   const bebida = (i) => catalogo[i % catalogo.length];
@@ -550,12 +591,22 @@ async function seedInvitacionesCitasChat(client) {
     invitacionIds.push(inv.id);
   }
 
-  // E) solicitud (Vale→Rodri) pendiente, nunca respondida — nace en
+  // E) solicitud (Vale→Bruno) pendiente, nunca respondida — nace en
   //    'pendiente' directo (Tarea 3c), sin orden todavía.
+  //
+  //    F.1 Tarea 5: el receptor original era Rodri, MISMO par sin ordenar
+  //    que A (Rodri→Vale) — A queda 'aceptada' (no-terminal) para siempre
+  //    (sub-proyecto 5 no existe todavía, spec §3.1), así que E y A serían
+  //    dos relaciones no-terminales a la vez sobre el par (Rodri, Vale):
+  //    justo lo que `invitaciones_una_relacion_activa_por_par` (spec §6)
+  //    rechaza. E no crea orden ni ledger (una solicitud sin responder nunca
+  //    llega a preautorizar), así que cambiar su receptor no toca ninguna
+  //    otra invariante del script — Bruno (perfil nuevo) releva a Rodri acá,
+  //    y Rodri conserva su único papel de pagador en A.
   {
     const inv = await crearInvitacion(client, {
       emisorId: perfil.Vale,
-      receptorId: perfil.Rodri,
+      receptorId: perfil.Bruno,
       tipo: 'solicitud',
       bebidaCatalogoId: null,
       key: key(),
@@ -564,11 +615,20 @@ async function seedInvitacionesCitasChat(client) {
     invitacionIds.push(inv.id);
   }
 
-  // F) solicitud (Seba→Fer) aceptada — el rentador asigna la bebida al
+  // F) solicitud (Nina→Fer) aceptada — el rentador asigna la bebida al
   //    aceptar, cita confirmada, chat vacío ("iniciada").
+  //
+  //    F.1 Tarea 5: el emisor original era Seba, MISMO par sin ordenar que B
+  //    (Fer→Seba) — mismo choque que en E, esta vez con B ('aceptada',
+  //    no-terminal). F SÍ paga (Fer captura al aceptar, como B) — por eso
+  //    acá se cambia el lado CONTRARIO al de E: se releva a Seba (el amigo),
+  //    no a Fer, para que Fer conserve su único papel de pagador (spec del
+  //    comentario de cabecera de esta función: "solo dos perfiles terminan
+  //    con filas de ledger — Rodri y Fer — nunca emparejados entre sí", que
+  //    sigue siendo cierto tal cual). Nina (perfil nuevo) releva a Seba.
   {
     const inv = await crearInvitacion(client, {
-      emisorId: perfil.Seba,
+      emisorId: perfil.Nina,
       receptorId: perfil.Fer,
       tipo: 'solicitud',
       bebidaCatalogoId: null,
@@ -584,7 +644,7 @@ async function seedInvitacionesCitasChat(client) {
     });
     const cita = await citaDe(client, inv.id);
     await confirmarCita(client, {
-      amigoId: perfil.Seba,
+      amigoId: perfil.Nina,
       citaId: cita.id,
       zona: 'San Borja',
       hora: new Date(Date.now() + 3 * 86400000).toISOString(),
